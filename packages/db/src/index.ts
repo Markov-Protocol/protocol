@@ -6,6 +6,7 @@
  * and the capability readiness record.
  */
 export * from './capabilities.js';
+export * from './catalog-store.js';
 export * from './client.js';
 export * from './identity.js';
 export * from './identity-store.js';

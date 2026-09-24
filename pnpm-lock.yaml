@@ -47,6 +47,9 @@ importers:
       '@markov/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@markov/catalog':
+        specifier: workspace:*
+        version: link:../../packages/catalog
       '@markov/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -56,6 +59,9 @@ importers:
       '@markov/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@markov/issuer-prestocks':
+        specifier: workspace:*
+        version: link:../../packages/issuer-prestocks
       '@markov/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -239,6 +245,15 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
 
+  packages/catalog:
+    dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+
   packages/config:
     dependencies:
       '@markov/contracts':
@@ -278,6 +293,15 @@ importers:
 
   packages/formatters:
     dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+  packages/issuer-prestocks:
+    dependencies:
+      '@markov/catalog':
+        specifier: workspace:*
+        version: link:../catalog
       '@markov/contracts':
         specifier: workspace:*
         version: link:../contracts

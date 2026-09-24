@@ -17,6 +17,12 @@
       "path": "packages/solana-rpc"
     },
     {
+      "path": "packages/catalog"
+    },
+    {
+      "path": "packages/issuer-prestocks"
+    },
+    {
       "path": "packages/db"
     },
     {

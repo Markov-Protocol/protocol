@@ -15,7 +15,13 @@ import {
 import { createSilentLogger } from '@markov/observability';
 import { baseTestEnv, testDatabaseUrl, withTemporaryDatabase } from '@markov/testkit';
 import { describe, expect, it } from 'vitest';
-import { buildApp, createIdentityService, createProbes, type MarkovApi } from '../src/index.js';
+import {
+  buildApp,
+  type CatalogService,
+  createIdentityService,
+  createProbes,
+  type MarkovApi,
+} from '../src/index.js';
 
 const adminUrl = testDatabaseUrl();
 const GENESIS = KNOWN_GENESIS_HASHES.devnet;
@@ -80,6 +86,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         },
         expectedGenesisHash: GENESIS,
         identity,
+        catalog: unavailableCatalog,
         mintTestToken: (input) =>
           issuer.mint(
             input.authTime
@@ -122,6 +129,12 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
     }
   });
 }
+
+const unavailableCatalog = new Proxy({} as CatalogService, {
+  get: () => () => {
+    throw new Error('catalog service is unavailable in this test');
+  },
+});
 
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 

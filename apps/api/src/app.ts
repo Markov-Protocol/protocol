@@ -29,8 +29,10 @@ import {
 } from 'fastify-type-provider-zod';
 import { authPlugin } from './auth/plugin.js';
 import type { IdentityService } from './auth/service.js';
+import type { CatalogService } from './catalog/service.js';
 import { ApiError } from './errors.js';
 import type { NetworkIdentitySource } from './network-monitor.js';
+import { catalogRoutes } from './routes/catalog.js';
 import { identityRoutes } from './routes/identity.js';
 
 export interface ProbeOutcome {
@@ -62,6 +64,7 @@ export interface AppDependencies {
   /** Genesis hash the process is bound to; null only for an unbound localnet export. */
   readonly expectedGenesisHash: string | null;
   readonly identity: IdentityService;
+  readonly catalog: CatalogService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -339,6 +342,7 @@ export async function buildApp(deps: AppDependencies) {
     identity: deps.identity,
     mintTestToken: deps.mintTestToken,
   });
+  await app.register(catalogRoutes, { catalog: deps.catalog });
 
   return app;
 }

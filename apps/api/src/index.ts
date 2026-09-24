@@ -7,5 +7,6 @@
 export * from './app.js';
 export * from './auth/service.js';
 export * from './boot.js';
+export * from './catalog/service.js';
 export * from './errors.js';
 export * from './network-monitor.js';

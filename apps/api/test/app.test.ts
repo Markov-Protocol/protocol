@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type ApiProbes,
   buildApp,
+  type CatalogService,
   type IdentityService,
   type NetworkIdentitySnapshot,
 } from '../src/index.js';
@@ -12,6 +13,11 @@ import {
 const unavailableIdentity = new Proxy({} as IdentityService, {
   get: () => () => {
     throw new Error('identity service is not part of this test');
+  },
+});
+const unavailableCatalog = new Proxy({} as CatalogService, {
+  get: () => () => {
+    throw new Error('catalog service is unavailable in this test');
   },
 });
 
@@ -72,6 +78,7 @@ async function makeApp(
     network: { snapshot: () => options.network ?? verified },
     expectedGenesisHash: GENESIS,
     identity: unavailableIdentity,
+    catalog: unavailableCatalog,
     mintTestToken: null,
   });
   await app.ready();

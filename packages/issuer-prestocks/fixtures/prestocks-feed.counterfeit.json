@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1",
+  "issuer": "prestocks",
+  "generatedAt": "2026-09-24T09:30:00Z",
+  "products": [
+    {
+      "productId": "fx-aero-001",
+      "symbol": "FXAERO",
+      "name": "Fixture Aerospace pre-IPO exposure",
+      "companyName": "Fixture Aerospace Inc",
+      "kind": "pre_ipo_exposure",
+      "mint": "62DEN6DTG3vrmCVKAwHsdjpmWM3u4esQjxmppUcXxnfv",
+      "decimals": 6,
+      "tokenProgram": "spl-token",
+      "website": "https://example.com/fixture-aerospace",
+      "description": "Synthetic instrument used by local and test modes. It does not exist on any network.",
+      "referencePrice": {
+        "value": "18.25",
+        "unit": "USD",
+        "kind": "issuer_mark",
+        "observedAt": "2026-09-24T09:00:00Z",
+        "source": "fixture"
+      }
+    },
+    {
+      "productId": "fx-fake-101",
+      "symbol": "FXAERO",
+      "name": "Counterfeit Aerospace",
+      "companyName": "Somebody Else",
+      "kind": "pre_ipo_exposure",
+      "mint": "5MnQrigdHPqN2QHLGQ7d2PmpS2GTVR9QBCHSJQeoPnRn",
+      "decimals": 6
+    },
+    {
+      "productId": "fx-missing-102",
+      "symbol": "FXMISS",
+      "name": "",
+      "companyName": "No Name Co",
+      "kind": "pre_ipo_exposure",
+      "mint": "not-a-mint",
+      "decimals": 6
+    },
+    {
+      "productId": "fx-missing-102",
+      "symbol": "FXDUP",
+      "name": "Duplicate id",
+      "companyName": "Dup Co",
+      "kind": "pre_ipo_exposure",
+      "mint": "4Ja31vVXsmndF9m82mj19Smo2zzeQx4qsPkjumnzWhGX",
+      "decimals": 6
+    }
+  ]
+}

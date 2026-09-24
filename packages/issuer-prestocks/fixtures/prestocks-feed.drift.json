@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "2",
+  "issuer": "prestocks",
+  "generatedAt": "2026-09-24T09:30:00Z",
+  "items": [
+    {
+      "id": "fx-aero-001",
+      "ticker": "FXAERO",
+      "mintAddress": "62DEN6DTG3vrmCVKAwHsdjpmWM3u4esQjxmppUcXxnfv"
+    }
+  ]
+}

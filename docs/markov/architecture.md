@@ -49,7 +49,11 @@ packages/contracts  zod schemas shared by everything (bottom of the graph)
 packages/config     strict env parsing and runtime-mode invariants
 packages/observability  logger with redaction
 packages/solana-rpc bounded JSON-RPC client and network identity verification
-packages/db         pooled client, migrations, platform identity, capability readiness
+packages/db         pooled client, migrations, platform identity, capability readiness, identity and catalog stores
+packages/auth       identity-token verification, wallet ownership challenges, credentials, principals (B02)
+packages/catalog    pure catalog rules: feed validation, ingestion planning, mint parsing, availability (B03)
+packages/issuer-prestocks  PreStocks issuer source: fixtures and bounded configured-URL feed (B03)
+packages/api-client generated OpenAPI client with runtime contract validation, used by the app server (F03)
 packages/testkit    test-only helpers (never imported by production code)
 apps/web            markov.pet application (Next.js App Router; ADR-0006)
 packages/ui         design system (tokens, primitives, forms, feedback, tables)

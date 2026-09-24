@@ -80,6 +80,9 @@ export const rawEnvSchema = z.object({
   WALLET_CHALLENGE_DOMAIN: z.string().min(1).max(253).optional(),
   WALLET_CHALLENGE_TTL_SECONDS: intFromEnv(60, 900).default(300),
 
+  /** Operator-configured feed serving the Markov issuer feed contract (B03); https outside local/test. */
+  PRESTOCKS_FEED_URL: z.url().optional(),
+
   SHUTDOWN_TIMEOUT_MS: intFromEnv(1000, 120_000).default(10_000),
 });
 export type RawEnv = z.infer<typeof rawEnvSchema>;
@@ -147,6 +150,10 @@ export interface MarkovConfig {
     readonly stepUpMaxAgeSeconds: number;
     readonly walletChallengeDomain: string;
     readonly walletChallengeTtlSeconds: number;
+  };
+  readonly catalog: {
+    /** Null until an operator configures a verified feed; fixture sources serve local and test. */
+    readonly prestocksFeedUrl: string | null;
   };
   readonly shutdownTimeoutMs: number;
 }

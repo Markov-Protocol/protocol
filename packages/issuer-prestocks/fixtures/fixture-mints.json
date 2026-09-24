@@ -1,0 +1,36 @@
+{
+  "note": "Deterministic synthetic mints: base58(sha256(\"markov-fixture-mint:\" + symbol)). Served by scripts/dev/fixture-rpc.mjs.",
+  "mints": [
+    {
+      "symbol": "FXAERO",
+      "mint": "62DEN6DTG3vrmCVKAwHsdjpmWM3u4esQjxmppUcXxnfv",
+      "decimals": 6,
+      "tokenProgram": "spl-token"
+    },
+    {
+      "symbol": "FXBIO",
+      "mint": "89JBaNKMcbL54KJB6scYRgrRm8GhaEtvfpeTqtvBDWnL",
+      "decimals": 8,
+      "tokenProgram": "token-2022",
+      "extensions": ["MetadataPointer"]
+    },
+    {
+      "symbol": "FXGRID",
+      "mint": "7BSykwv45jYZnqgvufVjsbeUWoGAUajTdpzKXD1hXtf1",
+      "decimals": 6,
+      "tokenProgram": "spl-token"
+    },
+    {
+      "symbol": "FXDRFT",
+      "mint": "FKDSPRewziVn1g1iC6BcgdqvHCBGWgqXjHQTT3RBZRGo",
+      "decimals": 9,
+      "tokenProgram": "spl-token"
+    },
+    {
+      "symbol": "COUNTERFEIT",
+      "mint": "5MnQrigdHPqN2QHLGQ7d2PmpS2GTVR9QBCHSJQeoPnRn",
+      "decimals": 6,
+      "tokenProgram": "spl-token"
+    }
+  ]
+}

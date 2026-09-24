@@ -55,9 +55,10 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
     },
     {
       capability: 'catalog.prestocks.ingest',
-      status: 'DISABLED',
-      summary: 'Not started; planned for session B03.',
-      evidence: {},
+      status: 'BLOCKED',
+      summary:
+        'Ingestion pipeline implemented and fixture-verified (B03): sanitised snapshots, quarantine, counterfeit rules, on-chain mint verification, operator admission. The live PreStocks feed endpoint and schema are unverified (OD-17); no live read exists.',
+      evidence: { session: 'B03', openDecision: 'OD-17' },
     },
     {
       capability: 'catalog.xstocks.ingest',

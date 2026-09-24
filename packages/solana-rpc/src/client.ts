@@ -64,6 +64,33 @@ export interface SolanaVersion {
   readonly featureSet: number | null;
 }
 
+const accountInfoSchema = z.object({
+  context: z.object({ slot: z.number().int() }),
+  value: z
+    .object({
+      data: z.tuple([z.string(), z.literal('base64')]),
+      executable: z.boolean(),
+      lamports: z.number(),
+      owner: z.string().min(32).max(44),
+      space: z.number().int().optional(),
+    })
+    .nullable(),
+});
+
+export interface SolanaAccount {
+  /** Program that owns the account (base58). */
+  readonly owner: string;
+  readonly data: Uint8Array;
+  readonly lamports: number;
+  readonly executable: boolean;
+}
+
+export interface SolanaAccountInfo {
+  readonly slot: number;
+  /** Null when no account exists at the address. */
+  readonly account: SolanaAccount | null;
+}
+
 export class SolanaRpcClient {
   readonly host: string;
   private readonly options: SolanaRpcClientOptions;
@@ -195,6 +222,30 @@ export class SolanaRpcClient {
       }
       throw error;
     }
+  }
+
+  /** Raw account data with the base64 encoding only; callers parse the bytes themselves. */
+  async getAccountInfo(
+    address: string,
+    commitment: 'processed' | 'confirmed' | 'finalized',
+  ): Promise<SolanaAccountInfo> {
+    const info = await this.call(
+      'getAccountInfo',
+      [address, { encoding: 'base64', commitment }],
+      accountInfoSchema,
+    );
+    if (info.value === null) {
+      return { slot: info.context.slot, account: null };
+    }
+    return {
+      slot: info.context.slot,
+      account: {
+        owner: info.value.owner,
+        data: new Uint8Array(Buffer.from(info.value.data[0], 'base64')),
+        lamports: info.value.lamports,
+        executable: info.value.executable,
+      },
+    };
   }
 
   getSlot(commitment: 'processed' | 'confirmed' | 'finalized'): Promise<number> {

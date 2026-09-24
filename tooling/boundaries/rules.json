@@ -33,6 +33,12 @@
     },
     "@markov/api-client": {
       "allow": ["@markov/contracts"]
+    },
+    "@markov/catalog": {
+      "allow": ["@markov/contracts"]
+    },
+    "@markov/issuer-prestocks": {
+      "allow": ["@markov/contracts", "@markov/catalog"]
     }
   },
   "apps": ["@markov/api", "@markov/worker", "@markov/cli", "@markov/web"],

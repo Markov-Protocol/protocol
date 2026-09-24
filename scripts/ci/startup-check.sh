@@ -17,22 +17,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Fixture RPC that answers getGenesisHash with the devnet genesis hash.
+# Fixture RPC (scripts/dev/fixture-rpc.mjs): devnet genesis plus the synthetic catalog mints.
 RPC_PORT=$((20000 + RANDOM % 20000))
-node -e '
-const http = require("node:http");
-const port = Number(process.argv[1]);
-http.createServer((req, res) => {
-  let body = "";
-  req.on("data", (c) => (body += c));
-  req.on("end", () => {
-    const { id, method } = JSON.parse(body || "{}");
-    const result = method === "getGenesisHash" ? "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG" : method === "getHealth" ? "ok" : { "solana-core": "fixture" };
-    res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ jsonrpc: "2.0", id, result }));
-  });
-}).listen(port, "127.0.0.1");
-' "$RPC_PORT" &
+node scripts/dev/fixture-rpc.mjs "$RPC_PORT" &
 RPC_PID=$!
 
 export MARKOV_ENV=test SERVICE_VERSION=startup-check LOG_LEVEL=warn LOG_FORMAT=json
@@ -66,6 +53,19 @@ node apps/cli/dist/main.js auth demo-wallet-link --token "$SESSION_TOKEN" --url 
 echo "== an unknown bearer token must be rejected"
 UNAUTH=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer mkv_ss_notreal00_$(printf 'a%.0s' $(seq 1 43))" "http://127.0.0.1:$API_PORT/v1/me")
 echo "status: $UNAUTH"; [ "$UNAUTH" = "401" ]
+
+echo "== catalog journey: operator token -> fixture ingestion -> mint verification -> admission -> public search"
+OPERATOR_TOKEN=$(node apps/cli/dist/main.js operators create --label startup-check --scopes ops:catalog:read,ops:catalog:write --expires-days 1 | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const m=d.match(/mkv_op_[1-9A-HJ-NP-Za-km-z]+_[A-Za-z0-9_-]+/);if(!m){console.error(d);process.exit(1)}console.log(m[0])})')
+node apps/cli/dist/main.js catalog ingest --issuer prestocks --source fixture --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | head -20
+AERO_ID=$(node apps/cli/dist/main.js catalog list --status quarantined --q FXAERO --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).instruments[0].instrumentId))')
+echo "quarantined FXAERO: $AERO_ID"
+VERIFY_RESULT=$(node apps/cli/dist/main.js catalog verify-mint "$AERO_ID" --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).result))')
+echo "mint verification: $VERIFY_RESULT"; [ "$VERIFY_RESULT" = "verified" ]
+node apps/cli/dist/main.js catalog decide "$AERO_ID" --decision admit --reason "startup check: terms fixture reviewed" --evidence review=startup-check --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | head -12
+PUBLIC_COUNT=$(curl -fsS "http://127.0.0.1:$API_PORT/v1/catalog/instruments?q=FXAERO" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.instruments.length+":"+(j.instruments[0]?.referencePrice?.kind??"none")+":"+j.instruments[0]?.availability?.trade)})')
+echo "public search result count:kind:trade = $PUBLIC_COUNT"; [ "$PUBLIC_COUNT" = "1:issuer_mark:false" ]
+QUARANTINE_PUBLIC=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$API_PORT/v1/ops/catalog/instruments")
+echo "operator route without token: $QUARANTINE_PUBLIC"; [ "$QUARANTINE_PUBLIC" = "401" ]
 
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""

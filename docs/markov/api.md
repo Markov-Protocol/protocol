@@ -17,7 +17,8 @@ runtime validators and `pnpm openapi:check` fails CI on drift.
   ASSET_NOT_ADMITTED, QUOTE_EXPIRED, INSUFFICIENT_FUNDS, PLAN_CHANGED,
   SIGNATURE_MISMATCH, PARTIAL_EXECUTION, SUBMISSION_UNKNOWN,
   IDEMPOTENCY_CONFLICT 409, POLICY_DENIED 403, STEP_UP_REQUIRED 401,
-  CHALLENGE_INVALID 409, WALLET_ALREADY_LINKED 409, PROVIDER_UNAVAILABLE and
+  CHALLENGE_INVALID 409, WALLET_ALREADY_LINKED 409, ADMISSION_BLOCKED 409,
+  PROVIDER_UNAVAILABLE and
   SERVICE_NOT_READY 503, INTERNAL 500. Messages never include secrets or
   another principal's resource existence.
 - Request bodies are limited to `API_BODY_LIMIT_BYTES` (default 256 KiB);
@@ -89,6 +90,25 @@ Example readiness response (abridged):
 
 `POST /v1/auth/test-tokens` exists only with the test identity provider and
 is not part of the committed contract.
+
+## Endpoints (B03)
+
+| Method | Path                                                     | Principal                     | Purpose |
+| ------ | -------------------------------------------------------- | ----------------------------- | ------- |
+| GET    | /v1/catalog/instruments                                  | anonymous                     | Search admitted and paused instruments (`q`, `issuer`, `kind`, keyset `cursor`, `limit`) |
+| GET    | /v1/catalog/instruments/{instrumentId}                   | anonymous                     | Detail with the latest mint verification; 404 unless admitted or paused |
+| GET    | /v1/ops/catalog/instruments                              | operator `ops:catalog:read`   | Every status, including quarantine |
+| GET    | /v1/ops/catalog/instruments/{instrumentId}               | operator `ops:catalog:read`   | Detail in any status |
+| GET    | /v1/ops/catalog/instruments/{instrumentId}/decisions     | operator `ops:catalog:read`   | Decision history |
+| POST   | /v1/ops/catalog/ingestions                               | operator `ops:catalog:write`  | Ingest a feed (`fixture` in local/test, `configured_url`) into quarantine |
+| POST   | /v1/ops/catalog/instruments/{instrumentId}/mint-verifications | operator `ops:catalog:write` | Compare the declared mint with the chain |
+| POST   | /v1/ops/catalog/instruments/{instrumentId}/decisions     | operator `ops:catalog:write`  | admit, reject, pause, resume, delist |
+| GET    | /v1/ops/catalog/snapshots                                | operator `ops:catalog:read`   | Recent snapshots with content hashes and rejection reasons |
+
+Catalog prices are typed reference marks (`issuer_mark`,
+`implied_valuation`, `secondary_market`), never `execution_quote`.
+`ADMISSION_BLOCKED` (409) answers an admit or resume without a current
+matching mint verification. Details: `docs/markov/catalog.md`.
 
 ## Planned surface
 

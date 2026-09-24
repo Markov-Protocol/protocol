@@ -10,6 +10,7 @@
  * claim about a third-party API.
  */
 export * from './capabilities.js';
+export * from './catalog.js';
 export * from './codec.js';
 export * from './errors.js';
 export * from './health.js';

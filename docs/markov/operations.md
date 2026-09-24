@@ -57,6 +57,25 @@ future operator route (B18). Rotate `CREDENTIAL_PEPPER` only with a
 documented re-issuance of every credential; changing it invalidates all
 sessions and credentials at once.
 
+## Catalog admission
+
+Operators with `ops:catalog:write` run the lifecycle through the API or the
+CLI:
+
+```
+markov catalog ingest --issuer prestocks --source configured_url --token <op> --url https://api…
+markov catalog list --status quarantined --token <op> --url …
+markov catalog verify-mint <instrumentId> --token <op> --url …
+markov catalog decide <instrumentId> --decision admit --reason "terms reviewed" --evidence review=TR-12 --token <op> --url …
+```
+
+`fixture` sources exist only in local and test. Admission is refused
+without a `verified` mint verification recorded after the last upstream
+change. Pause when an issuer notice or a suspicious upstream change arrives;
+delist when the issuer withdraws. Every decision is audited with the reason
+and evidence references (never secrets). Until OD-17 is resolved
+`PRESTOCKS_FEED_URL` stays unset and the capability is BLOCKED.
+
 ## Readiness and monitoring
 
 - Liveness (`/healthz`) restarts a hung process; readiness (`/readyz`) removes

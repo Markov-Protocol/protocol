@@ -18,20 +18,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 RPC_PORT=$((20000 + RANDOM % 20000))
-node -e '
-const http = require("node:http");
-const port = Number(process.argv[1]);
-http.createServer((req, res) => {
-  let body = "";
-  req.on("data", (c) => (body += c));
-  req.on("end", () => {
-    const { id, method } = JSON.parse(body || "{}");
-    const result = method === "getGenesisHash" ? "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG" : method === "getHealth" ? "ok" : { "solana-core": "fixture" };
-    res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ jsonrpc: "2.0", id, result }));
-  });
-}).listen(port, "127.0.0.1");
-' "$RPC_PORT" &
+node scripts/dev/fixture-rpc.mjs "$RPC_PORT" &
 RPC_PID=$!
 
 export MARKOV_ENV=test SERVICE_VERSION=web-e2e LOG_LEVEL=warn LOG_FORMAT=json

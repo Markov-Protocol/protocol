@@ -511,5 +511,152 @@ export function buildProgram(io: CliIo = stdio): Command {
       },
     );
 
+  const catalog = program
+    .command('catalog')
+    .description('instrument catalog: public reads, operator ingestion and lifecycle decisions');
+  const apiUrlOption = ['--url <url>', 'API base URL', 'http://127.0.0.1:3000'] as const;
+  catalog
+    .command('ingest')
+    .description(
+      'ingest an issuer feed into quarantine through the API (operator ops:catalog:write)',
+    )
+    .option('--issuer <issuer>', 'issuer id', 'prestocks')
+    .option('--source <source>', 'fixture (local/test only) or configured_url', 'fixture')
+    .requiredOption('--token <token>', 'operator credential')
+    .option(...apiUrlOption)
+    .action(async (options: { issuer: string; source: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/ops/catalog/ingestions',
+            { issuer: options.issuer, source: options.source },
+            options.token,
+          ),
+        ),
+      );
+    });
+  catalog
+    .command('list')
+    .description('search instruments; with --token the operator route lists every status')
+    .option('--q <text>', 'symbol prefix, name or company match')
+    .option('--issuer <issuer>')
+    .option('--kind <kind>')
+    .option('--status <status>', 'operator only: quarantined|admitted|paused|rejected|delisted')
+    .option('--limit <n>', 'page size', '25')
+    .option('--cursor <cursor>', 'nextCursor from a previous page')
+    .option('--token <token>', 'operator credential (ops:catalog:read)')
+    .option(...apiUrlOption)
+    .action(
+      async (options: {
+        q?: string;
+        issuer?: string;
+        kind?: string;
+        status?: string;
+        limit: string;
+        cursor?: string;
+        token?: string;
+        url: string;
+      }) => {
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries({
+          q: options.q,
+          issuer: options.issuer,
+          kind: options.kind,
+          status: options.status,
+          limit: options.limit,
+          cursor: options.cursor,
+        })) {
+          if (value !== undefined) {
+            params.set(key, value);
+          }
+        }
+        if (options.status && !options.token) {
+          throw new CliExit('--status needs an operator --token', EXIT_USAGE);
+        }
+        const path = `${options.token ? '/v1/ops/catalog/instruments' : '/v1/catalog/instruments'}?${params.toString()}`;
+        io.out(json(await apiCall(options.url, 'GET', path, undefined, options.token)));
+      },
+    );
+  catalog
+    .command('verify-mint <instrumentId>')
+    .description('compare the declared mint with the chain and record the result (operator)')
+    .requiredOption('--token <token>', 'operator credential (ops:catalog:write)')
+    .option(...apiUrlOption)
+    .action(async (instrumentId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/ops/catalog/instruments/${encodeURIComponent(instrumentId)}/mint-verifications`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  catalog
+    .command('decide <instrumentId>')
+    .description('admit, reject, pause, resume or delist an instrument (operator)')
+    .requiredOption('--decision <decision>', 'admit|reject|pause|resume|delist')
+    .requiredOption('--reason <reason>', 'why, for the audit record')
+    .option('--evidence <pairs...>', 'key=value references (review ids, document hashes)')
+    .requiredOption('--token <token>', 'operator credential (ops:catalog:write)')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        instrumentId: string,
+        options: {
+          decision: string;
+          reason: string;
+          evidence?: string[];
+          token: string;
+          url: string;
+        },
+      ) => {
+        const evidence: Record<string, string> = {};
+        for (const pair of options.evidence ?? []) {
+          const separator = pair.indexOf('=');
+          if (separator <= 0) {
+            throw new CliExit(`evidence entries are key=value, got ${pair}`, EXIT_USAGE);
+          }
+          evidence[pair.slice(0, separator)] = pair.slice(separator + 1);
+        }
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/ops/catalog/instruments/${encodeURIComponent(instrumentId)}/decisions`,
+              { decision: options.decision, reason: options.reason, evidence },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  catalog
+    .command('snapshots')
+    .description('recent issuer snapshots (operator ops:catalog:read)')
+    .option('--issuer <issuer>')
+    .requiredOption('--token <token>', 'operator credential')
+    .option(...apiUrlOption)
+    .action(async (options: { issuer?: string; token: string; url: string }) => {
+      const query = options.issuer ? `?issuer=${encodeURIComponent(options.issuer)}` : '';
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/ops/catalog/snapshots${query}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+
   return program;
 }

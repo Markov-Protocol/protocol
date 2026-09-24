@@ -16,6 +16,7 @@ import { createLogger, type Logger } from '@markov/observability';
 import { SolanaRpcClient } from '@markov/solana-rpc';
 import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
 import { createIdentityService } from './auth/service.js';
+import { createCatalogService } from './catalog/service.js';
 import { createNetworkIdentityMonitor } from './network-monitor.js';
 
 /** sysexits(3) codes so orchestrators can distinguish configuration from availability failures. */
@@ -265,6 +266,16 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     genesisHash: expectedGenesisHash,
   });
 
+  const catalogService = createCatalogService({
+    config,
+
+    db: dbClient.db,
+
+    genesisHash: expectedGenesisHash,
+
+    rpcClients: clients,
+  });
+
   const app = await buildApp({
     config,
     logger,
@@ -273,6 +284,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     network: monitor,
     expectedGenesisHash,
     identity: identityService,
+    catalog: catalogService,
     mintTestToken,
   });
 

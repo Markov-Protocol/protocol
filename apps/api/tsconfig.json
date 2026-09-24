@@ -11,6 +11,9 @@
       "path": "../../packages/auth"
     },
     {
+      "path": "../../packages/catalog"
+    },
+    {
       "path": "../../packages/config"
     },
     {
@@ -18,6 +21,9 @@
     },
     {
       "path": "../../packages/db"
+    },
+    {
+      "path": "../../packages/issuer-prestocks"
     },
     {
       "path": "../../packages/observability"
