@@ -118,6 +118,37 @@ and its own server-side exchange.
   in and never suggests switching issuer or restating residence to change a
   decision.
 
+## Research and theses (F06)
+
+- Everything retrieved for research is retrieved by the API under its
+  safe-retrieval policy; the browser never fetches a cited page. Source
+  titles and excerpts arrive as sanitised plain text and are rendered as
+  text through React, never as HTML; a `<b>` in an excerpt stays visible
+  as characters. Only https destinations become outbound links
+  (`rel="noreferrer noopener"`, the host shown); anything else, including
+  a `javascript:` URL an author typed, is shown as text with the link
+  withheld. A refused retrieval (private or literal address, non-https)
+  is kept as a record with its reason and cannot be cited.
+- Model output is data: statements from a run are labelled model
+  interpretations, bound to the run and shown only after the API validated
+  them; the run cannot suggest an instrument the catalog did not admit,
+  and a suggestion becomes part of the thesis only when the person adds it
+  and saves. No tool call exists in V1 (`toolCalls` is shown as none).
+- Private notes are excluded from the content hash and from the public
+  projection; the publish panel lists what becomes public before the
+  visibility changes; the public page renders exactly what the API's
+  projection returns (no owner id, no notes). A private or unknown thesis
+  answers "not found or private" to another account and anonymously
+  alike, so the page never reveals whose it is.
+- The thesis form lives in React state only; nothing is written to browser
+  storage. Saving appends an immutable revision through the proxy (same-
+  origin JSON, `PATCH` now forwarded under the same rules as `POST`);
+  a newer revision from another tab is announced and loadable, never
+  overwritten.
+- A basket draft created from a shortlist or an instrument page is a B07
+  draft with stated integer weights; the app normalises nothing, holds
+  nothing and places no order.
+
 ## Planned (with the sessions that own them)
 
 Full CSP with exact identity/wallet allowances and report-only rollout,

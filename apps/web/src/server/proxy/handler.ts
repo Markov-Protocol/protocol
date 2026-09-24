@@ -56,7 +56,7 @@ export async function handleProxy(
   }
 
   let body: string | null = null;
-  if (request.method === 'POST' || request.method === 'PUT') {
+  if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH') {
     if (!isJsonRequest(request)) {
       return envelope(415, 'VALIDATION_FAILED', 'a JSON body is required');
     }

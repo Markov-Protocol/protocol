@@ -19,6 +19,7 @@ import {
   type Thesis,
   type ThesisCreateRequest,
   type ThesisDetail,
+  type ThesisListQuery,
   type ThesisListResponse,
   type ThesisRevision,
   type ThesisRevisionInput,
@@ -85,7 +86,7 @@ export interface ResearchService {
     request: ThesisCreateRequest,
     requestId: string,
   ): Promise<ThesisDetail>;
-  listTheses(principal: Principal): Promise<ThesisListResponse>;
+  listTheses(principal: Principal, query: ThesisListQuery): Promise<ThesisListResponse>;
   getThesis(principal: Principal, thesisId: string): Promise<ThesisDetail>;
   updateThesis(
     principal: Principal,
@@ -326,13 +327,16 @@ export function createResearchService(deps: ResearchServiceDeps): ResearchServic
       return detailOf(created.thesis);
     },
 
-    async listTheses(principal) {
-      const rows = await listTheses(db, ownerOf(principal));
+    async listTheses(principal, query) {
+      const rows = await listTheses(db, ownerOf(principal), {
+        instrumentId: query.instrumentId ?? null,
+      });
       return {
         theses: rows.map(({ thesis, revision }) => ({
           ...thesisOf(thesis),
           title: revision.title,
           claim: revision.claim,
+          instrumentIds: revision.instruments.map((reference) => reference.instrumentId),
         })),
       };
     },

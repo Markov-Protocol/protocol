@@ -167,6 +167,58 @@ Readiness: IMPLEMENTED and FIXTURE_VERIFIED; LIVE_READ_VERIFIED only
 against the local B03/B04/B05 API in test mode with fixture instruments,
 which is not production evidence.
 
+## F06 — instrument research and saved theses (2026-09-24)
+
+Environment as for F05, plus `scripts/dev/web-e2e-api.sh` exporting
+`RESEARCH_MODEL_PROVIDER=fixture` (the deterministic adapter the backend
+refuses outside local/test) so bounded runs can be exercised; the fixture
+issuer source `https://fixture.markov.invalid/issuer/terms` is served from
+the API's memory in test mode. No hosted model provider, no live page and
+no live cluster were involved.
+
+| Check | Command | Result |
+| ----- | ------- | ------ |
+| Backend list filter | `pnpm exec vitest run --project node apps/api/test/research.test.ts` | 3 journeys, now also asserting `instrumentIds` on list rows, `?instrumentId=` narrowing to the referencing thesis, an empty answer for an unreferenced instrument and 400 for a malformed id |
+| App-owned API proxy | `pnpm exec vitest run --project node apps/web/test/server/proxy.test.ts` | 12 tests: the research and strategy-draft operations allowlisted (freeze, fork, pins and operator routes are not), PATCH forwarded with its JSON body under the same-origin and JSON rules (415 without JSON, 403 cross-origin), the public thesis read reachable anonymously without a bearer, the private list refused anonymously |
+| Editor helpers | `pnpm exec vitest run --project web apps/web/test/research-state.test.ts` | 5 tests: equal weights with the exact cash remainder sum to 10,000 for 1 to 20 legs; local checks by field (markup, uncited fact, refused source, model statement without a run); API detail paths mapped to fields; revision input trimming; https-only outbound links (`javascript:`, `http:`, `data:` withheld) |
+| Research client | `pnpm exec vitest run --project web apps/web/test/research.test.tsx` | 11 tests: workspace list and creation (markup refused locally, private by default); editor with sources as data (`<b>` in an excerpt stays text, a `javascript:` URL is never linked, refusals and failures stated with reasons), private notes in the form, a save appending revision 2 with the notes and shortlist intact; a refused save keeping the edits and mapping the API's rule to the statement, a local rule stopping the round trip; run progress and cancellation; an absent provider reported; a finished run adopted only as labelled interpretations, a suggested instrument confirmed into the shortlist, an unmatched company added as a subject; shortlist to basket with 3 × 3,333 bps and 1 bp cash posted verbatim and the backend's totals shown; another person and anonymous readers get "not found or private"; the public projection without notes, with labelled model output, citations and instrument links, touching no private route; market detail: rights and evidence, add to a basket draft (10,000 bps, no cash), theses per instrument, start a thesis with the instrument shortlisted, route observations "not observed", anonymous sign-in prompt |
+| Contract matrix | `pnpm exec vitest run --project node packages/api-client` | 29 entries proven against the frozen OpenAPI document (18 research and strategy-draft operations added) |
+| Full unit and integration run | `pnpm test` (inside `pnpm verify`) | 54 files, 325 tests passed |
+| Production build | `pnpm web:build` | 22 routes, all server-rendered on demand, including `/research`, `/research/[thesisId]` and the draft list on `/strategies/new` |
+| Browser evidence | `MARKOV_TEST_DATABASE_URL=… pnpm web:e2e` | 58 passed on desktop and phone profiles: 2 research journeys (below) plus the F01 to F05 suites; each profile uses its own accounts |
+| Screenshots | `docs/frontend/evidence/F06/` | `market-liquidity-*.png`, `thesis-new-*.png`, `thesis-sources-*.png`, `thesis-run-*.png`, `thesis-published-*.png`, `thesis-public-*.png`, `basket-drafts-*.png` |
+
+Research journeys (desktop 1280×800 and the Pixel 7 profile):
+
+1. Open FXAERO by id and sign in → Overview states the rights basis and
+   where evidence lives; Liquidity shows route observations with every
+   field "Not observed" → the Research tab starts a private thesis with
+   FXAERO shortlisted → the fixture issuer terms are fetched and shown as
+   an excerpt; a metadata address is refused and recorded with "address
+   literals are not allowed" → an opinion is added and a bounded run over
+   the fetched source succeeds with provenance (`fixture /
+   fixture-research`), its output labelled "Model interpretation, not an
+   issuer fact" and adopted → saved as revision 2 → private notes saved as
+   revision 3 → "Publish…" lists what becomes public (notes excluded) and
+   publishes → an anonymous context reads the projection without the
+   notes → "Start a basket draft" creates a B07 draft (total 100.00%) and
+   "Open in Build" lists it as just created → the workspace lists the
+   thesis as public and the instrument page links to it.
+2. Another person's private thesis answers "not found or private" to an
+   anonymous reader and to a different signed-in account; a malformed id
+   answers the app's not-found page.
+
+Not verified in F06: a hosted model provider (OD-19), a live retrieved
+page, screen-reader journeys through the editor, and the basket editor
+itself (F07). Hostile content: excerpts, titles and model output are
+rendered as text only (jsdom asserts no `<b>` element and no
+`javascript:` link); the API's sanitiser and retrieval policy are the
+first line and are tested in B06.
+
+Readiness: IMPLEMENTED and FIXTURE_VERIFIED; LIVE_READ/WRITE_VERIFIED only
+against the local B06/B07 API in test mode with the fixture source and
+adapter, which is not production evidence.
+
 ## Acceptance matrix (build prompt section 12)
 
 | Journey or risk | Evidence | Status |
@@ -176,5 +228,7 @@ which is not production evidence.
 | Sign-in → wallet verify → eligibility | F04 journeys 1 and 5 with an injected Wallet Standard wallet against the local API; wallet tests for replay, wrong network, already linked, account switch, altered signature | complete for the fixture wallet (F04); real wallets and the hosted embedded wallet not verified |
 | CSRF or login redirect abuse | Same-origin guard tests, open-redirect vectors in node and browser tests | complete (F03) |
 | Private SSR/CDN response cached publicly | All routes dynamic, session responses `no-store` (build output and e2e header assertion); deployment headers still to be checked in F20 | partial (F03) |
+| Research → builder → saved draft | F06 journey 1: thesis started from an admitted instrument, fixture issuer source fetched and cited, a metadata address refused and recorded, a bounded run adopted as labelled interpretations, revisions saved, publication with "what becomes public", a basket draft created from the saved shortlist with exact integer weights and the backend's validation shown; jsdom tests for a refused save keeping the edits and for the two-tab revision notice | research and the saved draft complete (F06); the basket editor, revision conflict recovery for drafts and small-notional limits arrive with F07 |
+| Untrusted research, token image or assistant content executes | jsdom asserts excerpts with markup render as text (no element created), a `javascript:` source URL is never linked, model output is labelled and adopted only by the person; the API sanitises and refuses retrievals (B06); no images are fetched (F05) | complete for research content (F06); assistant content arrives with F14 |
 
 Every other row is filled by the session that delivers it.

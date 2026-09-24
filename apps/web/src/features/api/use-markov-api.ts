@@ -55,6 +55,7 @@ export interface MarkovApi {
   get<T>(path: string, schema: z.ZodType<T>, options?: RequestOptions): Promise<T>;
   post<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
   put<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
+  patch<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
   /** DELETE that answers a body validated by `schema`. */
   delete<T>(path: string, schema: z.ZodType<T>): Promise<T>;
   del(path: string): Promise<void>;
@@ -135,6 +136,16 @@ export function useMarkovApi(): MarkovApi {
           path,
           {
             method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          },
+          schema,
+        ),
+      patch: (path, body, schema) =>
+        run(
+          path,
+          {
+            method: 'PATCH',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(body),
           },

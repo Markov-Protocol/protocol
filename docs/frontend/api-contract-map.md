@@ -26,11 +26,19 @@ against the document by `packages/api-client/test/compatibility.test.ts`.
 | Market detail: corporate actions and multiplier history | `GET /v1/catalog/instruments/{instrumentId}/corporate-actions`, `…/multipliers` | B04 | `NOT_FOUND`; a failed read leaves the section out rather than inventing history | IMPLEMENTED, FIXTURE_VERIFIED (F05) |
 | Market detail: what you can do now (signed in) | `GET /v1/me/instruments/{instrumentId}/availability` | B05 | `AUTH_REQUIRED` → session revalidated; a failed read keeps the public availability and says so | IMPLEMENTED, FIXTURE_VERIFIED, e2e (F05) |
 | Watchlist tab and Save controls | `GET /v1/me/watchlist`, `PUT /v1/me/watchlist/items/{instrumentId}`, `DELETE /v1/me/watchlist/items/{instrumentId}?ifVersion=` (added in F05) | F05 backend addition | `IDEMPOTENCY_CONFLICT` → refreshed with "changed on another device"; `ASSET_NOT_ADMITTED`; `NOT_FOUND`; `AUTH_REQUIRED` | IMPLEMENTED, FIXTURE_VERIFIED (API, proxy, jsdom), e2e (F05) |
+| Research workspace and instrument Research tab | `GET /v1/me/theses` (`?instrumentId=` and `instrumentIds` added in F06), `POST /v1/me/theses` | B06 | `AUTH_REQUIRED` → session revalidated; `VALIDATION_FAILED` (markup, empty) shown on the field; unreachable → error block, never an empty workspace | IMPLEMENTED, FIXTURE_VERIFIED (proxy and jsdom), e2e against the local API (F06) |
+| Thesis editor | `GET /v1/me/theses/{thesisId}`, `POST …/revisions`, `GET …/revisions`, `PATCH /v1/me/theses/{thesisId}` | B06 | `NOT_FOUND` → falls back to the public projection, then "not found or private"; `VALIDATION_FAILED` → rules listed by field with the edits kept; `RATE_LIMITED`; `FORBIDDEN` (agent publishing) | IMPLEMENTED, FIXTURE_VERIFIED, e2e (F06) |
+| Sources panel | `POST /v1/me/theses/{thesisId}/sources`, `GET …/sources` | B06 (safe retrieval in the API) | a `blocked` or `failed` record is a 201 with its reason, shown as such; `VALIDATION_FAILED` (non-https) on the field; `RATE_LIMITED` | IMPLEMENTED, FIXTURE_VERIFIED, e2e with the fixture issuer source and a refused metadata address (F06) |
+| Research runs | `POST /v1/me/research/runs`, `GET /v1/me/research/runs?thesisId=`, `GET …/runs/{runId}` (polled while queued or running), `POST …/runs/{runId}/cancel` | B06 | `PROVIDER_UNAVAILABLE` → "runs are not available in this deployment"; `RATE_LIMITED`; `NOT_FOUND` | IMPLEMENTED, FIXTURE_VERIFIED (jsdom: progress, cancel, adoption), e2e with the fixture adapter (F06); no hosted provider (OD-19) |
+| Shortlist mapping | `POST /v1/me/research/mappings` | B06 | `VALIDATION_FAILED` | IMPLEMENTED, FIXTURE_VERIFIED (F06) |
+| Public thesis page | `GET /v1/research/theses/{thesisId}` (anonymous) | B06 | `NOT_FOUND` → "not found or private" | IMPLEMENTED, FIXTURE_VERIFIED, e2e (F06) |
+| Shortlist to basket, "Add to a new basket draft", Build page draft list | `GET /v1/strategies/limits`, `POST /v1/me/strategies`, `GET /v1/me/strategies` | B07 | `VALIDATION_FAILED` shown verbatim from the backend's validation; `AUTH_REQUIRED` | IMPLEMENTED, FIXTURE_VERIFIED, e2e (F06); editing arrives with F07 |
 | Component reference | none (fixture data, internal route) | n/a | n/a | IMPLEMENTED |
 | Formatters (`@markov/formatters`) | consume `TypedPrice`, raw amounts, basis points from `@markov/contracts` | contracts | n/a | FIXTURE_VERIFIED |
 
 Watchlists were added to the backend in F05 as a versioned owner-scoped
-contract (`docs/markov/api.md`). The other contract additions proposed by
+contract (`docs/markov/api.md`); F06 added the `instrumentId` filter and
+`instrumentIds` to the thesis list. The other contract additions proposed by
 the frontend prompt and not yet present in the backend (capability
 bootstrap, preferences, notification read status, stream configuration,
 privacy export/deletion, device status, simulation reports) are tracked as

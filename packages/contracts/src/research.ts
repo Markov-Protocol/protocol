@@ -173,8 +173,18 @@ export const thesisDetailSchema = z.object({
 export type ThesisDetail = z.infer<typeof thesisDetailSchema>;
 
 export const thesisListResponseSchema = z.object({
-  theses: z.array(thesisSchema.extend({ title: z.string(), claim: z.string() })),
+  theses: z.array(
+    thesisSchema.extend({
+      title: z.string(),
+      claim: z.string(),
+      /** Instruments the current revision references (F06: the app lists theses per instrument). */
+      instrumentIds: z.array(idSchema),
+    }),
+  ),
 });
+/** Optional filter of the list: theses whose current revision references the instrument. */
+export const thesisListQuerySchema = z.object({ instrumentId: idSchema.optional() });
+export type ThesisListQuery = z.infer<typeof thesisListQuerySchema>;
 export type ThesisListResponse = z.infer<typeof thesisListResponseSchema>;
 
 export const revisionListResponseSchema = z.object({ revisions: z.array(thesisRevisionSchema) });

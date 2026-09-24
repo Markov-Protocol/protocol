@@ -11,9 +11,12 @@ the target; only the rows marked *implemented* exist.
 | `/api/auth/session`, `/api/auth/sign-in`, `/api/auth/sign-out` | Same-origin session routes (`Cache-Control: no-store`); mutations require a same-origin browser request with a JSON body | app server only | implemented (F03) |
 | `/dev/components` | Internal component reference inside the shell | internal; `MARKOV_WEB_INTERNAL_ROUTES=true`; refused in production | implemented |
 | `/explore` | Instruments tab over admitted and paused instruments (search, category, issuer collections, bounded pagination, watchlist toggles), Watchlist tab (account-scoped), Strategies tab (arrives with F12); filter and tab state in the URL (`q`, `issuer`, `kind`, `tab`, validated values only) | public; watchlist authenticated | implemented (F05) |
-| `/markets/[instrumentId]` | Exact-id instrument page: Overview, Research (F06), Liquidity (F09/B17), Instrument tabs; save control; public availability refined by the person's capability states when signed in | public where the instrument is admitted or paused; personal states authenticated | implemented (F05) |
-| `/strategies/new`, `/portfolio`, `/activity`, `/rankings`, `/automations`, `/status` | navigation targets | public shell | honest unavailable pages naming the delivering session (F02); real features arrive with F07 onward |
-| `/research/*`, `/strategies/[strategyId]/*`, `/portfolio/[instanceId]`, `/review/[intentId]`, `/activity/[intentId]`, `/receipts/[receiptId]`, other `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
+| `/markets/[instrumentId]` | Exact-id instrument page: Overview (with rights and evidence, "Add to a new basket draft"), Research (the person's theses mentioning the instrument, start a thesis with it shortlisted, evidence rules), Liquidity (route observations, every field "Not observed" until B17/F09), Instrument tabs; save control; public availability refined by the person's capability states when signed in | public where the instrument is admitted or paused; personal states, theses and drafts authenticated | implemented (F05, F06) |
+| `/research` | Research workspace: the person's theses (visibility, status, revision, instrument count) and a form that starts a private thesis | authenticated | implemented (F06) |
+| `/research/[thesisId]` | Owner: the thesis editor (typed statements with citations, counterarguments, shortlist by canonical id with a catalog picker, research subjects with deterministic mapping, sources with fetched/refused/failed states and dates, bounded research runs with progress and cancel, private notes, publish with "what becomes public", archive, saved revisions, shortlist to basket draft). Anyone else: the published projection or "not found or private" | owner; published projection public | implemented (F06) |
+| `/strategies/new` | The person's basket drafts as the backend holds them (B07), the just-created one highlighted; the editor for weights, rules and activation arrives with F07 | authenticated | drafts list implemented (F06); editor F07 |
+| `/portfolio`, `/activity`, `/rankings`, `/automations`, `/status` | navigation targets | public shell | honest unavailable pages naming the delivering session (F02); real features arrive with F10 onward |
+| `/strategies/[strategyId]/*`, `/portfolio/[instanceId]`, `/review/[intentId]`, `/activity/[intentId]`, `/receipts/[receiptId]`, other `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
 
 ## Session journeys (F03)
 
@@ -134,3 +137,49 @@ Rules that already apply:
   delisted), and Remove takes it off. A list edited on another device is
   detected (`IDEMPOTENCY_CONFLICT`), refreshed and the person is asked to
   try again; nothing is overwritten silently.
+
+## Session journeys (F06)
+
+- **Start from an instrument.** The Research tab of `/markets/<id>` states
+  the evidence rules (backing, rights, fees and redemption claims need an
+  issuer, legal or filing source) and lists the person's theses whose
+  current revision references that exact instrument
+  (`GET /v1/me/theses?instrumentId=`). "Start a thesis" creates a private
+  thesis with the instrument already shortlisted and opens the editor.
+  Anonymous people get a sign-in link that returns to the page; no private
+  route is touched.
+- **Cite sources.** A source is attached by https URL; the API retrieves it
+  under its safe-retrieval policy and records `fetched`, `blocked` or
+  `failed` with the reason, the fetch time and any dates the author
+  supplied. Every record is shown as a card (status, role, host, dates,
+  plain-text excerpt, hash); only https destinations become links, and a
+  refused or failed source cannot be cited. Facts and issuer assertions
+  tick the fetched sources they rest on; opinions carry none.
+- **Run bounded research.** A run reads only the ticked fetched sources
+  within a fixed budget. Progress is polled and can be cancelled; the
+  result shows labelled model interpretations, suggested admitted
+  instruments (confirmed one by one), companies the catalog does not carry
+  (added as research subjects) and what validation dropped, with the
+  provider, model, prompt hash and budget used. Adopting the output only
+  changes the unsaved form; a deployment without a model provider says so
+  instead of pretending.
+- **Save and keep private.** "Save revision" appends an immutable
+  numbered revision; the status line reads Saving, Saved as revision N,
+  or the failure with the edits kept in the form. Rules the API refuses are
+  listed by field; a revision saved elsewhere (another tab) is announced
+  and loadable, never silently overwritten. Private notes are excluded
+  from the content hash and from any public page. Leaving with unsaved
+  changes asks first.
+- **Publish.** "Publish…" shows exactly what becomes public (the saved
+  revision's statements, instruments, subjects, sources and content hash;
+  never notes, account, wallets or budgets) before `PATCH visibility`. The
+  public page `/research/<id>` is the API's projection; a private or
+  unknown thesis answers "not found or private" to everyone else.
+- **Shortlist to basket.** From the saved shortlist, "Start a basket draft"
+  states the plan first (equal integer weights per leg, the exact remainder
+  as cash, total 10,000 bps) and creates a B07 draft linked to the thesis.
+  The backend's validation result is shown verbatim; "Open in Build" lands
+  on `/strategies/new`, which lists the drafts with the new one
+  highlighted. "Add to a new basket draft" on an instrument page does the
+  same with one constituent at 100.00%. No weight is normalised by the app,
+  nothing is bought.

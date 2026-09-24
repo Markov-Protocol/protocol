@@ -21,6 +21,7 @@ import {
 } from '@markov/ui';
 import {
   Activity,
+  BookOpen,
   Compass,
   Ellipsis,
   House,
@@ -47,6 +48,7 @@ const primaryItems: readonly NavigationItem[] = [
 ];
 
 const moreItems = [
+  { href: '/research', label: 'Research', icon: BookOpen },
   { href: '/activity', label: 'Activity', icon: Activity },
   { href: '/rankings', label: 'Rankings', icon: Trophy },
   { href: '/automations', label: 'Automations', icon: SlidersHorizontal },

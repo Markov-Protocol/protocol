@@ -111,6 +111,32 @@ describe('proxy allowlist', () => {
     expect(matchRoute('POST', `/v1/me/watchlist/items/${WALLET}`)).toBeNull();
   });
 
+  it('allows the research and strategy-draft operations added in F06', () => {
+    expect(matchRoute('GET', '/v1/me/theses')).toMatchObject({ query: true });
+    expect(matchRoute('POST', '/v1/me/theses')).not.toBeNull();
+    expect(matchRoute('GET', `/v1/me/theses/${WALLET}`)?.public).toBeUndefined();
+    expect(matchRoute('PATCH', `/v1/me/theses/${WALLET}`)).not.toBeNull();
+    expect(matchRoute('DELETE', `/v1/me/theses/${WALLET}`)).toBeNull();
+    expect(matchRoute('POST', `/v1/me/theses/${WALLET}/revisions`)).not.toBeNull();
+    expect(matchRoute('GET', `/v1/me/theses/${WALLET}/revisions`)).not.toBeNull();
+    expect(matchRoute('POST', `/v1/me/theses/${WALLET}/sources`)).not.toBeNull();
+    expect(matchRoute('GET', `/v1/me/theses/${WALLET}/sources`)).not.toBeNull();
+    expect(matchRoute('POST', '/v1/me/research/mappings')).not.toBeNull();
+    expect(matchRoute('POST', '/v1/me/research/runs')).not.toBeNull();
+    expect(matchRoute('GET', '/v1/me/research/runs')).toMatchObject({ query: true });
+    expect(matchRoute('GET', `/v1/me/research/runs/${WALLET}`)).not.toBeNull();
+    expect(matchRoute('POST', `/v1/me/research/runs/${WALLET}/cancel`)).not.toBeNull();
+    expect(matchRoute('GET', `/v1/research/theses/${WALLET}`)?.public).toBe(true);
+    expect(matchRoute('GET', '/v1/strategies/limits')?.public).toBe(true);
+    expect(matchRoute('GET', '/v1/me/strategies')).not.toBeNull();
+    expect(matchRoute('POST', '/v1/me/strategies')).not.toBeNull();
+    // Nothing that freezes, forks, pins or reaches operator routes.
+    expect(matchRoute('POST', `/v1/me/strategies/${WALLET}/versions`)).toBeNull();
+    expect(matchRoute('PUT', `/v1/me/strategies/${WALLET}/draft`)).toBeNull();
+    expect(matchRoute('POST', '/v1/me/instances')).toBeNull();
+    expect(matchRoute('GET', '/v1/ops/research')).toBeNull();
+  });
+
   it('re-encodes a bounded query string and refuses the rest', () => {
     expect(safeQuery('')).toBe('');
     expect(safeQuery('?q=Fixture%20Aero&issuer=prestocks&limit=25')).toBe(
@@ -301,6 +327,63 @@ describe('proxy handler', () => {
       upstream(() => new Response(null, { status: 204 })).deps,
     );
     expect(noContent.status).toBe(204);
+  });
+
+  it('forwards a PATCH with its JSON body under the same mutation rules and lets a public thesis through anonymously', async () => {
+    const api = upstream(() => Response.json({ thesis: { visibility: 'public' } }));
+    const response = await handleProxy(
+      request('PATCH', `/v1/me/theses/${WALLET}`, {
+        cookie: COOKIE,
+        origin: APP,
+        contentType: 'application/json',
+        body: JSON.stringify({ visibility: 'public' }),
+      }),
+      segments(`/v1/me/theses/${WALLET}`),
+      api.deps,
+    );
+    expect(response.status).toBe(200);
+    expect(api.calls).toHaveLength(1);
+    expect(api.calls[0]?.method).toBe('PATCH');
+    expect(await api.calls[0]?.text()).toBe('{"visibility":"public"}');
+    expect(api.calls[0]?.headers.get('authorization')).toMatch(/^Bearer mkv_ss_/);
+
+    const notJson = await handleProxy(
+      request('PATCH', `/v1/me/theses/${WALLET}`, {
+        cookie: COOKIE,
+        origin: APP,
+        body: 'visibility=public',
+      }),
+      segments(`/v1/me/theses/${WALLET}`),
+      api.deps,
+    );
+    expect(notJson.status).toBe(415);
+    const crossOrigin = await handleProxy(
+      request('PATCH', `/v1/me/theses/${WALLET}`, {
+        cookie: COOKIE,
+        origin: 'https://evil.example',
+        contentType: 'application/json',
+        body: '{}',
+      }),
+      segments(`/v1/me/theses/${WALLET}`),
+      api.deps,
+    );
+    expect(crossOrigin.status).toBe(403);
+    expect(api.calls).toHaveLength(1);
+
+    const publicThesis = upstream(() => Response.json({ thesisId: WALLET }));
+    const anonymous = await handleProxy(
+      request('GET', `/v1/research/theses/${WALLET}`),
+      segments(`/v1/research/theses/${WALLET}`),
+      publicThesis.deps,
+    );
+    expect(anonymous.status).toBe(200);
+    expect(publicThesis.calls[0]?.headers.get('authorization')).toBeNull();
+    const privateList = await handleProxy(
+      request('GET', '/v1/me/theses?instrumentId=abc'),
+      segments('/v1/me/theses'),
+      publicThesis.deps,
+    );
+    expect(privateList.status).toBe(401);
   });
 
   it('reports an unreachable backend as 503 instead of pretending', async () => {

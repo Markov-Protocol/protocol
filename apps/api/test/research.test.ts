@@ -494,6 +494,36 @@ describe.skipIf(adminUrl === null)('research API', () => {
       ).json() as { revisions: ThesisRevision[] };
       expect(revisions.revisions.map((row) => row.revisionNumber)).toEqual([2, 1]);
 
+      // The list carries the current revision's instrument ids and filters by one (F06).
+      const listed = (
+        await h.app.inject({ method: 'GET', url: '/v1/me/theses', headers: bearer(alice) })
+      ).json() as { theses: { thesisId: string; instrumentIds: string[] }[] };
+      expect(listed.theses.map((row) => row.instrumentIds)).toEqual([[aeroId]]);
+      const byAero = (
+        await h.app.inject({
+          method: 'GET',
+          url: `/v1/me/theses?instrumentId=${aeroId}`,
+          headers: bearer(alice),
+        })
+      ).json() as { theses: { thesisId: string }[] };
+      expect(byAero.theses.map((row) => row.thesisId)).toEqual([thesisId]);
+      const byGrid = await h.app.inject({
+        method: 'GET',
+        url: `/v1/me/theses?instrumentId=${gridId}`,
+        headers: bearer(alice),
+      });
+      expect(byGrid.statusCode).toBe(200);
+      expect((byGrid.json() as { theses: unknown[] }).theses).toEqual([]);
+      expect(
+        (
+          await h.app.inject({
+            method: 'GET',
+            url: '/v1/me/theses?instrumentId=nope',
+            headers: bearer(alice),
+          })
+        ).statusCode,
+      ).toBe(400);
+
       // The mapping never turns an unknown company into a mint.
       const mapping = await h.app.inject({
         method: 'POST',

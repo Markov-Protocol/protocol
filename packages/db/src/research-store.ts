@@ -5,7 +5,7 @@ import type {
   SourceRole,
   ThesisStatement,
 } from '@markov/contracts';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { Database } from './client.js';
 import { researchRuns, sourceRecords, theses, thesisRevisions } from './schema.js';
 
@@ -100,8 +100,10 @@ export async function findThesisAnyOwner(
 export async function listTheses(
   db: Database,
   ownerUserId: string,
-  limit = 100,
+  options: { readonly instrumentId?: string | null; readonly limit?: number } = {},
 ): Promise<{ thesis: ThesisRow; revision: ThesisRevisionRow }[]> {
+  const limit = options.limit ?? 100;
+  const instrumentId = options.instrumentId ?? null;
   const rows = await db
     .select({ thesis: theses, revision: thesisRevisions })
     .from(theses)
@@ -112,7 +114,14 @@ export async function listTheses(
         eq(thesisRevisions.revisionNumber, theses.currentRevisionNumber),
       ),
     )
-    .where(eq(theses.ownerUserId, ownerUserId))
+    .where(
+      and(
+        eq(theses.ownerUserId, ownerUserId),
+        instrumentId === null
+          ? undefined
+          : sql`${thesisRevisions.instruments} @> ${JSON.stringify([{ instrumentId }])}::jsonb`,
+      ),
+    )
     .orderBy(desc(theses.updatedAt))
     .limit(limit);
   return rows;

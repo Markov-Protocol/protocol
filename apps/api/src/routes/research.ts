@@ -13,6 +13,7 @@ import {
   sourceRecordSchema,
   thesisCreateRequestSchema,
   thesisDetailSchema,
+  thesisListQuerySchema,
   thesisListResponseSchema,
   thesisRevisionInputSchema,
   thesisRevisionSchema,
@@ -78,10 +79,13 @@ export const researchRoutes: FastifyPluginAsyncZod<ResearchRoutesOptions> = asyn
       schema: {
         tags: ['research'],
         summary: 'The signed-in person’s theses, newest first',
+        description:
+          '`instrumentId` narrows the list to theses whose current revision references that instrument.',
+        querystring: thesisListQuerySchema,
         response: { 200: thesisListResponseSchema, ...errorResponses },
       },
     },
-    async (request) => research.listTheses(principalOf(request)),
+    async (request) => research.listTheses(principalOf(request), request.query),
   );
 
   app.get(

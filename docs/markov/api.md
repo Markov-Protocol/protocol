@@ -154,7 +154,7 @@ answer `IDEMPOTENCY_CONFLICT` (409). Details: `docs/markov/eligibility-and-polic
 | Method | Path                                                     | Principal                                  | Purpose |
 | ------ | -------------------------------------------------------- | ------------------------------------------ | ------- |
 | POST   | /v1/me/theses                                            | user, agent `research:write`               | Create a thesis with its first revision; research rules apply (`docs/markov/research.md`) |
-| GET    | /v1/me/theses                                            | user, agent `research:read`                | Own theses with the current title and claim |
+| GET    | /v1/me/theses                                            | user, agent `research:read`                | Own theses with the current title, claim and `instrumentIds`; `?instrumentId=` keeps only those whose current revision references it (F06 addition) |
 | GET    | /v1/me/theses/{thesisId}                                 | user, agent `research:read`                | Thesis, current revision and source records |
 | PATCH  | /v1/me/theses/{thesisId}                                 | user                                       | Set `visibility` (private/public) or `status` (archived) |
 | POST   | /v1/me/theses/{thesisId}/revisions                       | user, agent `research:write`               | Append an immutable numbered revision; 400 with `details[].path` on a broken rule |

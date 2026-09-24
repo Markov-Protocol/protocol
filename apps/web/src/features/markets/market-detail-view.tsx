@@ -16,11 +16,13 @@ import {
   TabsTrigger,
 } from '@markov/ui';
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { WebApiError } from '../api/use-markov-api';
 import { signInHref } from '../auth/return-path';
 import { useSession } from '../auth/session-context';
 import { CopyButton } from '../funding/copy-button';
+import { AddToBasketButton } from '../research/add-to-basket-button';
+import { InstrumentResearchTab } from '../research/instrument-research-tab';
 import {
   AvailabilityLine,
   InstrumentIdentity,
@@ -79,16 +81,18 @@ function ActionRow({
   label,
   allowed,
   reason,
+  action,
 }: {
   readonly label: string;
   readonly allowed: boolean;
   readonly reason: string;
+  readonly action?: ReactNode;
 }) {
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-1.5">
       <span className="text-body">{label}</span>
       {allowed ? (
-        <StatusBadge tone="success">Available</StatusBadge>
+        (action ?? <StatusBadge tone="success">Available</StatusBadge>)
       ) : (
         <span className="flex flex-wrap items-center gap-2">
           <StatusBadge tone="neutral">Not available</StatusBadge>
@@ -135,13 +139,20 @@ function WhatYouCanDo({
           reason={because(false, [])}
         />
         <ActionRow
-          label="Add to a strategy"
+          label="Add to a basket"
           allowed={
             capabilities
               ? capabilities.discoverable && instrument.availability.strategy
               : instrument.availability.strategy
           }
-          reason={because(false, ['the strategy builder arrives with F07'])}
+          reason={because(false, [])}
+          action={
+            signedIn ? (
+              <AddToBasketButton instrument={instrument} />
+            ) : (
+              <StatusBadge tone="success">Available after sign-in</StatusBadge>
+            )
+          }
         />
         <ActionRow
           label="Buy"
@@ -346,6 +357,23 @@ function OverviewTab({
         </Notice>
       </section>
 
+      <section className="space-y-2" aria-labelledby="rights-heading" data-testid="rights-evidence">
+        <h2 id="rights-heading" className="text-heading-sm font-semibold">
+          Rights and evidence
+        </h2>
+        <p className="text-supporting">
+          {instrument.kind === 'listed_stock'
+            ? 'A listed-stock token tracks the issuer\u2019s exposure to the share; whether it carries dividends, voting or redemption rights is set by the issuer\u2019s terms, which the catalog does not carry.'
+            : 'A pre-IPO exposure carries no shareholder rights of its own; what it does carry (backing, fees, redemption) is set by the issuer\u2019s terms, which the catalog does not carry.'}{' '}
+          Evidence lives in source records: attach the issuer&apos;s terms, a legal document or a
+          filing to a thesis (Research tab) and cite it; a claim about backing, rights, fees or
+          redemption without such a source is refused.
+          {website && instrument.metadata.website
+            ? ' The issuer page linked above is the place to start.'
+            : ''}
+        </p>
+      </section>
+
       <section className="space-y-2" aria-labelledby="price-heading">
         <h2 id="price-heading" className="text-heading-sm font-semibold">
           Reference price
@@ -526,6 +554,41 @@ function InstrumentTab({
   );
 }
 
+/** Liquidity: every field the tab will carry, each shown as not observed rather than invented. */
+function RouteObservations({ symbol }: { readonly symbol: string }) {
+  const fields: readonly { readonly key: string; readonly label: string }[] = [
+    { key: 'venue', label: 'Execution venue' },
+    { key: 'route', label: 'Route (hops and programs)' },
+    { key: 'depth', label: 'Depth at the reference price' },
+    { key: 'spread', label: 'Observed spread' },
+    { key: 'observedAt', label: 'Observed at' },
+  ];
+  return (
+    <section
+      className="space-y-3"
+      aria-labelledby="liquidity-heading"
+      data-testid="route-observations"
+    >
+      <h2 id="liquidity-heading" className="text-heading-sm font-semibold">
+        Route observations
+      </h2>
+      <Notice tone="info" title="Route information unavailable">
+        No execution venue is enabled in this build and no route or pool has been observed for{' '}
+        {symbol}. Observations arrive with backend session B17 and frontend session F09; until then
+        nothing below is estimated.
+      </Notice>
+      <dl className="grid gap-x-6 gap-y-2 text-supporting sm:grid-cols-[auto_minmax(0,1fr)]">
+        {fields.map((field) => (
+          <div key={field.key} className="contents">
+            <dt className="text-text-muted">{field.label}</dt>
+            <dd>Not observed</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 export function MarketDetailView({ instrumentId }: { readonly instrumentId: string }) {
   const { state, platform } = useSession();
   const signedIn = state.status === 'signed-in';
@@ -620,16 +683,10 @@ export function MarketDetailView({ instrumentId }: { readonly instrumentId: stri
           />
         </TabsContent>
         <TabsContent value="research">
-          <EmptyState
-            title="Research arrives with F06"
-            description={`Theses, sources and bounded research runs exist in the backend (B06). The workspace for ${detail.companyName} arrives with frontend session F06; nothing is generated here.`}
-          />
+          <InstrumentResearchTab instrument={detail} returnTo={returnTo} />
         </TabsContent>
         <TabsContent value="liquidity">
-          <EmptyState
-            title="No liquidity evidence yet"
-            description="Route and pool observations arrive with backend session B17 and frontend session F09. Until then no depth, spread or route is shown."
-          />
+          <RouteObservations symbol={detail.symbol} />
         </TabsContent>
         <TabsContent value="instrument">
           <InstrumentTab instrument={detail} cluster={clusterOf(platform)} />

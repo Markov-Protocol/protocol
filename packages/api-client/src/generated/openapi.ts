@@ -10833,10 +10833,15 @@ export type paths = {
             readonly path?: never;
             readonly cookie?: never;
         };
-        /** The signed-in person’s theses, newest first */
+        /**
+         * The signed-in person’s theses, newest first
+         * @description `instrumentId` narrows the list to theses whose current revision references that instrument.
+         */
         readonly get: {
             readonly parameters: {
-                readonly query?: never;
+                readonly query?: {
+                    readonly instrumentId?: string;
+                };
                 readonly header?: never;
                 readonly path?: never;
                 readonly cookie?: never;
@@ -10866,6 +10871,7 @@ export type paths = {
                                 readonly updatedAt: string;
                                 readonly title: string;
                                 readonly claim: string;
+                                readonly instrumentIds: readonly string[];
                             }[];
                         };
                     };

@@ -29,6 +29,8 @@ export API_PORT="$PORT" API_HOST=127.0.0.1 IDENTITY_PROVIDER=test
 export AUTH_SESSION_TTL_SECONDS="${MARKOV_E2E_SESSION_TTL_SECONDS:-3600}"
 # The web server is the only caller and forwards the browser's address.
 export API_TRUST_PROXY=true
+# Deterministic fixture model adapter (refused outside local/test) so research-run journeys can run.
+export RESEARCH_MODEL_PROVIDER=fixture
 # Synthetic stablecoin mint served by the fixture RPC (never a real token).
 export FUNDING_STABLECOIN_MINT=GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9ts
 

@@ -386,7 +386,8 @@ describe.skipIf(adminUrl === null)('identity API', () => {
         url: '/v1/me/api-credentials',
         headers: bearer(alice),
       });
-      expect(JSON.stringify(listed.json())).not.toContain(agentToken.split('_')[3]);
+      // The secret is everything after the class and prefix; base64url may itself contain underscores.
+      expect(JSON.stringify(listed.json())).not.toContain(agentToken.split('_').slice(3).join('_'));
 
       const me = await app.inject({ method: 'GET', url: '/v1/me', headers: bearer(agentToken) });
       expect(me.json().principal).toMatchObject({

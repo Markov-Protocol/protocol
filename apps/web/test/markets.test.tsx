@@ -667,9 +667,9 @@ describe('Market detail', () => {
     expect(screen.getByText('verified')).toBeInTheDocument();
     expect(screen.getByText('1000000 base units')).toBeInTheDocument();
     activateTab('Liquidity');
-    expect(await screen.findByText('No liquidity evidence yet')).toBeInTheDocument();
+    expect(await screen.findByText('Route information unavailable')).toBeInTheDocument();
     activateTab('Research');
-    expect(await screen.findByText('Research arrives with F06')).toBeInTheDocument();
+    expect(await screen.findByText('Sign in to research this exposure')).toBeInTheDocument();
   });
 
   it('refines availability with the person’s capability states and lists lifecycle notices', async () => {
