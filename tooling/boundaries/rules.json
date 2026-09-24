@@ -30,6 +30,9 @@
     },
     "@markov/auth": {
       "allow": ["@markov/contracts"]
+    },
+    "@markov/api-client": {
+      "allow": ["@markov/contracts"]
     }
   },
   "apps": ["@markov/api", "@markov/worker", "@markov/cli", "@markov/web"],
@@ -51,7 +54,9 @@
     "@radix-ui/": ["@markov/ui"],
     "lucide-react": ["@markov/ui", "@markov/web", "@markov/shell"],
     "jose": ["@markov/auth"],
-    "fastify-plugin": ["@markov/api"]
+    "fastify-plugin": ["@markov/api"],
+    "openapi-fetch": ["@markov/api-client"],
+    "@tanstack/": ["@markov/web"]
   },
   "appDeny": {
     "@markov/web": [

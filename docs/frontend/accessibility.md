@@ -25,9 +25,16 @@ numeric fields; tooltips never the only place for units, risk terms or
 errors; touch targets 44 px preferred, never below the WCAG 2.2 24 px
 minimum.
 
+- F03: the sign-in screen passes axe (WCAG 2.0/2.1/2.2 A+AA tags) in
+  Chromium; the subject field is labelled and described through `Field`,
+  the submit explains why it is unavailable instead of hiding, the
+  development issuer is marked *Nonproduction* in text; the expired-session
+  notice and the unavailable-backend notice are polite live regions; the
+  account menu trigger names the account; the verifying home reads as busy.
+
 ## Not yet verified
 
-Skip navigation, live-region strategy for execution status, screen-reader
-journeys through sign-in, allocation editing, review and wallet handoff,
-200% text resize and 400% zoom on real screens, iOS keyboard behaviour.
-These arrive with the shell (F02) and the journeys that own them.
+Live-region strategy for execution status, screen-reader journeys through
+sign-in, allocation editing, review and wallet handoff, 200% text resize
+and 400% zoom on real screens, iOS keyboard behaviour. These arrive with
+the journeys that own them.

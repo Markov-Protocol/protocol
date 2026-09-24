@@ -19,6 +19,8 @@ export const ROUTE_INFO: Readonly<Record<string, RouteInfo>> = {
   '/rankings': { title: 'Rankings', arrivesWith: 'F12', needsBackend: 'B13 and B14' },
   '/automations': { title: 'Automations', arrivesWith: 'F13', needsBackend: 'B16' },
   '/settings': { title: 'Settings', arrivesWith: 'F16', needsBackend: 'B02 and B15' },
+  '/sign-in': { title: 'Sign in', arrivesWith: null, needsBackend: null },
+  '/auth/callback': { title: 'Sign-in callback', arrivesWith: null, needsBackend: null },
   '/status': { title: 'Status', arrivesWith: 'F19', needsBackend: 'B18' },
   '/dev/components': {
     title: 'Component reference (internal)',

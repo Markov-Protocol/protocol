@@ -72,6 +72,13 @@ export const meResponseSchema = z.object({
       createdAt: z.iso.datetime(),
     })
     .nullable(),
+  /** The interactive session behind the call, so a client can schedule expiry recovery; null for credentials. */
+  session: z
+    .object({
+      sessionId: idSchema,
+      expiresAt: z.iso.datetime(),
+    })
+    .nullable(),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
 

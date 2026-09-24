@@ -12,6 +12,8 @@ export interface Principal {
   /** When the person last authenticated with the identity provider; null for non-interactive principals. */
   readonly authTime: Date | null;
   readonly sessionId: string | null;
+  /** Expiry of the interactive session; null for non-session principals. */
+  readonly sessionExpiresAt: Date | null;
   readonly credentialId: string | null;
 }
 

@@ -198,6 +198,7 @@ describe('platform info and errors', () => {
     expect(response.json()).toMatchObject({
       contractSchemaVersion: '1',
       identity: { markovEnv: 'test', solanaCluster: 'devnet', genesisHash: GENESIS },
+      identityProvider: 'test',
       executionWritesEnabled: false,
       capabilities: [{ capability: 'platform.api.health', status: 'IMPLEMENTED' }],
     });

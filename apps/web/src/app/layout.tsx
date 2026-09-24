@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import type { ReactNode } from 'react';
+import { PrivateQueryProvider } from '@/features/auth/private-query-provider';
+import { SessionProvider } from '@/features/auth/session-context';
+import { currentPlatform, currentSession } from '@/server/auth/current';
 import { AppShell } from '@/shell/app-shell';
 import './globals.css';
 
@@ -29,11 +32,25 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { readonly children: ReactNode }) {
+/**
+ * Every request resolves the session and platform facts on the server, so
+ * the first paint already knows who is signed in and whether the backend
+ * answers. Private pages are therefore never statically cached.
+ */
+export default async function RootLayout({ children }: { readonly children: ReactNode }) {
+  const [session, platform] = await Promise.all([currentSession(), currentPlatform()]);
   return (
     <html lang="en" className={inter.variable}>
       <body className="bg-frame text-text antialiased">
-        <AppShell>{children}</AppShell>
+        <SessionProvider
+          initial={session.snapshot}
+          staleCookie={session.staleCookie}
+          platform={platform}
+        >
+          <PrivateQueryProvider>
+            <AppShell>{children}</AppShell>
+          </PrivateQueryProvider>
+        </SessionProvider>
       </body>
     </html>
   );

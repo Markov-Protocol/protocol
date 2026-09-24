@@ -14,6 +14,7 @@
     "packages/markov-shell/**",
     "packages/ui/**",
     "packages/formatters/**",
+    "packages/api-client/**",
     "apps/web/**",
     "**/node_modules/**",
     "**/dist/**"

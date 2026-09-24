@@ -109,6 +109,7 @@ describe('principals', () => {
     scopes: [OWNER_SCOPE],
     authTime: new Date('2026-09-24T10:00:00Z'),
     sessionId: 's1',
+    sessionExpiresAt: null,
     credentialId: null,
   };
   const agent: Principal = {
@@ -118,6 +119,7 @@ describe('principals', () => {
     scopes: ['portfolio:read'],
     authTime: null,
     sessionId: null,
+    sessionExpiresAt: null,
     credentialId: 'c1',
   };
 

@@ -7,8 +7,8 @@ data pipelines, on-chain registry) and, since ADR-0006, the markov.pet web
 application, with a mechanically enforced boundary between them.
 
 Status: backend sessions **B01** (runnable foundation) and **B02** (verified
-accounts) and frontend sessions **F01** (shared design system) and **F02**
-(Mark I shell) are complete. Backend sessions B02 to B18 and
+accounts) and frontend sessions **F01** (shared design system), **F02**
+(Mark I shell) and **F03** (app sessions and account recovery) are complete. Backend sessions B02 to B18 and
 frontend sessions F02 to F20 follow in dependency order; see
 `docs/sessions/` for evidence, `docs/markov/product-scope.md` for the
 release boundaries and `docs/frontend/README.md` for the app. Nothing here
@@ -84,6 +84,7 @@ bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful s
 | Catalog, eligibility, research, strategies, registry, execution, accounting, discovery, agents, maintenance | not started (B03 onward) |
 | Web design system, exact formatters, internal component reference, production guards | implemented, tested (F01) |
 | Mark I shell, companion home, navigation with honest placeholder routes | implemented, tested (F02) |
+| App sessions: server-verified HttpOnly cookie, sign-in, expiry recovery, sign-out, account switch isolation, generated API client | implemented, tested against the local API (F03); hosted identity provider adapter BLOCKED (OD-05) |
 | Product routes (discovery, research, builder, review, portfolio, rankings, automations, settings) | not started (F03 onward, each needing its backend session) |
 
 Capability verification states are recorded in the database and in

@@ -16,6 +16,7 @@ describe('web environment guards', () => {
         internalRoutesEnabled: false,
         fixturesEnabled: false,
         appOrigin: null,
+        apiOrigin: 'http://127.0.0.1:3000',
       },
     });
   });
@@ -40,6 +41,7 @@ describe('web environment guards', () => {
         MARKOV_WEB_INTERNAL_ROUTES: 'true',
         MARKOV_WEB_FIXTURES: 'true',
         NEXT_PUBLIC_APP_ORIGIN: 'https://markov.pet',
+        MARKOV_API_ORIGIN: 'https://api.markov.pet',
       }),
     ).toEqual(['MARKOV_WEB_INTERNAL_ROUTES', 'MARKOV_WEB_FIXTURES']);
     expect(
@@ -47,11 +49,18 @@ describe('web environment guards', () => {
         MARKOV_ENV: 'mainnet-read-only',
         MARKOV_WEB_FIXTURES: 'true',
         NEXT_PUBLIC_APP_ORIGIN: 'https://staging.markov.pet',
+        MARKOV_API_ORIGIN: 'https://api.staging.markov.pet',
       }),
     ).toEqual(['MARKOV_WEB_FIXTURES']);
-    expect(issues({ MARKOV_ENV: 'production' })).toEqual(['NEXT_PUBLIC_APP_ORIGIN']);
     expect(
-      issues({ MARKOV_ENV: 'staging', NEXT_PUBLIC_APP_ORIGIN: 'http://staging.markov.pet' }),
+      issues({ MARKOV_ENV: 'production', MARKOV_API_ORIGIN: 'https://api.markov.pet' }),
+    ).toEqual(['NEXT_PUBLIC_APP_ORIGIN']);
+    expect(
+      issues({
+        MARKOV_ENV: 'staging',
+        NEXT_PUBLIC_APP_ORIGIN: 'http://staging.markov.pet',
+        MARKOV_API_ORIGIN: 'https://api.staging.markov.pet',
+      }),
     ).toEqual(['NEXT_PUBLIC_APP_ORIGIN']);
   });
 
@@ -60,6 +69,23 @@ describe('web environment guards', () => {
     expect(issues({ MARKOV_WEB_FIXTURES: 'yes' })).toEqual(['MARKOV_WEB_FIXTURES']);
     expect(() => validateWebEnv({ MARKOV_ENV: 'production', MARKOV_WEB_FIXTURES: 'true' })).toThrow(
       WebEnvError,
+    );
+  });
+
+  it('requires an explicit https API origin outside local and test', () => {
+    expect(issues({ MARKOV_ENV: 'staging' })).toContain('MARKOV_API_ORIGIN');
+    expect(issues({ MARKOV_ENV: 'staging', MARKOV_API_ORIGIN: 'http://api.internal' })).toContain(
+      'MARKOV_API_ORIGIN',
+    );
+    expect(
+      issues({
+        MARKOV_ENV: 'production',
+        NEXT_PUBLIC_APP_ORIGIN: 'https://markov.pet',
+        MARKOV_API_ORIGIN: 'https://api.markov.pet',
+      }),
+    ).toEqual([]);
+    expect(issues({ MARKOV_ENV: 'local', MARKOV_API_ORIGIN: 'http://127.0.0.1:3000/' })).toContain(
+      'MARKOV_API_ORIGIN',
     );
   });
 });

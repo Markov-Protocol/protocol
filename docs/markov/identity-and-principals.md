@@ -81,8 +81,17 @@ Every session, wallet, credential, device and operator action writes an
 `audit_events` row with the actor class and id, action, target, request id
 and secret-free details. `GET /v1/ops/audit` exposes it to operators.
 
+## App layer (F03)
+
+The web app keeps the session token in a host-only HttpOnly cookie and
+verifies it against `GET /v1/me` on every request; the browser never sees
+the token. Same-origin checks guard its sign-in and sign-out routes, return
+paths are validated local paths, and an account switch revokes the previous
+session through `DELETE /v1/auth/sessions/current`. Details:
+`docs/frontend/security-and-privacy.md`.
+
 ## What is not implemented yet
 
-Cookie sessions and CSRF live in the app layer (F03). Terms and eligibility
-acknowledgements arrive with B05. Account disabling exists as a column but
-has no operator route yet (B18).
+The hosted identity provider's browser adapter (OD-05). Terms and
+eligibility acknowledgements arrive with B05. Account disabling exists as a
+column but has no operator route yet (B18).

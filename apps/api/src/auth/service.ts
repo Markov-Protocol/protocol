@@ -218,6 +218,7 @@ export function createIdentityService(options: IdentityServiceOptions) {
           scopes: [OWNER_SCOPE],
           authTime: session.authTime,
           sessionId: session.id,
+          sessionExpiresAt: session.expiresAt,
           credentialId: null,
         };
       }
@@ -240,6 +241,7 @@ export function createIdentityService(options: IdentityServiceOptions) {
           scopes: credential.scopes,
           authTime: null,
           sessionId: null,
+          sessionExpiresAt: null,
           credentialId: credential.id,
         };
       }
@@ -259,6 +261,7 @@ export function createIdentityService(options: IdentityServiceOptions) {
         scopes: device.capabilities,
         authTime: null,
         sessionId: null,
+        sessionExpiresAt: null,
         credentialId: null,
       };
     },
@@ -296,6 +299,13 @@ export function createIdentityService(options: IdentityServiceOptions) {
               createdAt: user.createdAt.toISOString(),
             }
           : null,
+        session:
+          principal.sessionId && principal.sessionExpiresAt
+            ? {
+                sessionId: principal.sessionId,
+                expiresAt: principal.sessionExpiresAt.toISOString(),
+              }
+            : null,
       };
     },
 

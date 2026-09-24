@@ -10,6 +10,9 @@ const boolFromEnv = z
   .enum(['true', 'false', '1', '0'])
   .transform((value) => value === 'true' || value === '1');
 
+/** Where `pnpm dev:api` listens by default; only local and test may rely on it. */
+export const LOCAL_API_ORIGIN = 'http://127.0.0.1:3000';
+
 export const webEnvSchema = z.object({
   MARKOV_ENV: markovEnvSchema.default('local'),
   /** Internal-only routes such as the component reference. Never in production. */
@@ -18,6 +21,8 @@ export const webEnvSchema = z.object({
   MARKOV_WEB_FIXTURES: boolFromEnv.default(false),
   /** Public origin of this deployment, used for absolute links and callback validation. */
   NEXT_PUBLIC_APP_ORIGIN: z.url().optional(),
+  /** Origin of the Markov API, called only from the server (route handlers, server components). */
+  MARKOV_API_ORIGIN: z.url().optional(),
 });
 
 export interface WebEnv {
@@ -25,6 +30,7 @@ export interface WebEnv {
   readonly internalRoutesEnabled: boolean;
   readonly fixturesEnabled: boolean;
   readonly appOrigin: string | null;
+  readonly apiOrigin: string;
 }
 
 export interface WebEnvIssue {
@@ -62,8 +68,32 @@ export function parseWebEnv(env: Readonly<Record<string, string | undefined>>): 
     internalRoutesEnabled: parsed.data.MARKOV_WEB_INTERNAL_ROUTES,
     fixturesEnabled: parsed.data.MARKOV_WEB_FIXTURES,
     appOrigin: parsed.data.NEXT_PUBLIC_APP_ORIGIN ?? null,
+    apiOrigin: parsed.data.MARKOV_API_ORIGIN ?? LOCAL_API_ORIGIN,
   };
   const issues: WebEnvIssue[] = [];
+  const isDev = value.markovEnv === 'local' || value.markovEnv === 'test';
+  if (!isDev && parsed.data.MARKOV_API_ORIGIN === undefined) {
+    issues.push({
+      path: 'MARKOV_API_ORIGIN',
+      message: `MARKOV_ENV=${value.markovEnv} requires the API origin to be configured explicitly`,
+    });
+  }
+  if (
+    !isDev &&
+    parsed.data.MARKOV_API_ORIGIN !== undefined &&
+    !value.apiOrigin.startsWith('https://')
+  ) {
+    issues.push({
+      path: 'MARKOV_API_ORIGIN',
+      message: 'must be an https origin outside local and test',
+    });
+  }
+  if (value.apiOrigin.replace(/\/+$/, '') !== value.apiOrigin) {
+    issues.push({
+      path: 'MARKOV_API_ORIGIN',
+      message: 'must be an origin without a trailing slash',
+    });
+  }
   if (value.markovEnv === 'production') {
     if (value.internalRoutesEnabled) {
       issues.push({

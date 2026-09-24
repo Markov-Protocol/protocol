@@ -16,7 +16,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ['@markov/ui', '@markov/formatters'],
+  transpilePackages: ['@markov/ui', '@markov/formatters', '@markov/shell', '@markov/api-client'],
   images: { remotePatterns: [] },
   headers: async () => [{ source: '/:path*', headers: securityHeaders }],
 };

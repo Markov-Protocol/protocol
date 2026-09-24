@@ -15,7 +15,8 @@
       "!packages/db/migrations/meta",
       "!docs/markov/openapi.json",
       "!apps/web/next-env.d.ts",
-      "!packages/ui/src/styles/tokens.css"
+      "!packages/ui/src/styles/tokens.css",
+      "!packages/api-client/src/generated"
     ]
   },
   "formatter": {

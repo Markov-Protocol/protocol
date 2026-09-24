@@ -33,6 +33,9 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { AccountMenu } from '@/features/auth/account-menu';
+import { useSession } from '@/features/auth/session-context';
+import { SessionExpiredNotice } from '@/features/auth/session-expired-notice';
 import { routeInfoFor } from './routes';
 
 const primaryItems: readonly NavigationItem[] = [
@@ -100,10 +103,22 @@ function MoreMenu({ variant }: { readonly variant: 'rail' | 'bottom' }) {
   );
 }
 
+function ConnectionStatus() {
+  const { platform } = useSession();
+  if (platform.state === 'unreachable') {
+    return <StatusBadge tone="error">Backend unreachable</StatusBadge>;
+  }
+  return (
+    <StatusBadge tone="success">
+      Connected{platform.solanaCluster ? ` · ${platform.solanaCluster}` : ''}
+    </StatusBadge>
+  );
+}
+
 /**
- * The app-owned composition of the Mark I shell. Session, wallet and
- * connection state are placeholders until F03/F04 provide real ones; each
- * placeholder says so instead of pretending.
+ * The app-owned composition of the Mark I shell. The connection status and
+ * the account control come from the verified session; the wallet state is
+ * still a placeholder until F04 and says so.
  */
 export function AppShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
@@ -124,8 +139,8 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
               <CompanionPresence status="Markov is ready" size="compact" />
             ) : null
           }
-          status={<StatusBadge tone="neutral">No backend connected</StatusBadge>}
-          account={<span className="text-supporting text-text-muted">Not signed in</span>}
+          status={<ConnectionStatus />}
+          account={<AccountMenu />}
         />
       }
       dock={
@@ -138,6 +153,7 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
         </div>
       }
     >
+      <SessionExpiredNotice />
       {children}
     </MarkovShell>
   );

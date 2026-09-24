@@ -61,6 +61,8 @@ export const platformInfoResponseSchema = z.object({
   version: z.string().min(1).max(100),
   contractSchemaVersion: z.literal('1'),
   identity: platformIdentitySchema.nullable(),
+  /** Which identity-provider adapter the API runs: the nonproduction in-process issuer or a hosted OIDC issuer. */
+  identityProvider: z.enum(['test', 'oidc']),
   executionWritesEnabled: z.boolean(),
   capabilities: z.array(capabilityReadinessSchema),
 });

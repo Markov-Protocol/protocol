@@ -325,6 +325,7 @@ export async function buildApp(deps: AppDependencies) {
                 solanaCluster: identity.solanaCluster,
                 genesisHash: identity.genesisHash,
               },
+        identityProvider: config.identity.provider,
         executionWritesEnabled: config.execution.writesEnabled,
         capabilities,
       };

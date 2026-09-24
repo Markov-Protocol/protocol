@@ -62,13 +62,16 @@ Example readiness response (abridged):
 }
 ```
 
+`GET /v1/platform` additionally reports `identityProvider` (`test` or
+`oidc`, F03) so the app can offer exactly the sign-in path the backend runs.
+
 ## Endpoints (B02)
 
 | Method | Path                                   | Principal            | Purpose |
 | ------ | -------------------------------------- | -------------------- | ------- |
 | POST   | /v1/auth/sessions                      | anonymous            | Exchange an identity token for a session (token returned once) |
 | DELETE | /v1/auth/sessions/current              | user                 | Sign out |
-| GET    | /v1/me                                 | user, agent          | Principal and account summary, including step-up freshness |
+| GET    | /v1/me                                 | user, agent          | Principal and account summary, step-up freshness and, for sessions, `session.expiresAt` (F03) |
 | POST   | /v1/me/wallets/challenges              | user (fresh)         | Start wallet ownership verification |
 | POST   | /v1/me/wallets                         | user (fresh)         | Link a wallet with the signed challenge |
 | GET    | /v1/me/wallets                         | user, agent `portfolio:read` | List verified wallets |
