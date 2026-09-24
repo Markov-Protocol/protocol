@@ -30,6 +30,7 @@ import {
   createRetriever,
   type FundingService,
   type MarkovApi,
+  type WatchlistService,
 } from '../src/index.js';
 import { fakeTransport } from './support/fake-transport.js';
 import { GENESIS, prestocksFixtureRpcFetch } from './support/fixture-rpc.js';
@@ -51,6 +52,11 @@ interface Harness {
 const unavailableFunding = new Proxy({} as FundingService, {
   get: () => () => {
     throw new Error('funding service is not part of this test');
+  },
+});
+const unavailableWatchlists = new Proxy({} as WatchlistService, {
+  get: () => () => {
+    throw new Error('watchlist service is not part of this test');
   },
 });
 
@@ -165,6 +171,7 @@ async function withHarness(
         policy: createPolicyService({ config, db: client.db, catalog }),
         funding: unavailableFunding,
         research,
+        watchlists: unavailableWatchlists,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();

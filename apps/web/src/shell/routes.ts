@@ -12,7 +12,8 @@ export interface RouteInfo {
 
 export const ROUTE_INFO: Readonly<Record<string, RouteInfo>> = {
   '/': { title: 'Home', arrivesWith: null, needsBackend: null },
-  '/explore': { title: 'Explore', arrivesWith: 'F05 and F12', needsBackend: 'B03 to B05 and B14' },
+  '/explore': { title: 'Explore', arrivesWith: null, needsBackend: null },
+  '/markets': { title: 'Market', arrivesWith: null, needsBackend: null },
   '/strategies/new': { title: 'Build a strategy', arrivesWith: 'F07', needsBackend: 'B07' },
   '/portfolio': { title: 'Portfolio', arrivesWith: 'F11', needsBackend: 'B12 and B13' },
   '/activity': { title: 'Activity', arrivesWith: 'F10', needsBackend: 'B10 to B12' },

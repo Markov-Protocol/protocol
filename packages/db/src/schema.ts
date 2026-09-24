@@ -41,6 +41,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -755,5 +756,36 @@ export const researchRuns = pgTable(
     index('research_runs_owner_idx').on(table.ownerUserId, table.createdAt),
     index('research_runs_thesis_idx').on(table.thesisId, table.createdAt),
     enumCheck('research_runs_status_check', table.status, RUN_STATUSES),
+  ],
+);
+
+/* -------------------------------------------------------------------------
+ * Watchlists (F05): one versioned list per person; items reference catalog
+ * instruments and stay visible whatever the instrument's later status.
+ * ------------------------------------------------------------------------- */
+
+export const watchlists = pgTable('watchlists', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  version: integer('version').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }),
+});
+
+export const watchlistItems = pgTable(
+  'watchlist_items',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id, { onDelete: 'cascade' }),
+    note: text('note'),
+    addedAt: timestamp('added_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.instrumentId] }),
+    index('watchlist_items_user_idx').on(table.userId, table.addedAt),
   ],
 );

@@ -10,8 +10,10 @@ the target; only the rows marked *implemented* exist.
 | `/auth/callback`  | Provider redirect target with explicit cancelled, failed, unsupported and empty outcomes | public | implemented (F03) |
 | `/api/auth/session`, `/api/auth/sign-in`, `/api/auth/sign-out` | Same-origin session routes (`Cache-Control: no-store`); mutations require a same-origin browser request with a JSON body | app server only | implemented (F03) |
 | `/dev/components` | Internal component reference inside the shell | internal; `MARKOV_WEB_INTERNAL_ROUTES=true`; refused in production | implemented |
-| `/explore`, `/strategies/new`, `/portfolio`, `/activity`, `/rankings`, `/automations`, `/settings`, `/status` | navigation targets | public shell | honest unavailable pages naming the delivering session (F02); real features arrive with F05 onward |
-| `/markets/[instrumentId]`, `/research/*`, `/strategies/[strategyId]/*`, `/portfolio/[instanceId]`, `/review/[intentId]`, `/activity/[intentId]`, `/receipts/[receiptId]`, `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
+| `/explore` | Instruments tab over admitted and paused instruments (search, category, issuer collections, bounded pagination, watchlist toggles), Watchlist tab (account-scoped), Strategies tab (arrives with F12); filter and tab state in the URL (`q`, `issuer`, `kind`, `tab`, validated values only) | public; watchlist authenticated | implemented (F05) |
+| `/markets/[instrumentId]` | Exact-id instrument page: Overview, Research (F06), Liquidity (F09/B17), Instrument tabs; save control; public availability refined by the person's capability states when signed in | public where the instrument is admitted or paused; personal states authenticated | implemented (F05) |
+| `/strategies/new`, `/portfolio`, `/activity`, `/rankings`, `/automations`, `/status` | navigation targets | public shell | honest unavailable pages naming the delivering session (F02); real features arrive with F07 onward |
+| `/research/*`, `/strategies/[strategyId]/*`, `/portfolio/[instanceId]`, `/review/[intentId]`, `/activity/[intentId]`, `/receipts/[receiptId]`, other `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
 
 ## Session journeys (F03)
 
@@ -93,3 +95,42 @@ Rules that already apply:
   route; anything else falls back to `/`.
 - All routes render dynamically because the root layout reads the session
   cookie; nothing private is ever served from a static or shared cache.
+
+## Session journeys (F05)
+
+- **Browse.** `/explore` lists instruments the backend admitted (or paused)
+  after mint verification, in symbol order, 25 per page with a cursor and
+  a cap of 8 pages before asking for a narrower search. Each row names the
+  company, the issuer (badge) and the network, the category (listed stock
+  with its underlying ticker, or pre-IPO exposure), the backend-typed
+  reference price with its kind and age (stale flagged, missing shown as
+  "Unpriced"), the availability summary with reasons, and when the catalog
+  last changed it from the issuer's feed. Two exposures to one company are
+  told apart by issuer badge, symbol and category.
+- **Search and filter.** Search is debounced (300 ms) and matches company,
+  name or symbol prefix; the PreStocks collection and the xStocks filter
+  set the issuer; the category select distinguishes listed stocks from
+  pre-IPO exposures. Only validated values reach the URL and the API; a
+  late answer to an older search lands in its own cache entry and never
+  replaces newer results (the previous list stays visible, marked as
+  updating, until the new one arrives).
+- **Open an instrument.** Rows link to `/markets/<instrumentId>` (the
+  canonical Markov id, never a ticker). Overview shows what the token is
+  (issuer exposure, not shares, no implied relationship with the company),
+  the issuer's sanitised description with its source and the catalog
+  update time, the reference price basis, "History unavailable" instead of
+  a chart, what the person can do now (public availability, refined by B05
+  capability states after sign-in, with every reason), lifecycle notices
+  (halt, migration, sunset, pending actions, pause) and corporate actions.
+  Instrument shows the mint (copy, explorer link on public clusters),
+  program, decimals, genesis, verification evidence, extension policy and
+  multiplier evidence. Research and Liquidity say which session brings
+  them. An unknown or unadmitted id answers "No admitted instrument with
+  that id".
+- **Save.** Anonymous people see "Sign in to save", which returns to the
+  same page. Signed in, Save adds the instrument to the account's
+  watchlist with the list version; the Watchlist tab lists saved
+  instruments with their current status (a delisted one stays visible as
+  delisted), and Remove takes it off. A list edited on another device is
+  detected (`IDEMPOTENCY_CONFLICT`), refreshed and the person is asked to
+  try again; nothing is overwritten silently.

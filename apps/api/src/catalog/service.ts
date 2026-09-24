@@ -145,6 +145,8 @@ export interface CatalogService {
   ): Promise<CorporateActionIngestionReport>;
   listPublic(query: ListQuery): Promise<InstrumentListResponse>;
   getPublic(instrumentId: string): Promise<InstrumentDetail>;
+  /** Public projection of given catalog rows whatever their status (watchlists show delisted items as delisted). */
+  projectInstruments(rows: readonly InstrumentRow[]): Promise<Instrument[]>;
   listForOperator(query: ListQuery): Promise<InstrumentListResponse>;
   getForOperator(instrumentId: string): Promise<InstrumentDetail>;
   verifyMint(
@@ -764,6 +766,14 @@ export function createCatalogService(deps: CatalogServiceDeps): CatalogService {
 
     listPublic(query) {
       return listWith(query, PUBLIC_STATUSES);
+    },
+
+    async projectInstruments(rows) {
+      const at = now();
+      const lifecycles = await lifecyclesFor(rows, at);
+      return rows.map((row) =>
+        toInstrument(row, lifecycles.get(row.id) as InstrumentLifecycle, at),
+      );
     },
 
     async getPublic(instrumentId) {

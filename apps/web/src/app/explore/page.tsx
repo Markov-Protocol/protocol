@@ -1,8 +1,14 @@
 import type { Metadata } from 'next';
-import { FeatureUnavailable } from '@/features/home/feature-unavailable';
+import { Suspense } from 'react';
+import { ExploreView } from '@/features/markets/explore-view';
 
 export const metadata: Metadata = { title: 'Explore' };
+export const dynamic = 'force-dynamic';
 
 export default function Page() {
-  return <FeatureUnavailable pathname="/explore" />;
+  return (
+    <Suspense fallback={null}>
+      <ExploreView />
+    </Suspense>
+  );
 }

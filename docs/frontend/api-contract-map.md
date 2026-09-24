@@ -21,13 +21,20 @@ against the document by `packages/api-client/test/compatibility.test.ts`.
 | Unlink (confirm dialog, step-up) | `DELETE /v1/me/wallets/{walletId}` | B02 | `STEP_UP_REQUIRED` → "sign in again"; `NOT_FOUND` | IMPLEMENTED, e2e-adjacent (dialog covered in jsdom) |
 | Receive and funding panel | `GET /v1/me/wallets/{walletId}/funding` (added in F04) | B02/B01 RPC reads | `PROVIDER_UNAVAILABLE` → "Balances unknown right now" (never zero); `NOT_FOUND` for foreign wallets | IMPLEMENTED, FIXTURE_VERIFIED against the fixture RPC; live cluster reads not yet verified |
 | Eligibility page and home checklist | `GET /v1/me/eligibility`, `POST /v1/me/eligibility/declarations`, `GET /v1/terms/current`, `POST /v1/me/terms/acknowledgements` | B05 | `VALIDATION_FAILED` (hash mismatch, bad code), `RATE_LIMITED`; unknown outcome shown as unknown | IMPLEMENTED, FIXTURE_VERIFIED, e2e with the fixture rule set (F04) |
+| Explore: Instruments tab (`GET /api/markov/v1/catalog/instruments?q&issuer&kind&limit&cursor`) | `GET /v1/catalog/instruments` | B03/B04 | `VALIDATION_FAILED`, `RATE_LIMITED`, `PROVIDER_UNAVAILABLE` and unreachable → error block with retry; contract mismatch → "unexpected shape", never an empty catalog | IMPLEMENTED, FIXTURE_VERIFIED (proxy and jsdom), e2e against the local API with admitted fixture instruments (F05) |
+| Market detail: identity, price, verification, lifecycle, availability | `GET /v1/catalog/instruments/{instrumentId}` | B03/B04 | `NOT_FOUND` → "No admitted instrument with that id"; unreachable → error block | IMPLEMENTED, FIXTURE_VERIFIED, e2e (F05) |
+| Market detail: corporate actions and multiplier history | `GET /v1/catalog/instruments/{instrumentId}/corporate-actions`, `…/multipliers` | B04 | `NOT_FOUND`; a failed read leaves the section out rather than inventing history | IMPLEMENTED, FIXTURE_VERIFIED (F05) |
+| Market detail: what you can do now (signed in) | `GET /v1/me/instruments/{instrumentId}/availability` | B05 | `AUTH_REQUIRED` → session revalidated; a failed read keeps the public availability and says so | IMPLEMENTED, FIXTURE_VERIFIED, e2e (F05) |
+| Watchlist tab and Save controls | `GET /v1/me/watchlist`, `PUT /v1/me/watchlist/items/{instrumentId}`, `DELETE /v1/me/watchlist/items/{instrumentId}?ifVersion=` (added in F05) | F05 backend addition | `IDEMPOTENCY_CONFLICT` → refreshed with "changed on another device"; `ASSET_NOT_ADMITTED`; `NOT_FOUND`; `AUTH_REQUIRED` | IMPLEMENTED, FIXTURE_VERIFIED (API, proxy, jsdom), e2e (F05) |
 | Component reference | none (fixture data, internal route) | n/a | n/a | IMPLEMENTED |
 | Formatters (`@markov/formatters`) | consume `TypedPrice`, raw amounts, basis points from `@markov/contracts` | contracts | n/a | FIXTURE_VERIFIED |
 
-Contract additions proposed by the frontend prompt and not yet present in the
-backend (capability bootstrap, watchlists, preferences, notification read
-status, stream configuration, privacy export/deletion, device status,
-simulation reports) are tracked as contract gaps in the session that first
+Watchlists were added to the backend in F05 as a versioned owner-scoped
+contract (`docs/markov/api.md`). The other contract additions proposed by
+the frontend prompt and not yet present in the backend (capability
+bootstrap, preferences, notification read status, stream configuration,
+privacy export/deletion, device status, simulation reports) are tracked as
+contract gaps in the session that first
 needs them; none is assumed to exist. F03 added two fields to existing
 contracts in the backend's own architecture (`identityProvider` on
 `/v1/platform`, `session` on `/v1/me`), regenerated the OpenAPI document and

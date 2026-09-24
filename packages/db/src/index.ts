@@ -14,3 +14,4 @@ export * from './migrate.js';
 export * from './policy-store.js';
 export * from './research-store.js';
 export * as schema from './schema.js';
+export * from './watchlist-store.js';

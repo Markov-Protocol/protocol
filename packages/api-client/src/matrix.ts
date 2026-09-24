@@ -1,8 +1,12 @@
 import {
+  corporateActionListResponseSchema,
   errorResponseSchema,
+  instrumentDetailSchema,
+  instrumentListResponseSchema,
   meResponseSchema,
   platformInfoResponseSchema,
   sessionResponseSchema,
+  watchlistSchema,
 } from '@markov/contracts';
 import type { ZodType } from 'zod';
 
@@ -57,6 +61,54 @@ export const CONTRACT_MATRIX: readonly ContractMatrixEntry[] = [
     status: 204,
     responseSchema: null,
     handledErrors: ['AUTH_REQUIRED'],
+  },
+  {
+    consumer: 'Explore: instruments tab (search, filters, bounded pagination)',
+    method: 'get',
+    path: '/v1/catalog/instruments',
+    status: 200,
+    responseSchema: instrumentListResponseSchema,
+    handledErrors: ['VALIDATION_FAILED', 'RATE_LIMITED', 'PROVIDER_UNAVAILABLE'],
+  },
+  {
+    consumer: 'Market detail: identity, price, verification, lifecycle, availability',
+    method: 'get',
+    path: '/v1/catalog/instruments/{instrumentId}',
+    status: 200,
+    responseSchema: instrumentDetailSchema,
+    handledErrors: ['NOT_FOUND'],
+  },
+  {
+    consumer: 'Market detail: lifecycle notices',
+    method: 'get',
+    path: '/v1/catalog/instruments/{instrumentId}/corporate-actions',
+    status: 200,
+    responseSchema: corporateActionListResponseSchema,
+    handledErrors: ['NOT_FOUND'],
+  },
+  {
+    consumer: 'Explore: watchlist tab and saved toggles',
+    method: 'get',
+    path: '/v1/me/watchlist',
+    status: 200,
+    responseSchema: watchlistSchema,
+    handledErrors: ['AUTH_REQUIRED'],
+  },
+  {
+    consumer: 'Save an instrument',
+    method: 'put',
+    path: '/v1/me/watchlist/items/{instrumentId}',
+    status: 200,
+    responseSchema: watchlistSchema,
+    handledErrors: ['ASSET_NOT_ADMITTED', 'IDEMPOTENCY_CONFLICT', 'NOT_FOUND', 'AUTH_REQUIRED'],
+  },
+  {
+    consumer: 'Remove a saved instrument',
+    method: 'delete',
+    path: '/v1/me/watchlist/items/{instrumentId}',
+    status: 200,
+    responseSchema: watchlistSchema,
+    handledErrors: ['IDEMPOTENCY_CONFLICT', 'AUTH_REQUIRED'],
   },
 ];
 

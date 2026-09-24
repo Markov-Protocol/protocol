@@ -93,6 +93,31 @@ and its own server-side exchange.
   a wallet that refuses a silent connect stays disconnected, and a session
   change disconnects regardless.
 
+## Discovery and watchlists (F05)
+
+- Public catalog reads go through the same `/api/markov/*` allowlist as
+  private calls, anonymously and with a bounded query string: at most 8
+  plain keys and 512 characters, values re-encoded, control characters
+  refused; routes that take no query refuse any. The API decides what is
+  public (admitted and paused instruments only); the app never widens it.
+- Provider text (names, descriptions) is data: it is rendered as text
+  through React, never as HTML, and the app draws a monogram instead of
+  fetching issuer images. Issuer links open with `rel="noreferrer noopener"`
+  and only when they are https.
+- Filter and tab state in the URL is validated on the way in (`issuer` and
+  `kind` against the contract enums, `q` trimmed to 60 characters, `tab`
+  against the known tabs) and serialised on the way out; nothing else from
+  the URL is forwarded or rendered.
+- The watchlist is account-scoped on the server (owner-scoped tables,
+  another person's list is never reachable) and versioned; the app sends
+  the version it last saw and shows a conflict instead of overwriting a
+  list edited on another device. Nothing about it is kept in browser
+  storage. Saving an instrument implies nothing about eligibility,
+  execution or advice, and unadmitted instruments cannot be saved.
+- The market page reaches the person's capability states only when signed
+  in and never suggests switching issuer or restating residence to change a
+  decision.
+
 ## Planned (with the sessions that own them)
 
 Full CSP with exact identity/wallet allowances and report-only rollout,

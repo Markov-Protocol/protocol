@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseWebEnv } from '../../src/config/web-env';
-import { apiPathFrom, matchRoute } from '../../src/server/proxy/allowlist';
+import { apiPathFrom, matchRoute, safeQuery } from '../../src/server/proxy/allowlist';
 import { handleProxy, type ProxyDeps } from '../../src/server/proxy/handler';
 
 const APP = 'http://127.0.0.1:3100';
@@ -92,6 +92,37 @@ describe('proxy allowlist', () => {
     expect(apiPathFrom(['v1', 'me%2Fwallets'])).toBeNull();
     expect(apiPathFrom([])).toBeNull();
   });
+
+  it('allows the public catalog reads and the watchlist operations added in F05', () => {
+    expect(matchRoute('GET', '/v1/catalog/instruments')).toMatchObject({
+      public: true,
+      query: true,
+    });
+    expect(matchRoute('GET', `/v1/catalog/instruments/${WALLET}`)?.public).toBe(true);
+    expect(matchRoute('GET', `/v1/catalog/instruments/${WALLET}/corporate-actions`)?.public).toBe(
+      true,
+    );
+    expect(matchRoute('GET', `/v1/catalog/instruments/${WALLET}/multipliers`)?.public).toBe(true);
+    expect(matchRoute('GET', `/v1/catalog/instruments/${WALLET}/quantities`)).toBeNull();
+    expect(matchRoute('GET', '/v1/ops/catalog/instruments')).toBeNull();
+    expect(matchRoute('GET', '/v1/me/watchlist')?.public).toBeUndefined();
+    expect(matchRoute('PUT', `/v1/me/watchlist/items/${WALLET}`)).not.toBeNull();
+    expect(matchRoute('DELETE', `/v1/me/watchlist/items/${WALLET}`)?.query).toBe(true);
+    expect(matchRoute('POST', `/v1/me/watchlist/items/${WALLET}`)).toBeNull();
+  });
+
+  it('re-encodes a bounded query string and refuses the rest', () => {
+    expect(safeQuery('')).toBe('');
+    expect(safeQuery('?q=Fixture%20Aero&issuer=prestocks&limit=25')).toBe(
+      '?q=Fixture+Aero&issuer=prestocks&limit=25',
+    );
+    expect(safeQuery('?q=a%3Cscript%3E')).toBe('?q=a%3Cscript%3E');
+    expect(safeQuery('?q=%00')).toBeNull();
+    expect(safeQuery('?bad-key=1')).toBeNull();
+    expect(safeQuery(`?q=${'a'.repeat(201)}`)).toBeNull();
+    expect(safeQuery(`?${Array.from({ length: 9 }, (_, i) => `k${i}=1`).join('&')}`)).toBeNull();
+    expect(safeQuery(`?q=${'a'.repeat(600)}`)).toBeNull();
+  });
 });
 
 describe('proxy handler', () => {
@@ -118,6 +149,37 @@ describe('proxy handler', () => {
     expect(call?.headers.get('authorization')).toBe(`Bearer mkv_ss_abcdefgh_${'A'.repeat(43)}`);
     expect(call?.headers.get('x-forwarded-for')).toBe('10.1.2.3');
     expect(call?.headers.get('cookie')).toBeNull();
+  });
+
+  it('forwards a public catalog search anonymously with its query and refuses queries elsewhere', async () => {
+    const api = upstream(() => Response.json({ instruments: [], nextCursor: null }));
+    const response = await handleProxy(
+      request('GET', '/v1/catalog/instruments?q=Fixture%20Aero&issuer=prestocks&x=%3Cb%3E'),
+      segments('/v1/catalog/instruments'),
+      api.deps,
+    );
+    expect(response.status).toBe(200);
+    expect(api.calls[0]?.url).toBe(
+      `${API}/v1/catalog/instruments?q=Fixture+Aero&issuer=prestocks&x=%3Cb%3E`,
+    );
+    expect(api.calls[0]?.headers.get('authorization')).toBeNull();
+    const refused = await handleProxy(
+      request('GET', '/v1/me/wallets?debug=1', { cookie: COOKIE }),
+      segments('/v1/me/wallets'),
+      api.deps,
+    );
+    expect(refused.status).toBe(400);
+    expect(api.calls).toHaveLength(1);
+    const tooMany = await handleProxy(
+      request(
+        'GET',
+        `/v1/catalog/instruments?${Array.from({ length: 9 }, (_, i) => `k${i}=1`).join('&')}`,
+      ),
+      segments('/v1/catalog/instruments'),
+      api.deps,
+    );
+    expect(tooMany.status).toBe(400);
+    expect(api.calls).toHaveLength(1);
   });
 
   it('answers 404 for anything outside the allowlist before touching the session', async () => {

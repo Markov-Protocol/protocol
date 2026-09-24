@@ -11,7 +11,8 @@ accounts), **B03** (admitted PreStocks catalog, fixture-verified) and
 **B04** (xStocks quantities and lifecycle events, fixture-verified),
 **B05** (eligibility, terms, limits and deterministic policy decisions),
 **B06** (sourced research, safe retrieval and bounded model runs),
-**F04** (verified wallet and trading readiness flows) and
+**F04** (verified wallet and trading readiness flows),
+**F05** (issuer-aware discovery and watchlists) and
 frontend sessions **F01** (shared design system), **F02** (Mark I shell) and
 **F03** (app sessions and account recovery) are complete. Backend sessions B02 to B18 and
 frontend sessions F02 to F20 follow in dependency order; see
@@ -97,7 +98,8 @@ bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful s
 | Mark I shell, companion home, navigation with honest placeholder routes | implemented, tested (F02) |
 | App sessions: server-verified HttpOnly cookie, sign-in, expiry recovery, sign-out, account switch isolation, generated API client | implemented, tested against the local API (F03); hosted identity provider adapter BLOCKED (OD-05) |
 | Wallet readiness: Wallet Standard discovery with capability checks, explicit selection, ownership verification through the B02 challenge, network checks, unlink, receive/funding with observed balances, eligibility and terms screens, live home checklist | implemented, tested (F04) with an injected fixture wallet; real wallets, hosted embedded wallet (OD-05) and live cluster reads not verified |
-| Product routes (discovery, research, builder, review, portfolio, rankings, automations) | not started (F05 onward, each needing its backend session) |
+| Discovery: Explore instruments over real admitted instruments with issuer identity, typed prices, availability and source timestamps; exact-id market pages with verification and lifecycle evidence; account-scoped versioned watchlists | implemented, tested (F05) with fixture instruments against the local API; live issuer feeds BLOCKED (OD-17, OD-18) |
+| Product routes (research, builder, review, portfolio, rankings, automations) | not started (F06 onward, each needing its backend session) |
 
 Capability verification states are recorded in the database and in
 `docs/markov/provider-capabilities.md`.

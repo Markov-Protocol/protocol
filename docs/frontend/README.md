@@ -8,8 +8,10 @@ delivered the one authentication and session experience (server-verified
 HttpOnly session cookie, sign-in, expiry recovery, sign-out, account switch
 isolation) and the generated API client; session **F04** delivered wallet
 selection and ownership verification, receive/funding status, eligibility
-and terms screens and the live readiness checklist. Nothing in this app is
-deployed.
+and terms screens and the live readiness checklist; session **F05**
+delivered Explore's Instruments tab over real backend-admitted
+instruments, the exact-id market detail page and account-scoped
+watchlists. Nothing in this app is deployed.
 
 ## Install, run, build
 
@@ -59,7 +61,10 @@ combination at build time (`next.config.ts`) and at server start
 | Wallets: Wallet Standard discovery and capability checks, explicit selection and account choice, network check, ownership verification through the B02 challenge with replay/already-linked/stale-sign-in/altered-signature/context-change outcomes, unlink, disconnect vs sign out, wallet chip in the top bar | F04 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), verified in Playwright with an injected fixture wallet against the local API; real browser wallets and the hosted embedded wallet (OD-05) not verified |
 | Receive and funding: own address with copy and QR, cluster and stablecoin mint, observed SOL/stablecoin balances, fee requirement with basis, unknown shown as unknown | F04 | IMPLEMENTED, FIXTURE_VERIFIED against the fixture RPC; live cluster reads not verified |
 | Eligibility and terms screens, live home checklist, settings index, app-owned API proxy (`/api/markov/*`) | F04 | IMPLEMENTED, FIXTURE_VERIFIED, e2e with the fixture rule set (B05) |
-| Discovery, research, builder, publishing, review, execution, portfolio, rankings, maintenance, companion, other settings | F05 onward | not started; each needs its backend session |
+| Explore Instruments tab: search, category and issuer filters kept in the URL, PreStocks collection and xStocks filter, bounded cursor pagination, Company · Issuer · Network identity, backend-typed reference prices with stale and unpriced states, availability with reasons, catalog source timestamps, late-response guard | F05 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e against the local API with admitted fixture instruments; live issuer feeds BLOCKED (OD-17, OD-18) |
+| Market detail `/markets/[instrumentId]`: Overview (sanitised issuer description with source, what the token is, reference price basis, what you can do now with public and personal capability states, lifecycle notices and corporate actions, "History unavailable"), Research and Liquidity placeholders naming their sessions, Instrument (mint with copy and explorer link, program, decimals, verification evidence, extension policy, multiplier evidence) | F05 | IMPLEMENTED, FIXTURE_VERIFIED, e2e |
+| Watchlists: versioned owner-scoped contract (`GET /v1/me/watchlist`, `PUT`/`DELETE …/items/{instrumentId}`), save from rows and detail, Watchlist tab with current statuses (delisted stays visible), conflict detection across devices, sign-in prompt for anonymous browsing | F05 | IMPLEMENTED, FIXTURE_VERIFIED (API, proxy, jsdom), e2e |
+| Research, builder, publishing, review, execution, portfolio, rankings, maintenance, companion, other settings | F06 onward | not started; each needs its backend session |
 
 ## Backend prerequisites
 
@@ -67,6 +72,10 @@ F01 depends only on B01 (`@markov/contracts`, workspace conventions). F03
 uses B02 (`/v1/auth/sessions`, `/v1/me`, `/v1/auth/sessions/current`) and
 `/v1/platform`; F04 uses B02 wallet routes, B05 eligibility and terms routes
 and the funding read added in F04 (`/v1/me/wallets/{walletId}/funding`);
-later sessions require later backend sessions. The app never reads provider
+F05 uses the public catalog reads of B03/B04 (`/v1/catalog/instruments`,
+`…/{instrumentId}`, `…/corporate-actions`, `…/multipliers`), the B05
+capability states (`/v1/me/instruments/{instrumentId}/availability`) and
+the watchlist contract added in F05 (`/v1/me/watchlist`); later sessions
+require later backend sessions. The app never reads provider
 endpoints directly and the browser never calls the API: private calls go
 through the app's own `/api/markov/*` allowlist.

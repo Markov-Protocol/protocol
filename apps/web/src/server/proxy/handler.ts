@@ -1,7 +1,7 @@
 import type { WebEnv } from '../../config/web-env';
 import { readSessionCookie, sessionCookiePolicy } from '../auth/cookies';
 import { checkSameOrigin, isJsonRequest } from '../auth/origin';
-import { apiPathFrom, matchRoute } from './allowlist';
+import { apiPathFrom, matchRoute, safeQuery } from './allowlist';
 
 export interface ProxyDeps {
   readonly env: WebEnv;
@@ -36,6 +36,11 @@ export async function handleProxy(
   const route = path === null ? null : matchRoute(request.method, path);
   if (path === null || route === null) {
     return envelope(404, 'NOT_FOUND', 'no such operation');
+  }
+  const search = new URL(request.url).search;
+  const query = route.query ? safeQuery(search) : search === '' ? '' : null;
+  if (query === null) {
+    return envelope(400, 'VALIDATION_FAILED', 'unacceptable query string');
   }
   const mutation = request.method !== 'GET';
   if (mutation) {
@@ -85,7 +90,7 @@ export async function handleProxy(
   let upstream: Response;
   try {
     upstream = await deps.fetch(
-      new Request(`${deps.env.apiOrigin}${path}`, {
+      new Request(`${deps.env.apiOrigin}${path}${query}`, {
         method: request.method,
         headers,
         ...(body !== null ? { body } : {}),

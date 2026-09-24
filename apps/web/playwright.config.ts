@@ -8,6 +8,8 @@ import { defineConfig, devices } from '@playwright/test';
 /** Port of the API the auth journeys run against; `scripts/dev/web-e2e-api.sh` listens here. */
 export const E2E_API_PORT = 3900;
 export const E2E_API_ORIGIN = `http://127.0.0.1:${E2E_API_PORT}`;
+/** Fixture RPC control port; its `/fixture/ready` flag says the API is migrated, bound and seeded. */
+export const E2E_RPC_PORT = Number(process.env['MARKOV_E2E_RPC_PORT'] ?? '3901');
 
 export default defineConfig({
   testDir: './e2e',
@@ -38,10 +40,14 @@ export default defineConfig({
             ? [
                 {
                   command: 'bash ../../scripts/dev/web-e2e-api.sh',
-                  url: `${E2E_API_ORIGIN}/healthz`,
+                  // Not /healthz: the catalog seeding runs after the API is healthy.
+                  url: `http://127.0.0.1:${E2E_RPC_PORT}/fixture/ready`,
                   reuseExistingServer: false,
                   timeout: 90_000,
-                  env: { MARKOV_E2E_API_PORT: String(E2E_API_PORT) },
+                  env: {
+                    MARKOV_E2E_API_PORT: String(E2E_API_PORT),
+                    MARKOV_E2E_RPC_PORT: String(E2E_RPC_PORT),
+                  },
                 },
               ]
             : []),

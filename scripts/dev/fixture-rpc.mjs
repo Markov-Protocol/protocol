@@ -133,6 +133,7 @@ for (const file of [
   }
 }
 
+let ready = false;
 http
   .createServer((req, res) => {
     let body = '';
@@ -140,6 +141,16 @@ http
       body += chunk;
     });
     req.on('end', () => {
+      // Readiness flag the e2e API script raises once the catalog is seeded; Playwright waits on it.
+      if (req.url === '/fixture/ready') {
+        if (req.method === 'POST') {
+          ready = true;
+        }
+        res.statusCode = ready ? 200 : 503;
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ ready }));
+        return;
+      }
       if (req.method === 'POST' && req.url === '/fixture/funding') {
         try {
           const entry = JSON.parse(body || '{}');

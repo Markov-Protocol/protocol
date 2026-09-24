@@ -48,6 +48,8 @@ not claimed here.
 | Unsupported claims presented as facts (backing, rights, fees, redemption without issuer or legal evidence; facts without sources; inferences without provenance) | Typed statements with citation rules; evidence-role rule for backing/rights/fees/redemption; run id required for inferences and checked against succeeded runs; blocked or failed sources cannot be cited; content hash over public content | research rules tests, research API journey |
 | Private notes or the owner leaking through the public projection | Projection built from an explicit allowlist of fields; private notes excluded from the hash and the projection; owner id omitted; archived or private theses answer 404 | research API test asserts the projection body contains neither |
 | Research writes by read-only agents or publishing by any agent | `research:read` vs `research:write` scopes; visibility and archiving are user-only | research API scope tests |
+| Cross-account watchlists or a list overwritten from another device | Owner-scoped tables and store; every write locks the person's list head and compares `ifVersion`; conflicts answer 409 with the current version | `apps/api/test/watchlists.test.ts` |
+| Query-string smuggling through the app's API proxy (public catalog reads) | Only allowlisted routes accept a query; at most 8 plain keys and 512 characters, values re-encoded, control characters refused; the API validates semantics | `apps/web/test/server/proxy.test.ts` |
 
 ## Residual risks after B01
 

@@ -24,6 +24,7 @@ import {
   type FundingService,
   type MarkovApi,
   type ResearchService,
+  type WatchlistService,
 } from '../src/index.js';
 import { GENESIS, prestocksFixtureRpcFetch } from './support/fixture-rpc.js';
 
@@ -116,6 +117,7 @@ async function withHarness(
         policy,
         funding: unavailableFunding,
         research: unavailableResearch,
+        watchlists: unavailableWatchlists,
         mintTestToken: (input) =>
           issuer.mint({
             subject: input.subject,
@@ -209,6 +211,11 @@ const unavailableFunding = new Proxy({} as FundingService, {
 const unavailableResearch = new Proxy({} as ResearchService, {
   get: () => () => {
     throw new Error('research service is not part of this test');
+  },
+});
+const unavailableWatchlists = new Proxy({} as WatchlistService, {
+  get: () => () => {
+    throw new Error('watchlist service is not part of this test');
   },
 });
 

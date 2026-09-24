@@ -121,11 +121,57 @@ LIVE_WRITE_VERIFIED only against the local B02/B05 API in test mode, which
 is not production evidence. Real wallets and live funding reads: not
 verified.
 
+## F05 — issuer-aware discovery and watchlists (2026-09-24)
+
+Environment as for F04, plus `scripts/dev/web-e2e-api.sh` ingesting the
+PreStocks and xStocks fixture feeds and admitting FXAERO, FXBIO and XSFXA
+after mint verification against the fixture RPC (FXGRID stays quarantined,
+XSFXB is refused by the extension policy); Playwright waits on the fixture
+RPC's `/fixture/ready` flag, raised after seeding. No live issuer feed, no
+live cluster and no real page were involved.
+
+| Check | Command | Result |
+| ----- | ------- | ------ |
+| Backend watchlist contract | `pnpm exec vitest run --project node apps/api/test/watchlists.test.ts` | 1 journey: empty list (version 0) → save with the version → idempotent re-save → stale `ifVersion` refused with the current version → second save → quarantined and unknown instruments refused (`ASSET_NOT_ADMITTED`, `NOT_FOUND`), markup in a note refused → another person sees an empty list, a `research:read` agent reads but cannot write → delisting keeps the item visible as delisted while the public catalog answers 404 → versioned, idempotent removal → anonymous 401 |
+| App-owned API proxy | `pnpm exec vitest run --project node apps/web/test/server/proxy.test.ts` | 10 tests: public catalog reads reachable anonymously with a re-encoded bounded query (8 keys, 512 characters, no control characters), queries refused on other routes, watchlist operations allowlisted, everything else as in F04 |
+| Discovery and watchlist client | `pnpm exec vitest run --project web apps/web/test/markets.test.tsx` | 12 tests: identity and typed prices with an issuer-distinguished twin, paused and stale states, URL filter state and debounced search, unknown URL values dropped, late-response guard, schema drift and provider outage as failures with retry, bounded pagination, save/remove with the list version and a cross-device conflict, delisted saved instrument, anonymous sign-in prompt and honest Strategies tab, market detail with sanitised description, explorer link, verification evidence, honest actions, personal capability states and lifecycle notices, unknown id |
+| Contract matrix | `pnpm exec vitest run --project node packages/api-client` | 11 entries proven against the frozen OpenAPI document (catalog list, detail, corporate actions and the three watchlist operations added) |
+| Full unit and integration run | `pnpm test` (inside `pnpm verify`) | 49 files, 276 tests passed |
+| Production build | `pnpm web:build` | 20 routes, all server-rendered on demand, including `/explore` and `/markets/[instrumentId]` |
+| Browser evidence | `MARKOV_TEST_DATABASE_URL=… pnpm web:e2e` | 54 passed on desktop and phone profiles: 2 discovery journeys (below) plus the F01 to F04 suites; each profile uses its own accounts |
+| Screenshots | `docs/frontend/evidence/F05/` | `explore-anonymous-*.png`, `explore-search-*.png`, `market-overview-*.png`, `market-instrument-*.png`, `watchlist-*.png` |
+
+Discovery journeys (desktop 1280×800 and the Pixel 7 profile):
+
+1. Anonymous Explore lists FXAERO (PreStocks, Solana devnet, 18.25 USD
+   issuer mark) and XSFXA (xStocks, listed stock FXA on FIXTURE) and none
+   of the unadmitted fixtures → search "Aerospace" narrows to FXAERO with
+   `q=Aerospace` in the URL → the xStocks filter shows XSFXA only → the row
+   link opens `/markets/<uuid>` → Overview shows the identity, admitted
+   status, "History unavailable" and what you can do now → Instrument shows
+   the mint, a devnet explorer link and the verification result → "Sign in
+   to save" returns to the same page → Save marks the instrument saved and
+   the personal capability states appear → the Watchlist tab lists it
+   (survives a reload) → Remove empties it.
+2. A malformed id answers the app's not-found page; an unknown id answers
+   "No admitted instrument with that id" with a way back to Explore.
+
+Not verified in F05: any live issuer feed or real instrument (OD-17,
+OD-18), a live cluster, screen-reader journeys through the filters, and the
+Strategies tab (F12). Provider descriptions and images: the catalog carries
+no image URLs and the app fetches none (a deterministic monogram is
+drawn); descriptions are plain text from the backend's sanitiser and are
+rendered as text only.
+
+Readiness: IMPLEMENTED and FIXTURE_VERIFIED; LIVE_READ_VERIFIED only
+against the local B03/B04/B05 API in test mode with fixture instruments,
+which is not production evidence.
+
 ## Acceptance matrix (build prompt section 12)
 
 | Journey or risk | Evidence | Status |
 | --------------- | -------- | ------ |
-| Anonymous home → Explore → instrument | Shell fills the viewport at five widths, navigation works, home shows no fabricated personal data (F02 browser suite and screenshots); the instrument page arrives with F05 | partial (F02) |
+| Anonymous home → Explore → instrument | Shell fills the viewport at five widths, navigation works, home shows no fabricated personal data (F02); F05 journey 1 browses real admitted fixture instruments, searches, filters by issuer and opens the exact detail page anonymously | complete for fixture instruments (F05); live issuer feeds BLOCKED (OD-17, OD-18) |
 | Sign in, reload, expire and recover, sign out, change accounts without private data crossing sessions | F03 browser journeys 1 to 3 against the real API; jsdom late-response and cache-disposal tests; server handler tests | complete for the development issuer (F03); hosted provider BLOCKED (OD-05) |
 | Sign-in → wallet verify → eligibility | F04 journeys 1 and 5 with an injected Wallet Standard wallet against the local API; wallet tests for replay, wrong network, already linked, account switch, altered signature | complete for the fixture wallet (F04); real wallets and the hosted embedded wallet not verified |
 | CSRF or login redirect abuse | Same-origin guard tests, open-redirect vectors in node and browser tests | complete (F03) |

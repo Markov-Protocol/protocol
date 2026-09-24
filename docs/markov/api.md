@@ -1,6 +1,6 @@
 # API
 
-Status: platform (B01), identity (B02), catalog (B03/B04), policy (B05), funding (F04) and research (B06) endpoints are live. The committed OpenAPI document is
+Status: platform (B01), identity (B02), catalog (B03/B04), policy (B05), funding (F04), research (B06) and watchlist (F05) endpoints are live. The committed OpenAPI document is
 `docs/markov/openapi.json`; `pnpm openapi:generate` regenerates it from the
 runtime validators and `pnpm openapi:check` fails CI on drift.
 
@@ -183,6 +183,17 @@ The stablecoin observed is USDC on mainnet-beta (`MAINNET_USDC_MINT`) or
 `FUNDING_STABLECOIN_MINT` elsewhere; without one the response reports SOL
 only and says why. Nothing here is a deposit address of Markov's: the
 address is the person's own verified wallet.
+
+## Endpoints (F05 additions)
+
+| Method | Path                                                     | Principal                                  | Purpose |
+| ------ | -------------------------------------------------------- | ------------------------------------------ | ------- |
+| GET    | /v1/me/watchlist                                         | user, agent `research:read`                | The person's watchlist: contract version 1, a list version that moves on every change, items with the instrument's current public projection (any status, so delisted stays visible) |
+| PUT    | /v1/me/watchlist/items/{instrumentId}                    | user                                       | Save an admitted or paused instrument (idempotent, updates the note); `ifVersion` detects an edit made elsewhere (`IDEMPOTENCY_CONFLICT`, 409, with the current version in `details`); `ASSET_NOT_ADMITTED` (409) for other statuses; at most 200 items |
+| DELETE | /v1/me/watchlist/items/{instrumentId}?ifVersion=         | user                                       | Remove (idempotent, versioned) |
+
+Watchlists are bookkeeping: saving implies nothing about eligibility,
+execution or advice. Details: `packages/contracts/src/watchlist.ts`.
 
 ## Planned surface
 

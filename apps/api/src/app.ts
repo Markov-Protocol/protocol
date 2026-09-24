@@ -40,6 +40,8 @@ import { fundingRoutes } from './routes/funding.js';
 import { identityRoutes } from './routes/identity.js';
 import { policyRoutes } from './routes/policy.js';
 import { researchRoutes } from './routes/research.js';
+import { watchlistRoutes } from './routes/watchlists.js';
+import type { WatchlistService } from './watchlists/service.js';
 
 export interface ProbeOutcome {
   readonly ok: boolean;
@@ -74,6 +76,7 @@ export interface AppDependencies {
   readonly policy: PolicyService;
   readonly funding: FundingService;
   readonly research: ResearchService;
+  readonly watchlists: WatchlistService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -226,6 +229,7 @@ export async function buildApp(deps: AppDependencies) {
           description:
             'Sourced theses, safe source retrieval, company mapping and bounded model runs',
         },
+        { name: 'watchlists', description: 'Personal, versioned lists of catalog instruments' },
       ],
     },
     transform: jsonSchemaTransform,
@@ -369,6 +373,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(policyRoutes, { policy: deps.policy });
   await app.register(fundingRoutes, { funding: deps.funding });
   await app.register(researchRoutes, { research: deps.research });
+  await app.register(watchlistRoutes, { watchlists: deps.watchlists });
 
   return app;
 }

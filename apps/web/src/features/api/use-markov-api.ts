@@ -46,9 +46,17 @@ async function toError(response: Response): Promise<WebApiError> {
   );
 }
 
+export interface RequestOptions {
+  /** Abort a read that is no longer wanted (a newer search replaced it). */
+  readonly signal?: AbortSignal;
+}
+
 export interface MarkovApi {
-  get<T>(path: string, schema: z.ZodType<T>): Promise<T>;
+  get<T>(path: string, schema: z.ZodType<T>, options?: RequestOptions): Promise<T>;
   post<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
+  put<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
+  /** DELETE that answers a body validated by `schema`. */
+  delete<T>(path: string, schema: z.ZodType<T>): Promise<T>;
   del(path: string): Promise<void>;
 }
 
@@ -106,7 +114,12 @@ export function useMarkovApi(): MarkovApi {
 
   return useMemo<MarkovApi>(
     () => ({
-      get: (path, schema) => run(path, { method: 'GET' }, schema),
+      get: (path, schema, options) =>
+        run(
+          path,
+          { method: 'GET', ...(options?.signal ? { signal: options.signal } : {}) },
+          schema,
+        ),
       post: (path, body, schema) =>
         run(
           path,
@@ -117,6 +130,17 @@ export function useMarkovApi(): MarkovApi {
           },
           schema,
         ),
+      put: (path, body, schema) =>
+        run(
+          path,
+          {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          },
+          schema,
+        ),
+      delete: (path, schema) => run(path, { method: 'DELETE' }, schema),
       del: (path) => run(path, { method: 'DELETE' }, null),
     }),
     [run],
