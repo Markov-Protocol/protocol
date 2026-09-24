@@ -1,0 +1,191 @@
+/*
+ * Mark I shell geometry. Tokens come from @markov/ui tokens.css. The frame
+ * fills the viewport (100dvh with a 100vh fallback), respects safe areas
+ * and never forces page-level scrolling: the workspace scrolls inside the
+ * screen.
+ */
+:root {
+  --markov-shell-perimeter: var(--markov-frame-perimeter-phone);
+  --markov-shell-radius: var(--markov-radius-screen-mobile);
+  --markov-shell-rail-width: 0px;
+  --markov-shell-dock-width: 0px;
+  --markov-shell-bottom-height: 60px;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --markov-shell-perimeter: 12px;
+    --markov-shell-radius: 24px;
+    --markov-shell-rail-width: 168px;
+    --markov-shell-bottom-height: 0px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --markov-shell-perimeter: var(--markov-frame-perimeter-desktop);
+    --markov-shell-radius: var(--markov-radius-screen-desktop);
+    --markov-shell-rail-width: 200px;
+    --markov-shell-dock-width: 240px;
+  }
+}
+
+.markov-frame {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  /* biome-ignore lint/suspicious/noDuplicateProperties: 100vh is the fallback for browsers without dvh */
+  height: 100dvh;
+  box-sizing: border-box;
+  padding: calc(var(--markov-shell-perimeter) + env(safe-area-inset-top, 0px))
+    calc(var(--markov-shell-perimeter) + env(safe-area-inset-right, 0px))
+    calc(var(--markov-shell-perimeter) + env(safe-area-inset-bottom, 0px))
+    calc(var(--markov-shell-perimeter) + env(safe-area-inset-left, 0px));
+  background: linear-gradient(
+    160deg,
+    var(--markov-color-frame-light) 0%,
+    var(--markov-color-frame-cream) 38%
+  );
+  color: var(--markov-color-text);
+  overflow: hidden;
+}
+
+.markov-frame[data-focus="true"] {
+  --markov-shell-perimeter: 4px;
+  --markov-shell-radius: 12px;
+  --markov-shell-dock-width: 0px;
+}
+
+.markov-frame__sensor {
+  position: absolute;
+  top: calc(var(--markov-shell-perimeter) / 2 - 2px);
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--markov-color-accent-ink);
+  opacity: 0.45;
+  transform: translateX(-50%);
+}
+
+.markov-frame__wordmark {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  line-height: var(--markov-shell-perimeter);
+  letter-spacing: 0.24em;
+  color: var(--markov-color-accent-ink);
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (max-width: 1023px) {
+  .markov-frame__sensor,
+  .markov-frame__wordmark {
+    display: none;
+  }
+}
+
+.markov-screen {
+  position: relative;
+  height: 100%;
+  border-radius: var(--markov-shell-radius);
+  background: var(--markov-color-screen);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.markov-screen__grid {
+  display: grid;
+  height: 100%;
+  grid-template-columns: var(--markov-shell-rail-width) minmax(0, 1fr) var(
+      --markov-shell-dock-width
+    );
+  grid-template-rows: auto minmax(0, 1fr) var(--markov-shell-bottom-height);
+  grid-template-areas:
+    "topbar topbar topbar"
+    "rail main dock"
+    "bottom bottom bottom";
+}
+
+.markov-screen__topbar {
+  grid-area: topbar;
+}
+
+.markov-screen__rail {
+  grid-area: rail;
+  overflow-y: auto;
+  border-right: 1px solid color-mix(in srgb, var(--markov-color-border) 40%, transparent);
+}
+
+.markov-screen__main {
+  grid-area: main;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-top: 16px;
+}
+
+.markov-screen__main:focus-visible {
+  outline: none;
+}
+
+.markov-screen__dock {
+  grid-area: dock;
+  overflow-y: auto;
+  border-left: 1px solid color-mix(in srgb, var(--markov-color-border) 40%, transparent);
+}
+
+.markov-screen__bottom {
+  grid-area: bottom;
+  border-top: 1px solid color-mix(in srgb, var(--markov-color-border) 40%, transparent);
+  background: var(--markov-color-screen);
+}
+
+@media (max-width: 639px) {
+  .markov-screen__rail,
+  .markov-screen__dock {
+    display: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .markov-screen__bottom {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .markov-screen__dock {
+    display: none;
+  }
+}
+
+.markov-frame[data-focus="true"] .markov-screen__dock {
+  display: none;
+}
+
+/* Eyes blink occasionally; reduced motion disables it (base.css) and the eyes stay open. */
+@keyframes markov-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.08);
+  }
+}
+
+.markov-eyes {
+  transform-origin: center;
+  animation: markov-blink 7s var(--markov-motion-ease) infinite;
+}
+
+.markov-eyes[data-expression="muted"] {
+  animation: none;
+}

@@ -6,8 +6,8 @@ results. This repository holds the backend (domain API, durable workers, CLI,
 data pipelines, on-chain registry) and, since ADR-0006, the markov.pet web
 application, with a mechanically enforced boundary between them.
 
-Status: backend session **B01** (runnable foundation) and frontend session
-**F01** (shared design system) are complete. Backend sessions B02 to B18 and
+Status: backend session **B01** (runnable foundation) and frontend sessions
+**F01** (shared design system) and **F02** (Mark I shell) are complete. Backend sessions B02 to B18 and
 frontend sessions F02 to F20 follow in dependency order; see
 `docs/sessions/` for evidence, `docs/markov/product-scope.md` for the
 release boundaries and `docs/frontend/README.md` for the app. Nothing here
@@ -78,7 +78,8 @@ bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful s
 | Solana RPC reads and network identity verification | implemented; fixture-verified only (live access blocked in the build environment) |
 | Accounts, catalog, eligibility, research, strategies, registry, execution, accounting, discovery, agents, maintenance | not started (B02 onward) |
 | Web design system, exact formatters, internal component reference, production guards | implemented, tested (F01) |
-| Mark I shell and product routes | not started (F02 onward) |
+| Mark I shell, companion home, navigation with honest placeholder routes | implemented, tested (F02) |
+| Product routes (discovery, research, builder, review, portfolio, rankings, automations, settings) | not started (F03 onward, each needing its backend session) |
 
 Capability verification states are recorded in the database and in
 `docs/markov/provider-capabilities.md`.

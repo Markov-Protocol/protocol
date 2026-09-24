@@ -172,7 +172,7 @@ export function ComponentReference() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
       <header className="space-y-2">
         <p className="text-caption font-semibold tracking-[0.2em] text-text-muted uppercase">
           markov · internal
@@ -626,6 +626,6 @@ export function ComponentReference() {
           ))}
         </div>
       </Section>
-    </main>
+    </div>
   );
 }

@@ -32,7 +32,7 @@
     "dev:api": "node --env-file-if-exists=.env --import tsx apps/api/src/main.ts",
     "dev:worker": "node --env-file-if-exists=.env --import tsx apps/worker/src/main.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm boundaries:check && pnpm openapi:check && pnpm db:check && pnpm tokens:check && pnpm web:build",
-    "web:typecheck": "pnpm --filter @markov/formatters typecheck && pnpm --filter @markov/ui typecheck && pnpm --filter @markov/web typecheck",
+    "web:typecheck": "pnpm --filter @markov/formatters typecheck && pnpm --filter @markov/ui typecheck && pnpm --filter @markov/shell typecheck && pnpm --filter @markov/web typecheck",
     "web:dev": "pnpm --filter @markov/web dev",
     "web:build": "pnpm --filter @markov/web build",
     "web:start": "pnpm --filter @markov/web start",

@@ -24,6 +24,9 @@
     },
     "@markov/ui": {
       "allow": ["@markov/contracts", "@markov/formatters"]
+    },
+    "@markov/shell": {
+      "allow": ["@markov/contracts", "@markov/formatters", "@markov/ui"]
     }
   },
   "apps": ["@markov/api", "@markov/worker", "@markov/cli", "@markov/web"],
@@ -39,11 +42,11 @@
     "@meteora-ag/": [],
     "next": ["@markov/web"],
     "next/": ["@markov/web"],
-    "react": ["@markov/ui", "@markov/web"],
-    "react-dom": ["@markov/ui", "@markov/web"],
+    "react": ["@markov/ui", "@markov/web", "@markov/shell"],
+    "react-dom": ["@markov/ui", "@markov/web", "@markov/shell"],
     "radix-ui": ["@markov/ui"],
     "@radix-ui/": ["@markov/ui"],
-    "lucide-react": ["@markov/ui", "@markov/web"]
+    "lucide-react": ["@markov/ui", "@markov/web", "@markov/shell"]
   },
   "appDeny": {
     "@markov/web": [
@@ -53,8 +56,8 @@
       "@markov/observability",
       "@markov/testkit"
     ],
-    "@markov/api": ["@markov/ui", "@markov/formatters"],
-    "@markov/worker": ["@markov/ui", "@markov/formatters"],
-    "@markov/cli": ["@markov/ui", "@markov/formatters"]
+    "@markov/api": ["@markov/ui", "@markov/formatters", "@markov/shell"],
+    "@markov/worker": ["@markov/ui", "@markov/formatters", "@markov/shell"],
+    "@markov/cli": ["@markov/ui", "@markov/formatters", "@markov/shell"]
   }
 }

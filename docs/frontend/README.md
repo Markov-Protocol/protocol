@@ -1,9 +1,10 @@
 # Markov web application (markov.pet)
 
 Status: session **F01** delivered the shared design system, the exact
-formatters, the Next.js workspace and an internal component reference.
-The Mark I shell and every product route arrive in later sessions; nothing
-in this app is deployed.
+formatters, the Next.js workspace and an internal component reference;
+session **F02** delivered the full-screen Mark I shell, the companion home
+and honest placeholder routes for every navigation target. Product features
+arrive with F03 onward; nothing in this app is deployed.
 
 ## Install, run, build
 
@@ -43,7 +44,7 @@ combination at build time (`next.config.ts`) and at server start
 | Internal component reference route    | F01     | IMPLEMENTED (disabled in production) |
 | Production guard against development switches | F01 | IMPLEMENTED, FIXTURE_VERIFIED |
 | Baseline security headers             | F01     | IMPLEMENTED (full CSP in F19/F20) |
-| Mark I shell, navigation, home        | F02     | not started |
+| Mark I shell (frame, screen, eyes, top bar, rail/bottom navigation, modes, focus preference), companion home, unavailable pages | F02 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom tests, Playwright at five widths, lab performance baseline) |
 | Sessions, wallets, discovery, research, builder, publishing, review, execution, portfolio, rankings, maintenance, companion, settings | F03 onward | not started; each needs its backend session (B02 onward) |
 
 ## Backend prerequisites

@@ -1,0 +1,9 @@
+{
+  "recordedAt": "2026-09-24T18:05:26.499Z",
+  "viewport": "390x844",
+  "note": "Lab measurement on the build container over loopback; not field data.",
+  "domContentLoadedMs": 83,
+  "loadMs": 219,
+  "largestContentfulPaintMs": 232,
+  "transferBytes": 1050668
+}

@@ -40,6 +40,7 @@ export default defineConfig({
           environment: 'jsdom',
           include: [
             'packages/ui/test/**/*.test.{ts,tsx}',
+            'packages/markov-shell/test/**/*.test.{ts,tsx}',
             'packages/formatters/test/**/*.test.ts',
             'apps/web/test/**/*.test.{ts,tsx}',
           ],

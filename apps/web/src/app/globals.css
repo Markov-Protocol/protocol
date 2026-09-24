@@ -1,4 +1,6 @@
 @import "tailwindcss";
 @import "../../../../packages/ui/src/styles/tokens.css";
 @import "../../../../packages/ui/src/styles/base.css";
+@import "../../../../packages/markov-shell/src/styles/shell.css";
 @source "../../../../packages/ui/src";
+@source "../../../../packages/markov-shell/src";

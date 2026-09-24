@@ -11,6 +11,7 @@
   },
   "include": ["apps/*/test/**/*.ts", "packages/*/test/**/*.ts", "vitest.config.ts"],
   "exclude": [
+    "packages/markov-shell/**",
     "packages/ui/**",
     "packages/formatters/**",
     "apps/web/**",
