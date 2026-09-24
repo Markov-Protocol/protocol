@@ -1,0 +1,46 @@
+/*
+ * Base styles for every Markov surface. Tokens come from tokens.css; this
+ * file only sets defaults that components rely on.
+ */
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--markov-color-screen);
+    color: var(--markov-color-text);
+    font-family: var(--font-sans);
+    font-size: var(--markov-text-body);
+    line-height: var(--markov-text-body--line-height);
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--markov-color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--markov-color-accent);
+    color: var(--markov-color-accent-ink);
+  }
+
+  /* Financial figures always align by digit. */
+  .tabular,
+  [data-tabular] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

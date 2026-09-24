@@ -18,7 +18,9 @@ describe('commit policy', () => {
     expect(result.problems[0]).toContain('forbidden co-author');
     expect(checkCommitMessage('chore: x\n\nco-authored-by: a <a@b>').ok).toBe(false);
     expect(checkCommitMessage('chore: x\n\nGenerated-By: tool').ok).toBe(false);
-    expect(checkCommitMessage('chore: x\n\nClaude-Session: https://example.test/session').ok).toBe(false);
+    expect(checkCommitMessage('chore: x\n\nClaude-Session: https://example.test/session').ok).toBe(
+      false,
+    );
     expect(checkCommitMessage('chore: x\n\nAssisted-By: some tool').ok).toBe(false);
   });
 

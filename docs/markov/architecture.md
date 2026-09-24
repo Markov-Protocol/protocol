@@ -51,6 +51,9 @@ packages/observability  logger with redaction
 packages/solana-rpc bounded JSON-RPC client and network identity verification
 packages/db         pooled client, migrations, platform identity, capability readiness
 packages/testkit    test-only helpers (never imported by production code)
+apps/web            markov.pet application (Next.js App Router; ADR-0006)
+packages/ui         design system (tokens, primitives, forms, feedback, tables)
+packages/formatters exact amount, basis-point, price, time and address formatting
 tooling/            commit policy, boundary checker, secret scan, scripts
 docs/markov         this contract, ADRs, registers
 docs/sessions       per-session evidence
@@ -63,6 +66,9 @@ for the Anchor program; `infra` for deployment.
 ## Dependency direction
 
 `apps → packages → contracts/pure utilities`. Apps never import other apps.
+The web app and the frontend packages import only `@markov/contracts` and
+each other; `appDeny` in the rules file keeps databases, configuration, RPC
+clients and signers out of the browser build (ADR-0006).
 `@markov/contracts` imports nothing internal. Provider SDK families are
 restricted to their owning package (`tooling/boundaries/rules.json`);
 `@solana/*`, `@jup-ag/*` and `@meteora-ag/*` currently have no owner, so

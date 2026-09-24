@@ -5,10 +5,14 @@ V1 build specification. It applies to every human and agent commit.
 
 ## Ownership boundaries
 
-- This repository is the **backend** of Markov: domain API, workers, indexer,
-  on-chain registry, SDK/CLI, data pipelines, infrastructure and their
-  documentation. Frontend pages, React components, app styling, browser wallet
-  UI and the storefront are out of scope and must not be added here.
+- This repository hosts the Markov **backend** (domain API, workers, indexer,
+  on-chain registry, SDK/CLI, data pipelines, infrastructure) and, since
+  ADR-0006, the **markov.pet web application** (`apps/web` and the frontend
+  packages). They are separate workspaces with a mechanically enforced
+  boundary: frontend code imports only `@markov/contracts` and the frontend
+  packages; it never imports databases, configuration, RPC clients or
+  signers. The storefront (`markov.trade`), DNS and payment code are out of
+  scope and must not be added here.
 - The canonical product app is `markov.pet`; `markov.trade` is the commercial
   site. Nothing in this repository changes DNS or an existing storefront.
 - Provider SDKs live only in integration packages. Domain packages never import

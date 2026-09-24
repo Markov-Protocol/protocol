@@ -64,7 +64,9 @@ export function checkCommitMessage(message) {
 
   for (const [index, line] of content.entries()) {
     if (FORBIDDEN_TRAILERS.some((pattern) => pattern.test(line.trim()))) {
-      problems.push(`line ${index + 1} contains a forbidden co-author, generator or session trailer`);
+      problems.push(
+        `line ${index + 1} contains a forbidden co-author, generator or session trailer`,
+      );
     }
   }
 

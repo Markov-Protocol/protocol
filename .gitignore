@@ -3,6 +3,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 coverage/
+.next/
+out/
+next-env.d.ts
 
 # local environment and secrets: only .env.example is committed
 .env
@@ -17,6 +20,8 @@ coverage/
 *.db-wal
 *.log
 .local/
+playwright-report/
+test-results/
 
 # editors and OS
 .DS_Store

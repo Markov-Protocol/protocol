@@ -90,6 +90,8 @@ for (const pkg of packages) {
       if (internalNames.has(base)) {
         if (rules.apps.includes(base) && base !== pkg.name) {
           violations.push(`${rel}: app ${pkg.name} imports app ${base}`);
+        } else if (isApp && (rules.appDeny?.[pkg.name] ?? []).includes(base)) {
+          violations.push(`${rel}: app ${pkg.name} may not import ${base} (ADR-0006 boundary)`);
         } else if (!isApp && base !== pkg.name) {
           const allowed =
             layer.allow.includes(base) || (inTest && rules.testOnlyPackages.includes(base));

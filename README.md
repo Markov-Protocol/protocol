@@ -1,15 +1,17 @@
 # Markov protocol backend
 
-Backend for Markov stocks V1: versioned, executable portfolios of admitted
-tokenized stock exposures on Solana, with explicit owner permissions and
-inspectable results. This repository holds the domain API, durable workers,
-CLI, data pipelines, on-chain registry and their documentation. It contains
-no frontend.
+Markov stocks V1: versioned, executable portfolios of admitted tokenized
+stock exposures on Solana, with explicit owner permissions and inspectable
+results. This repository holds the backend (domain API, durable workers, CLI,
+data pipelines, on-chain registry) and, since ADR-0006, the markov.pet web
+application, with a mechanically enforced boundary between them.
 
-Status: session **B01** (runnable foundation) is complete. Feature sessions
-B02 to B18 follow in dependency order; see `docs/sessions/` for evidence and
-`docs/markov/product-scope.md` for the release boundaries. Nothing here is
-production-ready, audited or deployed.
+Status: backend session **B01** (runnable foundation) and frontend session
+**F01** (shared design system) are complete. Backend sessions B02 to B18 and
+frontend sessions F02 to F20 follow in dependency order; see
+`docs/sessions/` for evidence, `docs/markov/product-scope.md` for the
+release boundaries and `docs/frontend/README.md` for the app. Nothing here
+is production-ready, audited or deployed.
 
 ## Supported modes
 
@@ -75,6 +77,8 @@ bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful s
 | Temporal worker and health workflow | implemented, tested against a local dev server |
 | Solana RPC reads and network identity verification | implemented; fixture-verified only (live access blocked in the build environment) |
 | Accounts, catalog, eligibility, research, strategies, registry, execution, accounting, discovery, agents, maintenance | not started (B02 onward) |
+| Web design system, exact formatters, internal component reference, production guards | implemented, tested (F01) |
+| Mark I shell and product routes | not started (F02 onward) |
 
 Capability verification states are recorded in the database and in
 `docs/markov/provider-capabilities.md`.
@@ -82,10 +86,13 @@ Capability verification states are recorded in the database and in
 ## Layout
 
 ```
-apps/api  apps/worker  apps/cli
+apps/api  apps/worker  apps/cli  apps/web
 packages/contracts  packages/config  packages/observability  packages/solana-rpc  packages/db  packages/testkit
-tooling/  scripts/  docs/markov/  docs/sessions/
+packages/ui  packages/formatters
+tooling/  scripts/  docs/markov/  docs/frontend/  docs/sessions/
 ```
+
+Web app commands: `pnpm web:dev`, `pnpm web:build`, `pnpm web:e2e` (see `docs/frontend/README.md`).
 
 Repository policy for contributors and agents: `AGENTS.md`.
 

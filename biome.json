@@ -10,9 +10,12 @@
       "**",
       "!**/dist",
       "!**/node_modules",
+      "!**/.next",
       "!**/pnpm-lock.yaml",
       "!packages/db/migrations/meta",
-      "!docs/markov/openapi.json"
+      "!docs/markov/openapi.json",
+      "!apps/web/next-env.d.ts",
+      "!packages/ui/src/styles/tokens.css"
     ]
   },
   "formatter": {
@@ -56,5 +59,22 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["packages/ui/src/styles/base.css"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noImportantStyles": "off"
+          }
+        }
+      }
+    }
+  ]
 }

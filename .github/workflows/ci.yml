@@ -70,6 +70,24 @@ jobs:
       - name: Dependency boundaries
         run: pnpm boundaries:check
 
+      - name: Design token drift
+        run: pnpm tokens:check
+
+      - name: Web production build (test mode, internal routes on for evidence)
+        env:
+          MARKOV_ENV: test
+          MARKOV_WEB_INTERNAL_ROUTES: "true"
+        run: pnpm web:build
+
+      - name: Web production build must refuse development switches
+        run: |
+          set +e
+          MARKOV_ENV=production NEXT_PUBLIC_APP_ORIGIN=https://markov.pet MARKOV_WEB_FIXTURES=true pnpm web:build > .markov-tmp-guard.log 2>&1
+          CODE=$?
+          set -e
+          grep -q "fixture adapters cannot be enabled in production" .markov-tmp-guard.log
+          test "$CODE" -ne 0
+
       - name: OpenAPI drift
         run: pnpm openapi:check
 
@@ -108,6 +126,15 @@ jobs:
         env:
           MARKOV_TEST_DATABASE_URL: postgres://markov:markov@127.0.0.1:5432/markov_test
         run: bash scripts/ci/startup-check.sh
+
+      - name: Install Playwright Chromium (pinned by the workspace version)
+        run: pnpm --filter @markov/web exec playwright install --with-deps chromium
+
+      - name: Web browser evidence (Playwright)
+        env:
+          MARKOV_ENV: test
+          MARKOV_WEB_INTERNAL_ROUTES: "true"
+        run: pnpm web:e2e
 
       - name: Upload test report
         if: always()

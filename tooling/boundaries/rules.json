@@ -1,14 +1,32 @@
 {
-  "$comment": "Import direction rules enforced by check-boundaries.mjs. Keys are workspace package names; `allow` lists the internal packages each may import. Apps may import any package but never another app. External provider SDK families are restricted to the packages listed under `externalOwners`.",
+  "$comment": "Import direction rules enforced by check-boundaries.mjs. Keys are workspace package names; `allow` lists the internal packages each may import. Apps may import any package but never another app. External provider SDK families are restricted to the packages listed under `externalOwners`. `appDeny` lists packages an app may never import (the frontend/backend split of ADR-0006).",
   "layers": {
-    "@markov/contracts": { "allow": [] },
-    "@markov/config": { "allow": ["@markov/contracts"] },
-    "@markov/observability": { "allow": [] },
-    "@markov/solana-rpc": { "allow": [] },
-    "@markov/testkit": { "allow": [] },
-    "@markov/db": { "allow": ["@markov/contracts"] }
+    "@markov/contracts": {
+      "allow": []
+    },
+    "@markov/config": {
+      "allow": ["@markov/contracts"]
+    },
+    "@markov/observability": {
+      "allow": []
+    },
+    "@markov/solana-rpc": {
+      "allow": []
+    },
+    "@markov/testkit": {
+      "allow": []
+    },
+    "@markov/db": {
+      "allow": ["@markov/contracts"]
+    },
+    "@markov/formatters": {
+      "allow": ["@markov/contracts"]
+    },
+    "@markov/ui": {
+      "allow": ["@markov/contracts", "@markov/formatters"]
+    }
   },
-  "apps": ["@markov/api", "@markov/worker", "@markov/cli"],
+  "apps": ["@markov/api", "@markov/worker", "@markov/cli", "@markov/web"],
   "testOnlyPackages": ["@markov/testkit"],
   "externalOwners": {
     "@temporalio/": ["@markov/worker", "@markov/cli"],
@@ -18,6 +36,25 @@
     "pg": ["@markov/db", "@markov/testkit"],
     "@solana/": [],
     "@jup-ag/": [],
-    "@meteora-ag/": []
+    "@meteora-ag/": [],
+    "next": ["@markov/web"],
+    "next/": ["@markov/web"],
+    "react": ["@markov/ui", "@markov/web"],
+    "react-dom": ["@markov/ui", "@markov/web"],
+    "radix-ui": ["@markov/ui"],
+    "@radix-ui/": ["@markov/ui"],
+    "lucide-react": ["@markov/ui", "@markov/web"]
+  },
+  "appDeny": {
+    "@markov/web": [
+      "@markov/db",
+      "@markov/config",
+      "@markov/solana-rpc",
+      "@markov/observability",
+      "@markov/testkit"
+    ],
+    "@markov/api": ["@markov/ui", "@markov/formatters"],
+    "@markov/worker": ["@markov/ui", "@markov/formatters"],
+    "@markov/cli": ["@markov/ui", "@markov/formatters"]
   }
 }

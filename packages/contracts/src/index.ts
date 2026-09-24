@@ -13,3 +13,4 @@ export * from './capabilities.js';
 export * from './errors.js';
 export * from './health.js';
 export * from './platform.js';
+export * from './price.js';
