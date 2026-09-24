@@ -44,6 +44,9 @@ importers:
       '@fastify/swagger':
         specifier: 9.9.0
         version: 9.9.0
+      '@markov/amounts':
+        specifier: workspace:*
+        version: link:../../packages/amounts
       '@markov/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -62,6 +65,9 @@ importers:
       '@markov/issuer-prestocks':
         specifier: workspace:*
         version: link:../../packages/issuer-prestocks
+      '@markov/issuer-xstocks':
+        specifier: workspace:*
+        version: link:../../packages/issuer-xstocks
       '@markov/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -217,6 +223,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/testkit
 
+  packages/amounts: {}
+
   packages/api-client:
     dependencies:
       '@markov/contracts':
@@ -247,6 +255,9 @@ importers:
 
   packages/catalog:
     dependencies:
+      '@markov/amounts':
+        specifier: workspace:*
+        version: link:../amounts
       '@markov/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -298,6 +309,15 @@ importers:
         version: link:../contracts
 
   packages/issuer-prestocks:
+    dependencies:
+      '@markov/catalog':
+        specifier: workspace:*
+        version: link:../catalog
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+  packages/issuer-xstocks:
     dependencies:
       '@markov/catalog':
         specifier: workspace:*

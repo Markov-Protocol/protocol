@@ -658,5 +658,162 @@ export function buildProgram(io: CliIo = stdio): Command {
       );
     });
 
+  const events = catalog
+    .command('events')
+    .description('corporate actions: ingestion, listing, application (operator)');
+  events
+    .command('ingest')
+    .description(
+      'ingest an issuer corporate-action feed as pending events (operator ops:catalog:write)',
+    )
+    .option('--issuer <issuer>', 'issuer id', 'xstocks')
+    .option('--source <source>', 'fixture (local/test only) or configured_url', 'fixture')
+    .requiredOption('--token <token>', 'operator credential')
+    .option(...apiUrlOption)
+    .action(async (options: { issuer: string; source: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/ops/catalog/corporate-actions/ingestions',
+            { issuer: options.issuer, source: options.source },
+            options.token,
+          ),
+        ),
+      );
+    });
+  events
+    .command('list')
+    .description('list corporate actions (operator)')
+    .option('--issuer <issuer>')
+    .option('--status <status>', 'pending|applied|rejected|superseded')
+    .requiredOption('--token <token>', 'operator credential (ops:catalog:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { issuer?: string; status?: string; token: string; url: string }) => {
+      const params = new URLSearchParams();
+      if (options.issuer) {
+        params.set('issuer', options.issuer);
+      }
+      if (options.status) {
+        params.set('status', options.status);
+      }
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/ops/catalog/corporate-actions?${params.toString()}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  events
+    .command('apply <actionId>')
+    .description('apply a pending, effective corporate action (operator ops:catalog:write)')
+    .requiredOption('--reason <reason>')
+    .option('--evidence <pairs...>', 'key=value references')
+    .requiredOption('--token <token>', 'operator credential')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        actionId: string,
+        options: { reason: string; evidence?: string[]; token: string; url: string },
+      ) => {
+        const evidence: Record<string, string> = {};
+        for (const pair of options.evidence ?? []) {
+          const separator = pair.indexOf('=');
+          if (separator <= 0) {
+            throw new CliExit(`evidence entries are key=value, got ${pair}`, EXIT_USAGE);
+          }
+          evidence[pair.slice(0, separator)] = pair.slice(separator + 1);
+        }
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/ops/catalog/corporate-actions/${encodeURIComponent(actionId)}/apply`,
+              { reason: options.reason, evidence },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  events
+    .command('reject <actionId>')
+    .description('reject a pending corporate action (operator ops:catalog:write)')
+    .requiredOption('--reason <reason>')
+    .requiredOption('--token <token>', 'operator credential')
+    .option(...apiUrlOption)
+    .action(async (actionId: string, options: { reason: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/ops/catalog/corporate-actions/${encodeURIComponent(actionId)}/reject`,
+            { reason: options.reason },
+            options.token,
+          ),
+        ),
+      );
+    });
+  catalog
+    .command('multiplier <instrumentId>')
+    .description('the multiplier in force at a time, with completeness')
+    .option('--as-of <iso>', 'ISO timestamp (default: now)')
+    .option(...apiUrlOption)
+    .action(async (instrumentId: string, options: { asOf?: string; url: string }) => {
+      const query = options.asOf ? `?asOf=${encodeURIComponent(options.asOf)}` : '';
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/catalog/instruments/${encodeURIComponent(instrumentId)}/multiplier${query}`,
+          ),
+        ),
+      );
+    });
+  catalog
+    .command('convert <instrumentId>')
+    .description('convert raw base units to a scaled display quantity or back, exactly')
+    .option('--raw <amount>', 'raw base-unit integer string')
+    .option('--scaled <amount>', 'scaled decimal string')
+    .option('--as-of <iso>', 'ISO timestamp (default: now)')
+    .option('--rounding <mode>', 'down|up|half_up|half_even', 'down')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        instrumentId: string,
+        options: { raw?: string; scaled?: string; asOf?: string; rounding: string; url: string },
+      ) => {
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries({
+          raw: options.raw,
+          scaled: options.scaled,
+          asOf: options.asOf,
+          rounding: options.rounding,
+        })) {
+          if (value !== undefined) {
+            params.set(key, value);
+          }
+        }
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'GET',
+              `/v1/catalog/instruments/${encodeURIComponent(instrumentId)}/quantities?${params.toString()}`,
+            ),
+          ),
+        );
+      },
+    );
+
   return program;
 }

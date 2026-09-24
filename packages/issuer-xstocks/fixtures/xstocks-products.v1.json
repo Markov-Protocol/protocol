@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "1",
+  "issuer": "xstocks",
+  "generatedAt": "2026-09-24T09:30:00Z",
+  "products": [
+    {
+      "productId": "xs-alpha",
+      "symbol": "XSFXA",
+      "name": "Fixture Alpha xStock",
+      "companyName": "Fixture Alpha Holdings",
+      "kind": "listed_stock",
+      "mint": "A8GviP6cWZxAKfpCoKfQCvtSejyPh975CoLjsVVqmumh",
+      "decimals": 8,
+      "tokenProgram": "token-2022",
+      "underlying": {
+        "ticker": "FXA",
+        "exchange": "FIXTURE"
+      },
+      "description": "Synthetic listed stock with a scaled UI amount whose on-chain multiplier is already 2 after the fixture split, and a pausable mint. It does not exist on any network.",
+      "referencePrice": {
+        "value": "101.20",
+        "unit": "USD",
+        "kind": "underlying_equity",
+        "observedAt": "2026-09-24T09:00:00Z",
+        "source": "fixture"
+      }
+    },
+    {
+      "productId": "xs-beta",
+      "symbol": "XSFXB",
+      "name": "Fixture Beta xStock",
+      "companyName": "Fixture Beta Corp",
+      "kind": "listed_stock",
+      "mint": "7DZtuqE57Dwhz9jxYXGmNEkgy5Xj5enc6Qv2S9jV2s34",
+      "decimals": 8,
+      "tokenProgram": "token-2022",
+      "underlying": {
+        "ticker": "FXB",
+        "exchange": "FIXTURE"
+      },
+      "description": "Synthetic listed stock whose mint charges a 25 basis point transfer fee; admission must be refused."
+    },
+    {
+      "productId": "xs-gamma",
+      "symbol": "XSFXC",
+      "name": "Fixture Gamma xStock",
+      "companyName": "Fixture Gamma plc",
+      "kind": "listed_stock",
+      "mint": "HbAAW6v4rNkFJnpF91RXkLchD4EAVxaedwDgexZEzgrz",
+      "decimals": 8,
+      "tokenProgram": "token-2022",
+      "underlying": {
+        "ticker": "FXC",
+        "exchange": "FIXTURE"
+      },
+      "description": "Synthetic listed stock whose mint has a permanent delegate; admission needs documented issuer terms."
+    },
+    {
+      "productId": "xs-delta",
+      "symbol": "XSFXD",
+      "name": "Fixture Delta xStock",
+      "companyName": "Fixture Delta AG",
+      "kind": "listed_stock",
+      "mint": "CozzycFVYWt2XYRQK5qf2r1ZcK1fhCncMC8QTPYzrvXZ",
+      "decimals": 8,
+      "tokenProgram": "token-2022",
+      "underlying": {
+        "ticker": "FXD",
+        "exchange": "FIXTURE"
+      },
+      "description": "Synthetic listed stock whose mint is paused on chain right now."
+    }
+  ]
+}

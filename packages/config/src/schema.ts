@@ -82,6 +82,8 @@ export const rawEnvSchema = z.object({
 
   /** Operator-configured feed serving the Markov issuer feed contract (B03); https outside local/test. */
   PRESTOCKS_FEED_URL: z.url().optional(),
+  XSTOCKS_FEED_URL: z.url().optional(),
+  XSTOCKS_EVENTS_URL: z.url().optional(),
 
   SHUTDOWN_TIMEOUT_MS: intFromEnv(1000, 120_000).default(10_000),
 });
@@ -154,6 +156,8 @@ export interface MarkovConfig {
   readonly catalog: {
     /** Null until an operator configures a verified feed; fixture sources serve local and test. */
     readonly prestocksFeedUrl: string | null;
+    readonly xstocksFeedUrl: string | null;
+    readonly xstocksEventsUrl: string | null;
   };
   readonly shutdownTimeoutMs: number;
 }

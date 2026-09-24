@@ -68,6 +68,27 @@ Admission and resumption require a `verified` result recorded after the
 instrument's last upstream change; otherwise the API answers
 `ADMISSION_BLOCKED` (409).
 
+## Listed stocks (B04)
+
+xStocks products are `listed_stock` instruments with an underlying ticker
+and exchange as the issuer names them. Their Token-2022 mints are assessed
+against the extension policy in `docs/markov/instrument-admission.md` at
+every verification; a pause seen on chain halts the instrument.
+
+Quantities: raw base units never change; the scaled display quantity is
+raw × multiplier / 10^decimals, computed exactly by `@markov/amounts`
+(`docs/markov/accounting-methodology.md`). `GET
+/v1/catalog/instruments/{id}/quantities` converts either way with the
+multiplier in force at `asOf` and refuses when no evidence covers that time.
+
+Corporate actions arrive through the corporate-action feed contract
+(splits, reverse splits, distributions, migrations, sunsets, halts,
+resumes, multiplier changes) as pending events for known products only.
+An operator applies an event once it is effective; the derived multiplier
+is recorded with the previous multiplier and evidence references. The
+lifecycle block on every instrument reports halts, pending actions,
+migrations, sunsets and the multiplier in force.
+
 ## Prices
 
 A catalog price is `issuer_mark`, `implied_valuation` or `secondary_market`
@@ -82,8 +103,8 @@ computed at read time (older than 24 hours). It is never an
 with the operator's credential id, the reason and the secret-free evidence
 references. CLI: `markov catalog ingest|list|verify-mint|decide|snapshots`.
 
-## Not in B03
+## Not in B03 and B04
 
-The live PreStocks endpoint and its mapping (OD-17), xStocks (B04),
-eligibility and terms evidence (B05), scheduled re-ingestion (B16), Tessera
-(B17).
+The live PreStocks and xStocks endpoints and their mappings (OD-17,
+OD-18), executable route tests, eligibility and terms evidence (B05),
+scheduled re-ingestion (B16), Tessera (B17).

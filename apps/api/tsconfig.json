@@ -8,6 +8,9 @@
   "include": ["src"],
   "references": [
     {
+      "path": "../../packages/amounts"
+    },
+    {
       "path": "../../packages/auth"
     },
     {
@@ -24,6 +27,9 @@
     },
     {
       "path": "../../packages/issuer-prestocks"
+    },
+    {
+      "path": "../../packages/issuer-xstocks"
     },
     {
       "path": "../../packages/observability"

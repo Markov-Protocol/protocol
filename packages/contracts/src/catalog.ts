@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { base58AddressSchema, idSchema } from './identity.js';
 import { genesisHashSchema } from './platform.js';
-import { typedPriceSchema } from './price.js';
+import { decimalStringSchema, rawAmountSchema, typedPriceSchema } from './price.js';
 
 /**
  * Instrument catalog. Every instrument is a token issued by a known issuer
@@ -44,6 +44,7 @@ export const CATALOG_PRICE_KINDS = [
   'issuer_mark',
   'implied_valuation',
   'secondary_market',
+  'underlying_equity',
 ] as const;
 export const catalogPriceSchema = typedPriceSchema.extend({
   kind: z.enum(CATALOG_PRICE_KINDS),
@@ -99,6 +100,8 @@ export const mintVerificationSchema = z.object({
   result: mintVerificationResultSchema,
   onChain: onChainMintSchema.nullable(),
   mismatches: z.array(z.string().max(200)),
+  /** Token extension policy verdict for the parsed mint; null when nothing was parsed. */
+  compatibility: z.lazy(() => extensionAssessmentSchema).nullable(),
 });
 export type MintVerification = z.infer<typeof mintVerificationSchema>;
 
@@ -123,6 +126,11 @@ const instrumentBaseSchema = z.object({
     description: z.string().max(1000).nullable(),
   }),
   referencePrice: catalogPriceSchema.nullable(),
+  underlying: z.object({
+    ticker: z.string().max(20).nullable(),
+    exchange: z.string().max(40).nullable(),
+  }),
+  lifecycle: z.lazy(() => instrumentLifecycleSchema),
   availability: instrumentAvailabilitySchema,
   admittedAt: z.iso.datetime().nullable(),
   updatedAt: z.iso.datetime(),
@@ -193,9 +201,14 @@ export const ingestionRequestSchema = z.object({
 export const SNAPSHOT_STATUSES = ['accepted', 'rejected'] as const;
 export const snapshotStatusSchema = z.enum(SNAPSHOT_STATUSES);
 
+export const SNAPSHOT_KINDS = ['products', 'corporate_actions'] as const;
+export const snapshotKindSchema = z.enum(SNAPSHOT_KINDS);
+export type SnapshotKindSchemaType = z.infer<typeof snapshotKindSchema>;
+
 export const issuerSnapshotSchema = z.object({
   snapshotId: idSchema,
   issuer: issuerSchema,
+  kind: snapshotKindSchema,
   source: ingestionSourceSchema,
   /** Fixture name or the URL without query string or credentials. */
   sourceRef: z.string().max(500),
@@ -264,6 +277,13 @@ export const issuerFeedProductSchema = z.object({
       source: z.string().max(200),
     })
     .optional(),
+  /** Listed stocks: the underlying security, never a claim of fungibility across issuers. */
+  underlying: z
+    .object({
+      ticker: z.string().max(20),
+      exchange: z.string().max(40).optional(),
+    })
+    .optional(),
 });
 export type IssuerFeedProduct = z.infer<typeof issuerFeedProductSchema>;
 
@@ -274,3 +294,259 @@ export const issuerFeedSchema = z.object({
   products: z.array(issuerFeedProductSchema).max(5000),
 });
 export type IssuerFeed = z.infer<typeof issuerFeedSchema>;
+
+/* ---------------------------------------------------------------------------
+ * Listed stocks (B04): token extension policy, multipliers, corporate actions,
+ * lifecycle and quantity conversions.
+ * ------------------------------------------------------------------------- */
+
+export const EXTENSION_COMPATIBILITY = ['supported', 'review_required', 'unsupported'] as const;
+export const extensionCompatibilitySchema = z.enum(EXTENSION_COMPATIBILITY);
+export type ExtensionCompatibility = z.infer<typeof extensionCompatibilitySchema>;
+
+export const extensionFindingSchema = z.object({
+  extension: z.string().max(60),
+  verdict: extensionCompatibilitySchema,
+  /** What the extension lets the issuer or program do, in plain words. */
+  detail: z.string().max(400),
+});
+export type ExtensionFindingSchemaType = z.infer<typeof extensionFindingSchema>;
+
+export const scaledUiAmountEvidenceSchema = z.object({
+  authority: base58AddressSchema.nullable(),
+  /** Shortest decimal that round-trips to the on-chain double. */
+  multiplier: decimalStringSchema,
+  /** Exact decimal expansion of the on-chain double. */
+  multiplierExact: decimalStringSchema,
+  newMultiplier: decimalStringSchema,
+  newMultiplierExact: decimalStringSchema,
+  /** Null when no future multiplier is scheduled (timestamp 0). */
+  newMultiplierEffectiveAt: z.iso.datetime().nullable(),
+});
+
+export const transferFeeEvidenceSchema = z.object({
+  basisPoints: z.number().int().min(0).max(10_000),
+  maximumFee: rawAmountSchema,
+  /** Fee that applies after `newerEpoch`; the older schedule is kept for completeness. */
+  newerEpoch: z.string().regex(/^\d+$/),
+  olderBasisPoints: z.number().int().min(0).max(10_000),
+});
+
+/** Policy verdict for a mint's Token-2022 extension set. `unsupported` blocks admission; `review_required` needs evidence. */
+export const extensionAssessmentSchema = z.object({
+  compatibility: extensionCompatibilitySchema,
+  findings: z.array(extensionFindingSchema),
+  scaledUiAmount: scaledUiAmountEvidenceSchema.nullable(),
+  transferFee: transferFeeEvidenceSchema.nullable(),
+  paused: z.boolean().nullable(),
+  defaultAccountState: z.enum(['initialized', 'frozen']).nullable(),
+  permanentDelegate: base58AddressSchema.nullable(),
+  transferHookProgram: base58AddressSchema.nullable(),
+  interestBearing: z.object({ currentRateBasisPoints: z.number().int() }).nullable(),
+});
+export type ExtensionAssessment = z.infer<typeof extensionAssessmentSchema>;
+
+export const MULTIPLIER_SOURCES = [
+  'on_chain',
+  'corporate_action',
+  'operator',
+  'issuer_feed',
+] as const;
+export const multiplierSourceSchema = z.enum(MULTIPLIER_SOURCES);
+export type MultiplierSource = z.infer<typeof multiplierSourceSchema>;
+
+export const instrumentMultiplierSchema = z.object({
+  multiplierId: z.number().int(),
+  instrumentId: idSchema,
+  effectiveAt: z.iso.datetime(),
+  multiplier: decimalStringSchema,
+  multiplierExact: decimalStringSchema,
+  source: multiplierSourceSchema,
+  evidence: z.record(z.string(), z.string()),
+  recordedAt: z.iso.datetime(),
+});
+export type InstrumentMultiplier = z.infer<typeof instrumentMultiplierSchema>;
+
+export const multiplierHistoryResponseSchema = z.object({
+  instrumentId: idSchema,
+  multipliers: z.array(instrumentMultiplierSchema),
+});
+
+/** The multiplier in force at `asOf`. `complete: false` means no evidence covers that time; never assume 1. */
+export const multiplierAsOfResponseSchema = z.object({
+  instrumentId: idSchema,
+  asOf: z.iso.datetime(),
+  multiplier: decimalStringSchema.nullable(),
+  effectiveAt: z.iso.datetime().nullable(),
+  source: multiplierSourceSchema.nullable(),
+  complete: z.boolean(),
+  detail: z.string().max(300),
+});
+export type MultiplierAsOfResponse = z.infer<typeof multiplierAsOfResponseSchema>;
+
+export const CORPORATE_ACTION_TYPES = [
+  'split',
+  'reverse_split',
+  'distribution',
+  'migration',
+  'sunset',
+  'halt',
+  'resume',
+  'multiplier_change',
+] as const;
+export const corporateActionTypeSchema = z.enum(CORPORATE_ACTION_TYPES);
+export type CorporateActionType = z.infer<typeof corporateActionTypeSchema>;
+
+export const CORPORATE_ACTION_STATUSES = ['pending', 'applied', 'rejected', 'superseded'] as const;
+export const corporateActionStatusSchema = z.enum(CORPORATE_ACTION_STATUSES);
+export type CorporateActionStatus = z.infer<typeof corporateActionStatusSchema>;
+
+/** Issuer corporate-action feed, schema version 1 (a Markov contract, not an issuer API). */
+export const corporateActionFeedEventSchema = z.object({
+  eventId: z.string().max(100),
+  productId: z.string().max(100),
+  type: corporateActionTypeSchema,
+  announcedAt: z.iso.datetime(),
+  effectiveAt: z.iso.datetime(),
+  summary: z.string().max(2000),
+  /** Split: `numerator` new units per `denominator` old units (2:1 doubles the display quantity). */
+  ratio: z.object({ numerator: z.number().int(), denominator: z.number().int() }).optional(),
+  newMultiplier: z.string().max(60).optional(),
+  distribution: z
+    .object({ amountPerToken: z.string().max(60), unit: z.string().max(20) })
+    .optional(),
+  migration: z
+    .object({ targetProductId: z.string().max(100), deadlineAt: z.iso.datetime() })
+    .optional(),
+  sunsetAt: z.iso.datetime().optional(),
+  reference: z.string().max(500).optional(),
+});
+export type CorporateActionFeedEvent = z.infer<typeof corporateActionFeedEventSchema>;
+
+export const corporateActionFeedSchema = z.object({
+  schemaVersion: z.literal(ISSUER_FEED_SCHEMA_VERSION),
+  issuer: issuerSchema,
+  generatedAt: z.iso.datetime(),
+  events: z.array(corporateActionFeedEventSchema).max(5000),
+});
+export type CorporateActionFeed = z.infer<typeof corporateActionFeedSchema>;
+
+export const corporateActionDetailsSchema = z.object({
+  ratio: z
+    .object({ numerator: z.number().int().positive(), denominator: z.number().int().positive() })
+    .nullable(),
+  newMultiplier: decimalStringSchema.nullable(),
+  distribution: z
+    .object({ amountPerToken: decimalStringSchema, unit: z.string().max(20) })
+    .nullable(),
+  migration: z
+    .object({ targetProductId: z.string().max(100), deadlineAt: z.iso.datetime() })
+    .nullable(),
+  sunsetAt: z.iso.datetime().nullable(),
+  reference: z.url().nullable(),
+});
+export type CorporateActionDetails = z.infer<typeof corporateActionDetailsSchema>;
+
+export const corporateActionSchema = z.object({
+  actionId: idSchema,
+  instrumentId: idSchema,
+  issuer: issuerSchema,
+  externalId: z.string().max(100),
+  type: corporateActionTypeSchema,
+  status: corporateActionStatusSchema,
+  announcedAt: z.iso.datetime(),
+  effectiveAt: z.iso.datetime(),
+  summary: z.string().max(2000),
+  details: corporateActionDetailsSchema,
+  appliedAt: z.iso.datetime().nullable(),
+  appliedBy: z.string().nullable(),
+  statusReason: z.string().max(500).nullable(),
+  sourceSnapshotId: idSchema,
+  createdAt: z.iso.datetime(),
+});
+export type CorporateAction = z.infer<typeof corporateActionSchema>;
+
+export const corporateActionListResponseSchema = z.object({
+  actions: z.array(corporateActionSchema),
+});
+
+export const corporateActionIngestionReportSchema = z.object({
+  snapshot: issuerSnapshotSchema,
+  events: z.array(
+    z.object({
+      externalId: z.string(),
+      productId: z.string(),
+      outcome: z.enum(['inserted', 'updated', 'unchanged', 'rejected', 'unmatched']),
+      reasons: z.array(z.string().max(200)),
+    }),
+  ),
+  counts: z.object({
+    inserted: z.number().int(),
+    updated: z.number().int(),
+    unchanged: z.number().int(),
+    rejected: z.number().int(),
+    unmatched: z.number().int(),
+  }),
+});
+export type CorporateActionIngestionReport = z.infer<typeof corporateActionIngestionReportSchema>;
+
+export const corporateActionApplyRequestSchema = z.object({
+  reason: z.string().trim().min(3).max(500),
+  evidence: z.record(z.string().max(60), z.string().max(500)).default({}),
+});
+
+export const corporateActionApplyResponseSchema = z.object({
+  action: corporateActionSchema,
+  /** Multiplier evidence written by this application, if the action changes the multiplier. */
+  multiplier: instrumentMultiplierSchema.nullable(),
+});
+
+/** Issuer lifecycle state derived from applied corporate actions and on-chain flags. */
+export const instrumentLifecycleSchema = z.object({
+  halted: z.boolean(),
+  haltedReason: z.string().max(500).nullable(),
+  pendingActions: z.array(
+    z.object({
+      actionId: idSchema,
+      type: corporateActionTypeSchema,
+      effectiveAt: z.iso.datetime(),
+    }),
+  ),
+  migration: z
+    .object({
+      targetProductId: z.string().max(100),
+      targetInstrumentId: idSchema.nullable(),
+      deadlineAt: z.iso.datetime(),
+    })
+    .nullable(),
+  sunsetAt: z.iso.datetime().nullable(),
+  /** Multiplier currently in force ("1" for unscaled tokens) and since when; null when no evidence exists. */
+  currentMultiplier: decimalStringSchema.nullable(),
+  multiplierEffectiveAt: z.iso.datetime().nullable(),
+});
+export type InstrumentLifecycle = z.infer<typeof instrumentLifecycleSchema>;
+
+export const ROUNDING_MODE_NAMES = ['down', 'up', 'half_up', 'half_even'] as const;
+
+export const quantityConversionQuerySchema = z.object({
+  raw: rawAmountSchema.optional(),
+  scaled: decimalStringSchema.optional(),
+  asOf: z.iso.datetime().optional(),
+  rounding: z.enum(ROUNDING_MODE_NAMES).default('down'),
+});
+
+/** raw ↔ scaled for one instrument at one time; the multiplier used is always returned. */
+export const quantityConversionResponseSchema = z.object({
+  instrumentId: idSchema,
+  asOf: z.iso.datetime(),
+  decimals: z.number().int(),
+  multiplier: decimalStringSchema,
+  multiplierEffectiveAt: z.iso.datetime().nullable(),
+  multiplierSource: multiplierSourceSchema,
+  raw: rawAmountSchema,
+  scaled: decimalStringSchema,
+  scaledExact: decimalStringSchema,
+  rounding: z.enum(ROUNDING_MODE_NAMES),
+  rounded: z.boolean(),
+});
+export type QuantityConversionResponse = z.infer<typeof quantityConversionResponseSchema>;

@@ -105,8 +105,20 @@ is not part of the committed contract.
 | POST   | /v1/ops/catalog/instruments/{instrumentId}/decisions     | operator `ops:catalog:write`  | admit, reject, pause, resume, delist |
 | GET    | /v1/ops/catalog/snapshots                                | operator `ops:catalog:read`   | Recent snapshots with content hashes and rejection reasons |
 
+| GET    | /v1/catalog/instruments/{instrumentId}/corporate-actions  | anonymous                     | Pending and applied corporate actions of a visible instrument (B04) |
+| GET    | /v1/catalog/instruments/{instrumentId}/multipliers        | anonymous                     | Multiplier evidence history (B04) |
+| GET    | /v1/catalog/instruments/{instrumentId}/multiplier         | anonymous                     | Multiplier in force at `asOf`, with completeness (B04) |
+| GET    | /v1/catalog/instruments/{instrumentId}/quantities         | anonymous                     | Exact raw ↔ scaled conversion with explicit rounding (B04) |
+| POST   | /v1/ops/catalog/corporate-actions/ingestions              | operator `ops:catalog:write`  | Ingest a corporate-action feed as pending events (B04) |
+| GET    | /v1/ops/catalog/corporate-actions                         | operator `ops:catalog:read`   | Corporate actions in any status (B04) |
+| POST   | /v1/ops/catalog/corporate-actions/{actionId}/apply        | operator `ops:catalog:write`  | Apply an effective pending action; records multiplier evidence (B04) |
+| POST   | /v1/ops/catalog/corporate-actions/{actionId}/reject       | operator `ops:catalog:write`  | Reject a pending action (B04) |
+
 Catalog prices are typed reference marks (`issuer_mark`,
-`implied_valuation`, `secondary_market`), never `execution_quote`.
+`implied_valuation`, `secondary_market`, `underlying_equity`), never
+`execution_quote`. Mint verifications carry the token-extension assessment;
+admission refuses unsupported extension sets and requires
+`evidence.extensionReview` for review-required ones.
 `ADMISSION_BLOCKED` (409) answers an admit or resume without a current
 matching mint verification. Details: `docs/markov/catalog.md`.
 

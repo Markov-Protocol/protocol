@@ -1,19 +1,27 @@
 import type {
   CatalogPrice,
+  CorporateActionDetails,
+  CorporateActionStatus,
+  CorporateActionType,
+  ExtensionAssessment,
   IngestionSource,
   InstrumentDecisionKind,
   InstrumentKind,
   InstrumentStatus,
   Issuer,
   MintVerificationResult,
+  MultiplierSource,
   OnChainMint,
+  SnapshotKindSchemaType,
   TokenProgram,
 } from '@markov/contracts';
 import { and, asc, desc, eq, gt, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { Database } from './client.js';
 import {
+  corporateActions,
   instrumentDecisions,
   instrumentMintVerifications,
+  instrumentMultipliers,
   instruments,
   issuerSnapshots,
 } from './schema.js';
@@ -29,6 +37,8 @@ export type IssuerSnapshotRow = typeof issuerSnapshots.$inferSelect;
 export type InstrumentRow = typeof instruments.$inferSelect;
 export type MintVerificationRow = typeof instrumentMintVerifications.$inferSelect;
 export type InstrumentDecisionRow = typeof instrumentDecisions.$inferSelect;
+export type CorporateActionRow = typeof corporateActions.$inferSelect;
+export type InstrumentMultiplierRow = typeof instrumentMultipliers.$inferSelect;
 
 export class InstrumentStatusConflictError extends Error {
   override readonly name = 'InstrumentStatusConflictError';
@@ -48,6 +58,7 @@ export async function recordIssuerSnapshot(
   db: Database,
   input: {
     issuer: Issuer;
+    kind?: SnapshotKindSchemaType;
     source: IngestionSource;
     sourceRef: string;
     fetchedAt: Date;
@@ -59,7 +70,10 @@ export async function recordIssuerSnapshot(
     createdBy: string;
   },
 ): Promise<IssuerSnapshotRow> {
-  const rows = await db.insert(issuerSnapshots).values(input).returning();
+  const rows = await db
+    .insert(issuerSnapshots)
+    .values({ ...input, kind: input.kind ?? 'products' })
+    .returning();
   const row = rows[0];
   if (!row) {
     throw new Error('snapshot insert did not return a row');
@@ -98,6 +112,7 @@ export interface InstrumentUpstreamFields {
   readonly website: string | null;
   readonly description: string | null;
   readonly referencePrice: CatalogPrice | null;
+  readonly underlying: { readonly ticker: string; readonly exchange: string | null } | null;
 }
 
 export type IngestionWrite =
@@ -161,6 +176,8 @@ export async function applyIngestion(
           website: product.website,
           description: product.description,
           referencePrice: product.referencePrice,
+          underlyingTicker: product.underlying?.ticker ?? null,
+          underlyingExchange: product.underlying?.exchange ?? null,
           fingerprint: write.fingerprint,
           sourceSnapshotId: input.snapshotId,
           createdAt: input.now,
@@ -183,6 +200,8 @@ export async function applyIngestion(
             website: product.website,
             description: product.description,
             referencePrice: product.referencePrice,
+            underlyingTicker: product.underlying?.ticker ?? null,
+            underlyingExchange: product.underlying?.exchange ?? null,
             fingerprint: write.fingerprint,
             sourceSnapshotId: input.snapshotId,
             updatedAt: input.now,
@@ -305,6 +324,7 @@ export async function recordMintVerification(
     onChain: OnChainMint | null;
     mismatches: readonly string[];
     verifiedAt: Date;
+    compatibility?: ExtensionAssessment | null;
   },
 ): Promise<MintVerificationRow> {
   return db.transaction(async (tx) => {
@@ -318,6 +338,7 @@ export async function recordMintVerification(
         onChain: input.onChain,
         mismatches: [...input.mismatches],
         verifiedAt: input.verifiedAt,
+        compatibility: input.compatibility ?? null,
       })
       .returning();
     const row = rows[0];
@@ -416,4 +437,374 @@ export async function listInstrumentDecisions(
     .where(eq(instrumentDecisions.instrumentId, instrumentId))
     .orderBy(desc(instrumentDecisions.decidedAt), desc(instrumentDecisions.id))
     .limit(limit);
+}
+
+/* ---------------------------------------------------------------------------
+ * Corporate actions and multiplier evidence (B04)
+ * ------------------------------------------------------------------------- */
+
+export interface CorporateActionEventInput {
+  readonly externalId: string;
+  readonly productId: string;
+  readonly type: CorporateActionType;
+  readonly announcedAt: string;
+  readonly effectiveAt: string;
+  readonly summary: string;
+  readonly details: CorporateActionDetails;
+  readonly fingerprint: string;
+}
+
+export type CorporateActionWriteInput =
+  | {
+      readonly kind: 'insert';
+      readonly instrumentId: string;
+      readonly event: CorporateActionEventInput;
+    }
+  | {
+      readonly kind: 'update';
+      readonly actionId: string;
+      readonly event: CorporateActionEventInput;
+    };
+
+export async function listCorporateActionsForPlanning(
+  db: Database,
+  issuer: Issuer,
+): Promise<CorporateActionRow[]> {
+  return db.select().from(corporateActions).where(eq(corporateActions.issuer, issuer));
+}
+
+/** Insert new pending events and update changed pending ones in one transaction; applied or rejected rows never change. */
+export async function applyCorporateActionWrites(
+  db: Database,
+  input: {
+    issuer: Issuer;
+    snapshotId: string;
+    writes: readonly CorporateActionWriteInput[];
+    now: Date;
+  },
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    for (const write of input.writes) {
+      const event = write.event;
+      if (write.kind === 'insert') {
+        await tx.insert(corporateActions).values({
+          instrumentId: write.instrumentId,
+          issuer: input.issuer,
+          externalId: event.externalId,
+          type: event.type,
+          status: 'pending',
+          announcedAt: new Date(event.announcedAt),
+          effectiveAt: new Date(event.effectiveAt),
+          summary: event.summary,
+          details: event.details,
+          fingerprint: event.fingerprint,
+          sourceSnapshotId: input.snapshotId,
+          createdAt: input.now,
+          updatedAt: input.now,
+        });
+        continue;
+      }
+      await tx
+        .update(corporateActions)
+        .set({
+          type: event.type,
+          announcedAt: new Date(event.announcedAt),
+          effectiveAt: new Date(event.effectiveAt),
+          summary: event.summary,
+          details: event.details,
+          fingerprint: event.fingerprint,
+          sourceSnapshotId: input.snapshotId,
+          updatedAt: input.now,
+        })
+        .where(
+          and(eq(corporateActions.id, write.actionId), eq(corporateActions.status, 'pending')),
+        );
+    }
+  });
+}
+
+export async function listCorporateActions(
+  db: Database,
+  filter: {
+    instrumentId?: string | undefined;
+    instrumentIds?: readonly string[] | undefined;
+    issuer?: Issuer | undefined;
+    status?: CorporateActionStatus | undefined;
+    limit?: number;
+  },
+): Promise<CorporateActionRow[]> {
+  const conditions = [];
+  if (filter.instrumentId) {
+    conditions.push(eq(corporateActions.instrumentId, filter.instrumentId));
+  }
+  if (filter.instrumentIds) {
+    if (filter.instrumentIds.length === 0) {
+      return [];
+    }
+    conditions.push(inArray(corporateActions.instrumentId, [...filter.instrumentIds]));
+  }
+  if (filter.issuer) {
+    conditions.push(eq(corporateActions.issuer, filter.issuer));
+  }
+  if (filter.status) {
+    conditions.push(eq(corporateActions.status, filter.status));
+  }
+  const query = db.select().from(corporateActions);
+  const filtered = conditions.length > 0 ? query.where(and(...conditions)) : query;
+  return filtered
+    .orderBy(desc(corporateActions.effectiveAt), desc(corporateActions.createdAt))
+    .limit(filter.limit ?? 200);
+}
+
+export async function findCorporateAction(
+  db: Database,
+  actionId: string,
+): Promise<CorporateActionRow | null> {
+  const rows = await db
+    .select()
+    .from(corporateActions)
+    .where(eq(corporateActions.id, actionId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export class CorporateActionStatusConflictError extends Error {
+  override readonly name = 'CorporateActionStatusConflictError';
+  readonly currentStatus: CorporateActionStatus | null;
+
+  constructor(currentStatus: CorporateActionStatus | null) {
+    super(
+      currentStatus === null
+        ? 'corporate action does not exist'
+        : `corporate action is already ${currentStatus}`,
+    );
+    this.currentStatus = currentStatus;
+  }
+}
+
+export interface LifecycleUpdate {
+  readonly haltedAt?: Date | null;
+  readonly haltedReason?: string | null;
+  readonly migrationTargetProductId?: string | null;
+  readonly migrationDeadlineAt?: Date | null;
+  readonly sunsetAt?: Date | null;
+}
+
+export interface MultiplierInput {
+  readonly effectiveAt: Date;
+  readonly multiplier: string;
+  readonly multiplierExact: string;
+  readonly source: MultiplierSource;
+  readonly evidence: Record<string, string>;
+}
+
+type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+async function upsertMultiplier(
+  tx: Transaction,
+  instrumentId: string,
+  input: MultiplierInput,
+  recordedAt: Date,
+): Promise<InstrumentMultiplierRow> {
+  const rows = await tx
+    .insert(instrumentMultipliers)
+    .values({
+      instrumentId,
+      effectiveAt: input.effectiveAt,
+      multiplier: input.multiplier,
+      multiplierExact: input.multiplierExact,
+      source: input.source,
+      evidence: input.evidence,
+      recordedAt,
+    })
+    .onConflictDoUpdate({
+      target: [
+        instrumentMultipliers.instrumentId,
+        instrumentMultipliers.effectiveAt,
+        instrumentMultipliers.source,
+      ],
+      set: {
+        multiplier: input.multiplier,
+        multiplierExact: input.multiplierExact,
+        evidence: input.evidence,
+        recordedAt,
+      },
+    })
+    .returning();
+  const row = rows[0];
+  if (!row) {
+    throw new Error('multiplier upsert did not return a row');
+  }
+  return row;
+}
+
+/** Apply a pending action: its status, the instrument's lifecycle columns and any multiplier evidence move together. */
+export async function applyCorporateAction(
+  db: Database,
+  input: {
+    actionId: string;
+    appliedBy: string;
+    appliedAt: Date;
+    reason: string;
+    lifecycle: LifecycleUpdate;
+    multiplier: MultiplierInput | null;
+  },
+): Promise<{ action: CorporateActionRow; multiplier: InstrumentMultiplierRow | null }> {
+  return db.transaction(async (tx) => {
+    const locked = await tx
+      .select({ status: corporateActions.status, instrumentId: corporateActions.instrumentId })
+      .from(corporateActions)
+      .where(eq(corporateActions.id, input.actionId))
+      .for('update')
+      .limit(1);
+    const current = locked[0];
+    if (!current || current.status !== 'pending') {
+      throw new CorporateActionStatusConflictError(
+        (current?.status as CorporateActionStatus | undefined) ?? null,
+      );
+    }
+    const rows = await tx
+      .update(corporateActions)
+      .set({
+        status: 'applied',
+        statusReason: input.reason.slice(0, 500),
+        appliedAt: input.appliedAt,
+        appliedBy: input.appliedBy,
+        updatedAt: input.appliedAt,
+      })
+      .where(eq(corporateActions.id, input.actionId))
+      .returning();
+    const action = rows[0];
+    if (!action) {
+      throw new Error('corporate action update did not return a row');
+    }
+    const lifecycle = input.lifecycle;
+    const patch: Partial<typeof instruments.$inferInsert> = { updatedAt: input.appliedAt };
+    if ('haltedAt' in lifecycle) {
+      patch.haltedAt = lifecycle.haltedAt ?? null;
+      patch.haltedReason = lifecycle.haltedReason ?? null;
+    }
+    if ('migrationTargetProductId' in lifecycle) {
+      patch.migrationTargetProductId = lifecycle.migrationTargetProductId ?? null;
+      patch.migrationDeadlineAt = lifecycle.migrationDeadlineAt ?? null;
+    }
+    if ('sunsetAt' in lifecycle) {
+      patch.sunsetAt = lifecycle.sunsetAt ?? null;
+    }
+    await tx.update(instruments).set(patch).where(eq(instruments.id, current.instrumentId));
+    let multiplier: InstrumentMultiplierRow | null = null;
+    if (input.multiplier) {
+      multiplier = await upsertMultiplier(
+        tx,
+        current.instrumentId,
+        input.multiplier,
+        input.appliedAt,
+      );
+    }
+    return { action, multiplier };
+  });
+}
+
+export async function rejectCorporateAction(
+  db: Database,
+  input: { actionId: string; reason: string; decidedBy: string; at: Date },
+): Promise<CorporateActionRow> {
+  return db.transaction(async (tx) => {
+    const locked = await tx
+      .select({ status: corporateActions.status })
+      .from(corporateActions)
+      .where(eq(corporateActions.id, input.actionId))
+      .for('update')
+      .limit(1);
+    const current = locked[0];
+    if (!current || current.status !== 'pending') {
+      throw new CorporateActionStatusConflictError(
+        (current?.status as CorporateActionStatus | undefined) ?? null,
+      );
+    }
+    const rows = await tx
+      .update(corporateActions)
+      .set({
+        status: 'rejected',
+        statusReason: input.reason.slice(0, 500),
+        appliedBy: input.decidedBy,
+        updatedAt: input.at,
+      })
+      .where(eq(corporateActions.id, input.actionId))
+      .returning();
+    const action = rows[0];
+    if (!action) {
+      throw new Error('corporate action update did not return a row');
+    }
+    return action;
+  });
+}
+
+export async function recordInstrumentMultiplier(
+  db: Database,
+  instrumentId: string,
+  input: MultiplierInput,
+  recordedAt: Date,
+): Promise<InstrumentMultiplierRow> {
+  return db.transaction((tx) => upsertMultiplier(tx, instrumentId, input, recordedAt));
+}
+
+export async function listInstrumentMultipliers(
+  db: Database,
+  instrumentId: string,
+): Promise<InstrumentMultiplierRow[]> {
+  return db
+    .select()
+    .from(instrumentMultipliers)
+    .where(eq(instrumentMultipliers.instrumentId, instrumentId))
+    .orderBy(desc(instrumentMultipliers.effectiveAt), desc(instrumentMultipliers.id));
+}
+
+/** Batch reads for list pages: multipliers and latest verifications for many instruments at once. */
+export async function listMultipliersFor(
+  db: Database,
+  instrumentIds: readonly string[],
+): Promise<InstrumentMultiplierRow[]> {
+  if (instrumentIds.length === 0) {
+    return [];
+  }
+  return db
+    .select()
+    .from(instrumentMultipliers)
+    .where(inArray(instrumentMultipliers.instrumentId, [...instrumentIds]))
+    .orderBy(desc(instrumentMultipliers.effectiveAt), desc(instrumentMultipliers.id));
+}
+
+export async function latestVerificationsFor(
+  db: Database,
+  instrumentIds: readonly string[],
+): Promise<Map<string, MintVerificationRow>> {
+  const latest = new Map<string, MintVerificationRow>();
+  if (instrumentIds.length === 0) {
+    return latest;
+  }
+  const rows = await db
+    .select()
+    .from(instrumentMintVerifications)
+    .where(inArray(instrumentMintVerifications.instrumentId, [...instrumentIds]))
+    .orderBy(desc(instrumentMintVerifications.verifiedAt), desc(instrumentMintVerifications.id));
+  for (const row of rows) {
+    if (!latest.has(row.instrumentId)) {
+      latest.set(row.instrumentId, row);
+    }
+  }
+  return latest;
+}
+
+export async function findInstrumentByProduct(
+  db: Database,
+  issuer: Issuer,
+  issuerProductId: string,
+): Promise<InstrumentRow | null> {
+  const rows = await db
+    .select()
+    .from(instruments)
+    .where(and(eq(instruments.issuer, issuer), eq(instruments.issuerProductId, issuerProductId)))
+    .limit(1);
+  return rows[0] ?? null;
 }

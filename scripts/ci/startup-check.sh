@@ -67,6 +67,27 @@ echo "public search result count:kind:trade = $PUBLIC_COUNT"; [ "$PUBLIC_COUNT" 
 QUARANTINE_PUBLIC=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$API_PORT/v1/ops/catalog/instruments")
 echo "operator route without token: $QUARANTINE_PUBLIC"; [ "$QUARANTINE_PUBLIC" = "401" ]
 
+echo "== listed stocks journey: xStocks fixture products and events -> extension policy -> split -> exact quantities"
+node apps/cli/dist/main.js catalog ingest --issuer xstocks --source fixture --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log("xstocks products inserted: "+j.counts.inserted)})'
+XSA_ID=$(node apps/cli/dist/main.js catalog list --status quarantined --q XSFXA --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).instruments[0].instrumentId))')
+XSB_ID=$(node apps/cli/dist/main.js catalog list --status quarantined --q XSFXB --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).instruments[0].instrumentId))')
+XSA_COMPAT=$(node apps/cli/dist/main.js catalog verify-mint "$XSA_ID" --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.result+":"+j.compatibility.compatibility+":"+j.compatibility.scaledUiAmount.multiplier)})')
+echo "XSFXA verification: $XSA_COMPAT"; [ "$XSA_COMPAT" = "verified:supported:2" ]
+XSB_COMPAT=$(node apps/cli/dist/main.js catalog verify-mint "$XSB_ID" --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).compatibility.compatibility))')
+echo "XSFXB extension policy: $XSB_COMPAT"; [ "$XSB_COMPAT" = "unsupported" ]
+set +e
+node apps/cli/dist/main.js catalog decide "$XSB_ID" --decision admit --reason "must be refused" --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null 2>&1
+XSB_ADMIT=$?
+set -e
+echo "admitting the fee-bearing mint exits with: $XSB_ADMIT"; [ "$XSB_ADMIT" -ne 0 ]
+node apps/cli/dist/main.js catalog decide "$XSA_ID" --decision admit --reason "startup check: extension policy supported" --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+node apps/cli/dist/main.js catalog events ingest --issuer xstocks --source fixture --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log("events: "+JSON.stringify(j.counts))})'
+SPLIT_ID=$(node apps/cli/dist/main.js catalog events list --issuer xstocks --status pending --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const a=JSON.parse(d).actions.find(x=>x.externalId==="xs-ev-001");console.log(a.actionId)})')
+SPLIT_MULT=$(node apps/cli/dist/main.js catalog events apply "$SPLIT_ID" --reason "startup check: issuer notice fixture" --evidence notice=fixture --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).multiplier.multiplier))')
+echo "multiplier after split: $SPLIT_MULT"; [ "$SPLIT_MULT" = "2" ]
+CONVERTED=$(node apps/cli/dist/main.js catalog convert "$XSA_ID" --raw 150000000 --as-of 2026-09-21T00:00:00Z --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.scaled+":"+j.multiplier+":"+j.rounded)})')
+echo "150000000 raw at 8 decimals after the split = $CONVERTED"; [ "$CONVERTED" = "3:2:false" ]
+
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""
 

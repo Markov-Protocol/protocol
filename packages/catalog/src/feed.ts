@@ -27,6 +27,8 @@ export interface NormalizedProduct {
   readonly website: string | null;
   readonly description: string | null;
   readonly referencePrice: CatalogPrice | null;
+  /** Listed stocks: the underlying security as the issuer names it. */
+  readonly underlying: { readonly ticker: string; readonly exchange: string | null } | null;
 }
 
 export type NormalizeOutcome =
@@ -128,6 +130,10 @@ export function normalizeProduct(raw: IssuerFeedProduct, now: Date): NormalizeOu
     };
   }
   const description = raw.description ? sanitizeText(raw.description, 1000) : '';
+  const ticker = raw.underlying ? sanitizeText(raw.underlying.ticker, 20).toUpperCase() : '';
+  const exchange = raw.underlying?.exchange
+    ? sanitizeText(raw.underlying.exchange, 40).toUpperCase()
+    : '';
   return {
     ok: true,
     product: {
@@ -142,6 +148,8 @@ export function normalizeProduct(raw: IssuerFeedProduct, now: Date): NormalizeOu
       website: sanitizeWebsite(raw.website),
       description: description.length > 0 ? description : null,
       referencePrice,
+      underlying:
+        ticker.length > 0 ? { ticker, exchange: exchange.length > 0 ? exchange : null } : null,
     },
   };
 }

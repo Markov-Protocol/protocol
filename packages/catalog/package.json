@@ -18,6 +18,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
+    "@markov/amounts": "workspace:*",
     "@markov/contracts": "workspace:*",
     "zod": "4.6.5"
   },

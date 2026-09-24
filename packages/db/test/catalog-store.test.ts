@@ -1,18 +1,28 @@
 import { testDatabaseUrl, withTemporaryDatabase } from '@markov/testkit';
 import { describe, expect, it } from 'vitest';
 import {
+  applyCorporateAction,
+  applyCorporateActionWrites,
   applyIngestion,
   bindPlatformIdentity,
+  CorporateActionStatusConflictError,
   createDbClient,
+  findCorporateAction,
   findInstrument,
   InstrumentStatusConflictError,
   type InstrumentUpstreamFields,
   latestMintVerification,
+  latestVerificationsFor,
+  listCorporateActions,
+  listCorporateActionsForPlanning,
   listInstrumentDecisions,
+  listInstrumentMultipliers,
   listInstruments,
   listInstrumentsForPlanning,
   listIssuerSnapshots,
+  listMultipliersFor,
   recordInstrumentDecision,
+  recordInstrumentMultiplier,
   recordIssuerSnapshot,
   recordMintVerification,
   runMigrations,
@@ -37,6 +47,7 @@ function product(overrides: Partial<InstrumentUpstreamFields> = {}): InstrumentU
     website: null,
     description: null,
     referencePrice: null,
+    underlying: null,
     ...overrides,
   };
 }
@@ -277,6 +288,150 @@ describe.skipIf(adminUrl === null)('catalog store', () => {
         ],
       });
       expect((await findInstrument(db, row.id))?.status).toBe('paused');
+    });
+  });
+
+  it('records corporate actions with a pending guard and multiplier evidence', async () => {
+    await withCatalogDb(async (db, snapshotId) => {
+      await applyIngestion(db, {
+        issuer: 'prestocks',
+        genesisHash: GENESIS,
+        snapshotId,
+        now: NOW,
+        writes: [
+          {
+            kind: 'insert',
+            product: product({ underlying: { ticker: 'EXA', exchange: 'FIX' } }),
+            fingerprint: 'f1',
+            status: 'quarantined',
+            reasons: [],
+          },
+        ],
+      });
+      const row = (await listInstrumentsForPlanning(db, 'prestocks'))[0];
+      if (!row) {
+        throw new Error('missing instrument');
+      }
+      expect(row.underlyingTicker).toBe('EXA');
+      const event = {
+        externalId: 'ev-1',
+        productId: 'p-1',
+        type: 'split' as const,
+        announcedAt: '2026-09-01T00:00:00.000Z',
+        effectiveAt: '2026-09-20T00:00:00.000Z',
+        summary: 'two for one',
+        details: {
+          ratio: { numerator: 2, denominator: 1 },
+          newMultiplier: null,
+          distribution: null,
+          migration: null,
+          sunsetAt: null,
+          reference: null,
+        },
+        fingerprint: 'fp-1',
+      };
+      await applyCorporateActionWrites(db, {
+        issuer: 'prestocks',
+        snapshotId,
+        now: NOW,
+        writes: [{ kind: 'insert', instrumentId: row.id, event }],
+      });
+      const [pending] = await listCorporateActionsForPlanning(db, 'prestocks');
+      if (!pending) {
+        throw new Error('missing action');
+      }
+      expect(pending.status).toBe('pending');
+      await applyCorporateActionWrites(db, {
+        issuer: 'prestocks',
+        snapshotId,
+        now: NOW,
+        writes: [
+          {
+            kind: 'update',
+            actionId: pending.id,
+            event: { ...event, summary: 'two for one, corrected', fingerprint: 'fp-2' },
+          },
+        ],
+      });
+      expect((await findCorporateAction(db, pending.id))?.summary).toBe('two for one, corrected');
+      const applied = await applyCorporateAction(db, {
+        actionId: pending.id,
+        appliedBy: 'op-1',
+        appliedAt: NOW,
+        reason: 'issuer notice verified',
+        lifecycle: { haltedAt: NOW, haltedReason: 'split settlement' },
+        multiplier: {
+          effectiveAt: new Date(event.effectiveAt),
+          multiplier: '2',
+          multiplierExact: '2',
+          source: 'corporate_action',
+          evidence: { action: pending.id },
+        },
+      });
+      expect(applied.action.status).toBe('applied');
+      expect(applied.multiplier?.multiplier).toBe('2');
+      expect((await findInstrument(db, row.id))?.haltedAt?.toISOString()).toBe(NOW.toISOString());
+      await expect(
+        applyCorporateAction(db, {
+          actionId: pending.id,
+          appliedBy: 'op-2',
+          appliedAt: NOW,
+          reason: 'again',
+          lifecycle: {},
+          multiplier: null,
+        }),
+      ).rejects.toBeInstanceOf(CorporateActionStatusConflictError);
+      await recordInstrumentMultiplier(
+        db,
+        row.id,
+        {
+          effectiveAt: new Date('2026-09-01T00:00:00Z'),
+          multiplier: '1',
+          multiplierExact: '1',
+          source: 'on_chain',
+          evidence: {},
+        },
+        NOW,
+      );
+      await recordInstrumentMultiplier(
+        db,
+        row.id,
+        {
+          effectiveAt: new Date('2026-09-01T00:00:00Z'),
+          multiplier: '1',
+          multiplierExact: '1',
+          source: 'on_chain',
+          evidence: { slot: '5' },
+        },
+        NOW,
+      );
+      const history = await listInstrumentMultipliers(db, row.id);
+      expect(history.map((item) => [item.multiplier, item.source])).toEqual([
+        ['2', 'corporate_action'],
+        ['1', 'on_chain'],
+      ]);
+      expect(history[1]?.evidence).toEqual({ slot: '5' });
+      expect(
+        (await listCorporateActions(db, { instrumentId: row.id, status: 'applied' })).map(
+          (item) => item.externalId,
+        ),
+      ).toEqual(['ev-1']);
+      expect((await listMultipliersFor(db, [row.id])).length).toBe(2);
+      expect((await latestVerificationsFor(db, [row.id])).size).toBe(0);
+      // Applied actions cannot be rewritten by a feed.
+      await applyCorporateActionWrites(db, {
+        issuer: 'prestocks',
+        snapshotId,
+        now: NOW,
+        writes: [
+          {
+            kind: 'update',
+            actionId: pending.id,
+            event: { ...event, summary: 'tampered', fingerprint: 'fp-3' },
+          },
+        ],
+      });
+      expect((await findCorporateAction(db, pending.id))?.summary).toBe('two for one, corrected');
     });
   });
 });

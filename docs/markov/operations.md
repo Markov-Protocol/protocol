@@ -76,6 +76,26 @@ delist when the issuer withdraws. Every decision is audited with the reason
 and evidence references (never secrets). Until OD-17 is resolved
 `PRESTOCKS_FEED_URL` stays unset and the capability is BLOCKED.
 
+## Corporate actions and halts
+
+```
+markov catalog events ingest --issuer xstocks --source configured_url --token <op> --url …
+markov catalog events list --issuer xstocks --status pending --token <op> --url …
+markov catalog events apply <actionId> --reason "issuer notice verified" --evidence notice=… --token <op> --url …
+markov catalog events reject <actionId> --reason "issuer withdrew" --token <op> --url …
+markov catalog multiplier <instrumentId> --as-of 2026-09-21T00:00:00Z --url …
+markov catalog convert <instrumentId> --raw 150000000 --as-of … --url …
+```
+
+Apply an event only once it is effective and after reading the issuer's
+notice; splits and multiplier changes need prior multiplier evidence (a
+verified mint read) or the application is refused. A halt (applied event
+or an on-chain pause seen by verification) blocks new strategy versions
+immediately and is visible on every public instrument. A migration or
+sunset keeps research available and blocks strategies; holders are
+notified through the notification sessions (B15). Never apply an event to
+"fix" a valuation; corrections are new evidence, not rewrites.
+
 ## Readiness and monitoring
 
 - Liveness (`/healthz`) restarts a hung process; readiness (`/readyz`) removes

@@ -1,0 +1,78 @@
+{
+  "note": "Deterministic synthetic Token-2022 mints: base58(sha256(\"markov-fixture-mint:\" + symbol)) with extension specs understood by @markov/catalog encodeExtensionData. Served by scripts/dev/fixture-rpc.mjs.",
+  "mints": [
+    {
+      "symbol": "XSFXA",
+      "mint": "A8GviP6cWZxAKfpCoKfQCvtSejyPh975CoLjsVVqmumh",
+      "decimals": 8,
+      "tokenProgram": "token-2022",
+      "extensions": [
+        {
+          "name": "MetadataPointer"
+        },
+        {
+          "name": "ScaledUiAmount",
+          "multiplier": 2,
+          "newMultiplier": 2,
+          "newMultiplierEffectiveAt": 0
+        },
+        {
+          "name": "Pausable",
+          "paused": false
+        }
+      ]
+    },
+    {
+      "symbol": "XSFXB",
+      "mint": "7DZtuqE57Dwhz9jxYXGmNEkgy5Xj5enc6Qv2S9jV2s34",
+      "decimals": 8,
+      "tokenProgram": "token-2022",
+      "extensions": [
+        {
+          "name": "MetadataPointer"
+        },
+        {
+          "name": "TransferFeeConfig",
+          "basisPoints": 25,
+          "maximumFee": "1000000"
+        }
+      ]
+    },
+    {
+      "symbol": "XSFXC",
+      "mint": "HbAAW6v4rNkFJnpF91RXkLchD4EAVxaedwDgexZEzgrz",
+      "decimals": 8,
+      "tokenProgram": "token-2022",
+      "extensions": [
+        {
+          "name": "MetadataPointer"
+        },
+        {
+          "name": "PermanentDelegate",
+          "delegate": true
+        }
+      ]
+    },
+    {
+      "symbol": "XSFXD",
+      "mint": "CozzycFVYWt2XYRQK5qf2r1ZcK1fhCncMC8QTPYzrvXZ",
+      "decimals": 8,
+      "tokenProgram": "token-2022",
+      "extensions": [
+        {
+          "name": "MetadataPointer"
+        },
+        {
+          "name": "ScaledUiAmount",
+          "multiplier": 1,
+          "newMultiplier": 1,
+          "newMultiplierEffectiveAt": 0
+        },
+        {
+          "name": "Pausable",
+          "paused": true
+        }
+      ]
+    }
+  ]
+}

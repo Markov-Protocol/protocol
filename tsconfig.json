@@ -17,10 +17,16 @@
       "path": "packages/solana-rpc"
     },
     {
+      "path": "packages/amounts"
+    },
+    {
       "path": "packages/catalog"
     },
     {
       "path": "packages/issuer-prestocks"
+    },
+    {
+      "path": "packages/issuer-xstocks"
     },
     {
       "path": "packages/db"

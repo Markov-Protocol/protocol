@@ -53,6 +53,8 @@ packages/db         pooled client, migrations, platform identity, capability rea
 packages/auth       identity-token verification, wallet ownership challenges, credentials, principals (B02)
 packages/catalog    pure catalog rules: feed validation, ingestion planning, mint parsing, availability (B03)
 packages/issuer-prestocks  PreStocks issuer source: fixtures and bounded configured-URL feed (B03)
+packages/issuer-xstocks    xStocks issuer source: product and corporate-action feeds, fixtures and bounded URLs (B04)
+packages/amounts    exact BigInt decimals, on-chain double conversion, raw/scaled quantities (B04)
 packages/api-client generated OpenAPI client with runtime contract validation, used by the app server (F03)
 packages/testkit    test-only helpers (never imported by production code)
 apps/web            markov.pet application (Next.js App Router; ADR-0006)

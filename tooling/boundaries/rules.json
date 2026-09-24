@@ -35,9 +35,15 @@
       "allow": ["@markov/contracts"]
     },
     "@markov/catalog": {
-      "allow": ["@markov/contracts"]
+      "allow": ["@markov/contracts", "@markov/amounts"]
     },
     "@markov/issuer-prestocks": {
+      "allow": ["@markov/contracts", "@markov/catalog"]
+    },
+    "@markov/amounts": {
+      "allow": []
+    },
+    "@markov/issuer-xstocks": {
       "allow": ["@markov/contracts", "@markov/catalog"]
     }
   },

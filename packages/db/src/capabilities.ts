@@ -62,9 +62,10 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
     },
     {
       capability: 'catalog.xstocks.ingest',
-      status: 'DISABLED',
-      summary: 'Not started; planned for session B04.',
-      evidence: {},
+      status: 'BLOCKED',
+      summary:
+        'Listed-stock pipeline implemented and fixture-verified (B04): Token-2022 extension policy, scaled-amount multiplier evidence, exact quantities, corporate-action lifecycle. The live xStocks endpoints and real mints are unverified (OD-18).',
+      evidence: { session: 'B04', openDecision: 'OD-18' },
     },
     {
       capability: 'catalog.tessera.ingest',

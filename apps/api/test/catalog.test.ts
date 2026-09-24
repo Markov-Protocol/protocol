@@ -161,7 +161,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
             fetchImpl: fixtureRpcFetch(),
           }),
         ],
-        sourceFor: (_issuer, source) => {
+        sourceFor: (_issuer, _kind, source) => {
           if (source !== 'fixture') {
             throw new Error('configured_url is not stubbed in this test');
           }

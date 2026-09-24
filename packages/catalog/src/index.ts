@@ -7,6 +7,10 @@
  * HTTP, no provider SDK.
  */
 export * from './availability.js';
+export * from './events.js';
+export * from './extension-fixtures.js';
+export * from './extensions.js';
 export * from './feed.js';
 export * from './mint.js';
+export * from './multipliers.js';
 export * from './plan.js';

@@ -7,7 +7,8 @@ data pipelines, on-chain registry) and, since ADR-0006, the markov.pet web
 application, with a mechanically enforced boundary between them.
 
 Status: backend sessions **B01** (runnable foundation), **B02** (verified
-accounts) and **B03** (admitted PreStocks catalog, fixture-verified) and
+accounts), **B03** (admitted PreStocks catalog, fixture-verified) and
+**B04** (xStocks quantities and lifecycle events, fixture-verified) and
 frontend sessions **F01** (shared design system), **F02** (Mark I shell) and
 **F03** (app sessions and account recovery) are complete. Backend sessions B02 to B18 and
 frontend sessions F02 to F20 follow in dependency order; see
@@ -85,7 +86,8 @@ bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful s
 | Solana RPC reads and network identity verification | implemented; fixture-verified only (live access blocked in the build environment) |
 | Accounts: identity-token sessions, wallet ownership challenges, scoped agent credentials, operator separation, device pairing, audit | implemented, tested (B02); live provider configuration unverified |
 | Catalog: sanitised issuer snapshots, quarantine, counterfeit and collision rules, SPL/Token-2022 mint verification, operator admission, public search with typed reference prices | implemented, tested with synthetic fixtures (B03); live PreStocks feed BLOCKED (OD-17) |
-| Listed stocks, eligibility, research, strategies, registry, execution, accounting, discovery, agents, maintenance | not started (B04 onward) |
+| Listed stocks: Token-2022 extension policy, scaled-amount multiplier evidence, exact raw/scaled quantities, corporate-action lifecycle (splits, halts, migrations, sunsets) | implemented, tested with synthetic fixtures and events (B04); live xStocks endpoints BLOCKED (OD-18) |
+| Eligibility, research, strategies, registry, execution, accounting, discovery, agents, maintenance | not started (B05 onward) |
 | Web design system, exact formatters, internal component reference, production guards | implemented, tested (F01) |
 | Mark I shell, companion home, navigation with honest placeholder routes | implemented, tested (F02) |
 | App sessions: server-verified HttpOnly cookie, sign-in, expiry recovery, sign-out, account switch isolation, generated API client | implemented, tested against the local API (F03); hosted identity provider adapter BLOCKED (OD-05) |

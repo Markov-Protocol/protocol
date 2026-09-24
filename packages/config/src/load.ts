@@ -106,6 +106,8 @@ function structure(raw: RawEnv): MarkovConfig {
     },
     catalog: {
       prestocksFeedUrl: raw.PRESTOCKS_FEED_URL ?? null,
+      xstocksFeedUrl: raw.XSTOCKS_FEED_URL ?? null,
+      xstocksEventsUrl: raw.XSTOCKS_EVENTS_URL ?? null,
     },
     shutdownTimeoutMs: raw.SHUTDOWN_TIMEOUT_MS,
   };
@@ -254,13 +256,20 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
   }
 
   // 8. Identity and credentials: no test issuer, development pepper or localhost challenge domain outside local/test.
-  if (config.catalog.prestocksFeedUrl !== null) {
-    const feed = new URL(config.catalog.prestocksFeedUrl);
+  for (const [path, value] of [
+    ['PRESTOCKS_FEED_URL', config.catalog.prestocksFeedUrl],
+    ['XSTOCKS_FEED_URL', config.catalog.xstocksFeedUrl],
+    ['XSTOCKS_EVENTS_URL', config.catalog.xstocksEventsUrl],
+  ] as const) {
+    if (value === null) {
+      continue;
+    }
+    const feed = new URL(value);
     if (feed.username || feed.password) {
-      issues.push({ path: 'PRESTOCKS_FEED_URL', message: 'must not embed credentials' });
+      issues.push({ path, message: 'must not embed credentials' });
     }
     if (!isDev && feed.protocol !== 'https:') {
-      issues.push({ path: 'PRESTOCKS_FEED_URL', message: 'must use https outside local and test' });
+      issues.push({ path, message: 'must use https outside local and test' });
     }
   }
 

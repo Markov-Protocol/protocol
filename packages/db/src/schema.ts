@@ -1,13 +1,19 @@
 import {
   CAPABILITY_STATUSES,
   type CatalogPrice,
+  CORPORATE_ACTION_STATUSES,
+  CORPORATE_ACTION_TYPES,
+  type CorporateActionDetails,
+  type ExtensionAssessment,
   INGESTION_SOURCES,
   INSTRUMENT_DECISIONS,
   INSTRUMENT_KINDS,
   INSTRUMENT_STATUSES,
   ISSUERS,
   MINT_VERIFICATION_RESULTS,
+  MULTIPLIER_SOURCES,
   type OnChainMint,
+  SNAPSHOT_KINDS,
   SNAPSHOT_STATUSES,
   TOKEN_PROGRAMS,
 } from '@markov/contracts';
@@ -262,6 +268,7 @@ export const issuerSnapshots = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     issuer: text('issuer').notNull(),
+    kind: text('kind').notNull().default('products'),
     source: text('source').notNull(),
     /** Fixture name or the URL without query string and credentials. */
     sourceRef: text('source_ref').notNull(),
@@ -277,6 +284,7 @@ export const issuerSnapshots = pgTable(
   (table) => [
     index('issuer_snapshots_issuer_fetched_idx').on(table.issuer, table.fetchedAt),
     enumCheck('issuer_snapshots_issuer_check', table.issuer, ISSUERS),
+    enumCheck('issuer_snapshots_kind_check', table.kind, SNAPSHOT_KINDS),
     enumCheck('issuer_snapshots_source_check', table.source, INGESTION_SOURCES),
     enumCheck('issuer_snapshots_status_check', table.status, SNAPSHOT_STATUSES),
   ],
@@ -302,6 +310,14 @@ export const instruments = pgTable(
     website: text('website'),
     description: text('description'),
     referencePrice: jsonb('reference_price').$type<CatalogPrice>(),
+    underlyingTicker: text('underlying_ticker'),
+    underlyingExchange: text('underlying_exchange'),
+    /** Lifecycle overrides written by applied corporate actions (B04). */
+    haltedAt: timestamp('halted_at', { withTimezone: true, mode: 'date' }),
+    haltedReason: text('halted_reason'),
+    migrationTargetProductId: text('migration_target_product_id'),
+    migrationDeadlineAt: timestamp('migration_deadline_at', { withTimezone: true, mode: 'date' }),
+    sunsetAt: timestamp('sunset_at', { withTimezone: true, mode: 'date' }),
     /** Fingerprint of the stored upstream fields; unchanged feeds are detected without a diff. */
     fingerprint: text('fingerprint').notNull(),
     sourceSnapshotId: uuid('source_snapshot_id')
@@ -342,6 +358,8 @@ export const instrumentMintVerifications = pgTable(
     result: text('result').notNull(),
     onChain: jsonb('on_chain').$type<OnChainMint>(),
     mismatches: jsonb('mismatches').$type<string[]>().notNull().default([]),
+    /** Extension policy verdict (B04); null for spl-token mints and failed reads. */
+    compatibility: jsonb('compatibility').$type<ExtensionAssessment>(),
   },
   (table) => [
     index('instrument_mint_verifications_instrument_idx').on(table.instrumentId, table.verifiedAt),
@@ -378,5 +396,72 @@ export const instrumentDecisions = pgTable(
       INSTRUMENT_STATUSES,
     ),
     enumCheck('instrument_decisions_new_status_check', table.newStatus, INSTRUMENT_STATUSES),
+  ],
+);
+
+/* ---------------------------------------------------------------------------
+ * Listed stocks (session B04): corporate actions and multiplier evidence.
+ * ------------------------------------------------------------------------- */
+
+export const corporateActions = pgTable(
+  'corporate_actions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id, { onDelete: 'cascade' }),
+    issuer: text('issuer').notNull(),
+    externalId: text('external_id').notNull(),
+    type: text('type').notNull(),
+    status: text('status').notNull().default('pending'),
+    announcedAt: timestamp('announced_at', { withTimezone: true, mode: 'date' }).notNull(),
+    effectiveAt: timestamp('effective_at', { withTimezone: true, mode: 'date' }).notNull(),
+    summary: text('summary').notNull(),
+    details: jsonb('details').$type<CorporateActionDetails>().notNull(),
+    fingerprint: text('fingerprint').notNull(),
+    statusReason: text('status_reason'),
+    appliedAt: timestamp('applied_at', { withTimezone: true, mode: 'date' }),
+    appliedBy: text('applied_by'),
+    sourceSnapshotId: uuid('source_snapshot_id')
+      .notNull()
+      .references(() => issuerSnapshots.id),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('corporate_actions_issuer_external_unique').on(table.issuer, table.externalId),
+    index('corporate_actions_instrument_idx').on(table.instrumentId, table.effectiveAt),
+    index('corporate_actions_status_idx').on(table.status),
+    enumCheck('corporate_actions_issuer_check', table.issuer, ISSUERS),
+    enumCheck('corporate_actions_type_check', table.type, CORPORATE_ACTION_TYPES),
+    enumCheck('corporate_actions_status_check', table.status, CORPORATE_ACTION_STATUSES),
+  ],
+);
+
+export const instrumentMultipliers = pgTable(
+  'instrument_multipliers',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id, { onDelete: 'cascade' }),
+    effectiveAt: timestamp('effective_at', { withTimezone: true, mode: 'date' }).notNull(),
+    /** Decimal strings; never floats. */
+    multiplier: text('multiplier').notNull(),
+    multiplierExact: text('multiplier_exact').notNull(),
+    source: text('source').notNull(),
+    evidence: jsonb('evidence').$type<Record<string, string>>().notNull().default({}),
+    recordedAt: timestamp('recorded_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('instrument_multipliers_point_unique').on(
+      table.instrumentId,
+      table.effectiveAt,
+      table.source,
+    ),
+    index('instrument_multipliers_instrument_idx').on(table.instrumentId, table.effectiveAt),
+    enumCheck('instrument_multipliers_source_check', table.source, MULTIPLIER_SOURCES),
   ],
 );

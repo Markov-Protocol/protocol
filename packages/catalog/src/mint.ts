@@ -69,8 +69,17 @@ export const REVIEW_REQUIRED_EXTENSIONS: ReadonlySet<string> = new Set([
   'PermissionedBurn',
 ]);
 
+export interface ParsedExtensionEntry {
+  readonly type: number;
+  readonly data: Uint8Array;
+}
+
 export type MintParseResult =
-  | { readonly ok: true; readonly mint: OnChainMint }
+  | {
+      readonly ok: true;
+      readonly mint: OnChainMint;
+      readonly entries: readonly ParsedExtensionEntry[];
+    }
   | {
       readonly ok: false;
       readonly reason: 'unknown_program' | 'not_a_mint';
@@ -149,7 +158,7 @@ export function parseMintAccount(owner: string, data: Uint8Array): MintParseResu
     isInitialized: initializedByte === 1,
   };
   if (data.length === MINT_BASE_LENGTH) {
-    return { ok: true, mint: { ...base, extensions: [], unknownExtensionTypes: [] } };
+    return { ok: true, mint: { ...base, extensions: [], unknownExtensionTypes: [] }, entries: [] };
   }
   if (tokenProgram !== 'token-2022') {
     return {
@@ -179,6 +188,7 @@ export function parseMintAccount(owner: string, data: Uint8Array): MintParseResu
   }
   const extensions: string[] = [];
   const unknownExtensionTypes: number[] = [];
+  const entries: ParsedExtensionEntry[] = [];
   let offset = ACCOUNT_BASE_LENGTH + 1;
   while (offset + 4 <= data.length) {
     const type = readU16(data, offset);
@@ -199,9 +209,10 @@ export function parseMintAccount(owner: string, data: Uint8Array): MintParseResu
     } else {
       extensions.push(name);
     }
+    entries.push({ type, data: data.subarray(offset + 4, offset + 4 + length) });
     offset += 4 + length;
   }
-  return { ok: true, mint: { ...base, extensions, unknownExtensionTypes } };
+  return { ok: true, mint: { ...base, extensions, unknownExtensionTypes }, entries };
 }
 
 export interface DeclaredMint {
