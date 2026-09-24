@@ -2,7 +2,18 @@ import { loadConfig } from '@markov/config';
 import { createSilentLogger } from '@markov/observability';
 import { baseTestEnv } from '@markov/testkit';
 import { describe, expect, it } from 'vitest';
-import { type ApiProbes, buildApp, type NetworkIdentitySnapshot } from '../src/index.js';
+import {
+  type ApiProbes,
+  buildApp,
+  type IdentityService,
+  type NetworkIdentitySnapshot,
+} from '../src/index.js';
+
+const unavailableIdentity = new Proxy({} as IdentityService, {
+  get: () => () => {
+    throw new Error('identity service is not part of this test');
+  },
+});
 
 const GENESIS = 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
 
@@ -60,6 +71,8 @@ async function makeApp(
     probes: options.probes ?? probes(),
     network: { snapshot: () => options.network ?? verified },
     expectedGenesisHash: GENESIS,
+    identity: unavailableIdentity,
+    mintTestToken: null,
   });
   await app.ready();
   return app;

@@ -38,4 +38,5 @@ export const SECRET_ENV_KEYS: readonly string[] = [
   'TEMPORAL_API_KEY',
   'SOLANA_RPC_PRIMARY_URL',
   'SOLANA_RPC_SECONDARY_URL',
+  'CREDENTIAL_PEPPER',
 ];

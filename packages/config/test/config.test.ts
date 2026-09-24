@@ -77,6 +77,12 @@ describe('runtime mode x cluster matrix', () => {
     TEMPORAL_NAMESPACE: 'markov-prod',
     TEMPORAL_TLS: 'true',
     DATABASE_SSL: 'require',
+    IDENTITY_PROVIDER: 'oidc',
+    IDENTITY_ISSUER: 'https://auth.example.test',
+    IDENTITY_AUDIENCE: 'markov-app',
+    IDENTITY_JWKS_URL: 'https://auth.example.test/.well-known/jwks.json',
+    CREDENTIAL_PEPPER: 'a-production-pepper-with-at-least-32-characters',
+    WALLET_CHALLENGE_DOMAIN: 'markov.pet',
   };
 
   it('production requires mainnet-beta', () => {
@@ -117,6 +123,12 @@ describe('runtime mode x cluster matrix', () => {
       MARKOV_ENV: 'staging',
       SOLANA_CLUSTER: 'mainnet-beta',
       TEMPORAL_NAMESPACE: 'markov-staging',
+      IDENTITY_PROVIDER: 'oidc',
+      IDENTITY_ISSUER: 'https://auth.example.test',
+      IDENTITY_AUDIENCE: 'markov-app',
+      IDENTITY_JWKS_URL: 'https://auth.example.test/.well-known/jwks.json',
+      CREDENTIAL_PEPPER: 'a-staging-pepper-with-at-least-32-characters!',
+      WALLET_CHALLENGE_DOMAIN: 'staging.markov.pet',
     };
     expect(issuesOf(staging)).toEqual([expect.stringContaining('SOLANA_RPC_SECONDARY_URL')]);
     expect(
@@ -167,6 +179,57 @@ describe('runtime mode x cluster matrix', () => {
     expect(
       issuesOf({ ...prodBase, MARKOV_ENV: 'mainnet-read-only', TEMPORAL_TLS: 'false' }),
     ).toEqual([]);
+  });
+});
+
+describe('identity and credential configuration', () => {
+  it('defaults to the test issuer and development pepper only in local and test', () => {
+    const config = loadConfig(base);
+    expect(config.identity).toEqual({
+      provider: 'test',
+      issuer: 'markov-test-identity',
+      audience: 'markov-test',
+      jwksUrl: null,
+      algorithms: ['ES256'],
+    });
+    expect(config.auth.walletChallengeDomain).toBe('localhost');
+    const staging = issuesOf({
+      ...base,
+      MARKOV_ENV: 'staging',
+      TEMPORAL_NAMESPACE: 'markov-staging',
+      SOLANA_RPC_SECONDARY_URL: 'https://rpc-b.example.test/',
+    });
+    expect(staging).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('IDENTITY_PROVIDER'),
+        expect.stringContaining('CREDENTIAL_PEPPER'),
+        expect.stringContaining('WALLET_CHALLENGE_DOMAIN'),
+      ]),
+    );
+  });
+
+  it('requires issuer, audience and a JWKS URL for an OIDC provider and rejects symmetric algorithms', () => {
+    expect(issuesOf({ ...base, IDENTITY_PROVIDER: 'oidc' })).toEqual([
+      expect.stringContaining('IDENTITY_ISSUER'),
+      expect.stringContaining('IDENTITY_AUDIENCE'),
+      expect.stringContaining('IDENTITY_JWKS_URL'),
+    ]);
+    expect(issuesOf({ ...base, IDENTITY_ALGORITHMS: 'ES256,HS256' })).toEqual([
+      expect.stringContaining('HS256'),
+    ]);
+    expect(issuesOf({ ...base, IDENTITY_JWKS_URL: 'http://auth.example.test/jwks' })).toEqual([
+      expect.stringContaining('IDENTITY_JWKS_URL'),
+    ]);
+  });
+
+  it('keeps the pepper out of the configuration summary', () => {
+    const config = loadConfig({
+      ...base,
+      CREDENTIAL_PEPPER: 'a-local-pepper-with-at-least-32-characters-x',
+    });
+    const text = JSON.stringify(describeConfig(config));
+    expect(text).not.toContain('a-local-pepper');
+    expect(text).toContain('"credentialPepperConfigured":true');
   });
 });
 

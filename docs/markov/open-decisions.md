@@ -10,7 +10,7 @@ the session where it must be resolved at the latest.
 | OD-02 | TypeScript 6/7 upgrade                                                   | any       | engineering | Re-run the full gate; note in ADR-0002. |
 | OD-03 | OpenTelemetry exporter and tracing backend                               | B18       | operations | Logs are structured now; traces from request to receipt are required before release candidate. |
 | OD-04 | Primary and independent secondary RPC providers, credentials and rate limits | B03 | operations | Required for staging; keys must be redacted from URLs in logs (implemented). |
-| OD-05 | Production identity-provider account (existing provider or Privy)        | B02       | product/security | Backend adapter is built against provider documentation; account settings verified separately. |
+| OD-05 | Production identity-provider account (existing provider or Privy)        | F03       | product/security | B02 shipped a provider-neutral verifier (issuer, audience, JWKS, asymmetric algorithms). Privy documentation was unreachable; confirm its issuer string, audience (app id), key publication (JWKS vs PEM) and `auth_time` semantics, then add PEM support if needed. |
 | OD-06 | Launch jurisdictions, product classification, distribution permissions   | before beta | counsel/product | Backend supports eligibility decisions; it cannot invent the rule. |
 | OD-07 | First admitted instruments (PreStocks/xStocks) and issuer terms          | B03/B04   | product/counsel | Admission needs on-chain mint verification and terms review. |
 | OD-08 | Licensed research/price data rights                                      | B06/B13   | product | A reachable endpoint is not a redistribution right. |

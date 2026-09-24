@@ -14,7 +14,8 @@ export type CapabilityReadinessInput = Omit<CapabilityReadiness, 'updatedAt' | '
 /**
  * Baseline readiness written by `markov db migrate` when a capability has no
  * row yet. Operators update rows with evidence; the seed never overwrites.
- * Statuses here describe the state at the end of session B01.
+ * Statuses here describe the state at the end of session B02; an existing
+ * database keeps its operator-owned rows and is updated with evidence.
  */
 export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInput, 'updatedBy'>[] =
   [
@@ -72,9 +73,10 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
     },
     {
       capability: 'identity.provider.verify',
-      status: 'DISABLED',
-      summary: 'Not started; planned for session B02.',
-      evidence: {},
+      status: 'IMPLEMENTED',
+      summary:
+        'Provider-neutral identity token verification and session exchange, verified end to end with the nonproduction test issuer (B02). Live provider configuration is unverified.',
+      evidence: { session: 'B02', openDecision: 'OD-05' },
     },
     {
       capability: 'execution.jupiter.quote',

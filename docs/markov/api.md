@@ -16,7 +16,8 @@ runtime validators and `pnpm openapi:check` fails CI on drift.
   NOT_FOUND 404, VALIDATION_FAILED 400, RATE_LIMITED 429, ELIGIBILITY_UNKNOWN,
   ASSET_NOT_ADMITTED, QUOTE_EXPIRED, INSUFFICIENT_FUNDS, PLAN_CHANGED,
   SIGNATURE_MISMATCH, PARTIAL_EXECUTION, SUBMISSION_UNKNOWN,
-  IDEMPOTENCY_CONFLICT 409, POLICY_DENIED 403, PROVIDER_UNAVAILABLE and
+  IDEMPOTENCY_CONFLICT 409, POLICY_DENIED 403, STEP_UP_REQUIRED 401,
+  CHALLENGE_INVALID 409, WALLET_ALREADY_LINKED 409, PROVIDER_UNAVAILABLE and
   SERVICE_NOT_READY 503, INTERNAL 500. Messages never include secrets or
   another principal's resource existence.
 - Request bodies are limited to `API_BODY_LIMIT_BYTES` (default 256 KiB);
@@ -25,6 +26,15 @@ runtime validators and `pnpm openapi:check` fails CI on drift.
 - CORS: only exact origins from `API_ALLOWED_ORIGINS`; no origins configured
   means no CORS headers at all. Credentialed wildcard is impossible by
   configuration.
+
+## Authentication
+
+`Authorization: Bearer <token>` with a session, agent, operator or device
+credential (`docs/markov/identity-and-principals.md`). A malformed or
+unknown bearer is answered with `AUTH_REQUIRED` before any route runs; an
+absent header is anonymous and only the public routes accept it. Security-
+sensitive routes additionally answer `STEP_UP_REQUIRED` when the sign-in is
+older than the configured window.
 
 ## Endpoints (B01)
 
@@ -51,6 +61,31 @@ Example readiness response (abridged):
   "platform": { "markovEnv": "test", "solanaCluster": "devnet", "expectedGenesisHash": "EtWT…", "observedGenesisHash": "EtWT…", "schemaVersion": "0000_platform_identity" }
 }
 ```
+
+## Endpoints (B02)
+
+| Method | Path                                   | Principal            | Purpose |
+| ------ | -------------------------------------- | -------------------- | ------- |
+| POST   | /v1/auth/sessions                      | anonymous            | Exchange an identity token for a session (token returned once) |
+| DELETE | /v1/auth/sessions/current              | user                 | Sign out |
+| GET    | /v1/me                                 | user, agent          | Principal and account summary, including step-up freshness |
+| POST   | /v1/me/wallets/challenges              | user (fresh)         | Start wallet ownership verification |
+| POST   | /v1/me/wallets                         | user (fresh)         | Link a wallet with the signed challenge |
+| GET    | /v1/me/wallets                         | user, agent `portfolio:read` | List verified wallets |
+| DELETE | /v1/me/wallets/{walletId}              | user (fresh)         | Unlink |
+| POST   | /v1/me/api-credentials                 | user (fresh)         | Create a scoped, expiring agent credential (token returned once) |
+| GET    | /v1/me/api-credentials                 | user                 | List (never secrets) |
+| DELETE | /v1/me/api-credentials/{credentialId}  | user (fresh)         | Revoke |
+| POST   | /v1/me/devices/pairings                | user (fresh)         | Create a single-use pairing code |
+| POST   | /v1/devices/pair                       | anonymous (rate limited) | Pair a device; device credential returned once |
+| GET    | /v1/me/devices                         | user                 | List devices |
+| DELETE | /v1/me/devices/{deviceId}              | user (fresh)         | Revoke a device |
+| GET    | /v1/ops/users/{userId}                 | operator `ops:read`  | Account summary without secrets |
+| DELETE | /v1/ops/api-credentials/{credentialId} | operator `ops:credentials:revoke` | Revoke any agent credential |
+| GET    | /v1/ops/audit                          | operator `ops:read`  | Recent audit events |
+
+`POST /v1/auth/test-tokens` exists only with the test identity provider and
+is not part of the committed contract.
 
 ## Planned surface
 

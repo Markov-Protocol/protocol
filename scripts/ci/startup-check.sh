@@ -57,6 +57,16 @@ echo "readyz status: $READY_STATUS"
 echo "== markov health"
 node apps/cli/dist/main.js health --url "http://127.0.0.1:$API_PORT"
 
+echo "== identity journey (test issuer): token -> session -> whoami -> wallet link"
+IDENTITY_TOKEN=$(node apps/cli/dist/main.js auth test-token --subject did:test:alice --url "http://127.0.0.1:$API_PORT")
+SESSION_JSON=$(node apps/cli/dist/main.js auth session --identity-token "$IDENTITY_TOKEN" --url "http://127.0.0.1:$API_PORT")
+SESSION_TOKEN=$(echo "$SESSION_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).sessionToken))')
+node apps/cli/dist/main.js auth whoami --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | head -12
+node apps/cli/dist/main.js auth demo-wallet-link --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT"
+echo "== an unknown bearer token must be rejected"
+UNAUTH=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer mkv_ss_notreal00_$(printf 'a%.0s' $(seq 1 43))" "http://127.0.0.1:$API_PORT/v1/me")
+echo "status: $UNAUTH"; [ "$UNAUTH" = "401" ]
+
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""
 

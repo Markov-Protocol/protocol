@@ -27,7 +27,11 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
+import { authPlugin } from './auth/plugin.js';
+import type { IdentityService } from './auth/service.js';
+import { ApiError } from './errors.js';
 import type { NetworkIdentitySource } from './network-monitor.js';
+import { identityRoutes } from './routes/identity.js';
 
 export interface ProbeOutcome {
   readonly ok: boolean;
@@ -57,6 +61,11 @@ export interface AppDependencies {
   readonly network: NetworkIdentitySource;
   /** Genesis hash the process is bound to; null only for an unbound localnet export. */
   readonly expectedGenesisHash: string | null;
+  readonly identity: IdentityService;
+  /** Nonproduction only: mints identity tokens from the in-process test issuer. */
+  readonly mintTestToken:
+    | ((input: { subject: string; authTime?: string }) => Promise<string>)
+    | null;
 }
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -205,6 +214,9 @@ export async function buildApp(deps: AppDependencies) {
   });
 
   app.setErrorHandler((error: unknown, request, reply) => {
+    if (error instanceof ApiError) {
+      return sendError(reply, error.code, error.message, request.id, error.details);
+    }
     if (hasZodFastifySchemaValidationErrors(error)) {
       return sendError(
         reply,
@@ -320,6 +332,12 @@ export async function buildApp(deps: AppDependencies) {
   );
 
   app.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
+
+  await app.register(authPlugin, { authenticate: (bearer) => deps.identity.authenticate(bearer) });
+  await app.register(identityRoutes, {
+    identity: deps.identity,
+    mintTestToken: deps.mintTestToken,
+  });
 
   return app;
 }

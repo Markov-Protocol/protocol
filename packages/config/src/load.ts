@@ -3,6 +3,7 @@ import { knownGenesisHash } from './known-genesis.js';
 import { redactUrl } from './redact.js';
 import {
   ALLOWED_CLUSTERS_BY_ENV,
+  DEVELOPMENT_CREDENTIAL_PEPPER,
   DUAL_RPC_ENVS,
   type MarkovConfig,
   type RawEnv,
@@ -87,6 +88,22 @@ function structure(raw: RawEnv): MarkovConfig {
         : null,
       releaseEvidenceRef: raw.RELEASE_EVIDENCE_REF ?? null,
     },
+    identity: {
+      provider: raw.IDENTITY_PROVIDER,
+      issuer: raw.IDENTITY_ISSUER ?? 'markov-test-identity',
+      audience: raw.IDENTITY_AUDIENCE ?? 'markov-test',
+      jwksUrl: raw.IDENTITY_JWKS_URL ?? null,
+      algorithms: raw.IDENTITY_ALGORITHMS.split(',')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    },
+    auth: {
+      credentialPepper: raw.CREDENTIAL_PEPPER ?? DEVELOPMENT_CREDENTIAL_PEPPER,
+      sessionTtlSeconds: raw.AUTH_SESSION_TTL_SECONDS,
+      stepUpMaxAgeSeconds: raw.AUTH_STEP_UP_MAX_AGE_SECONDS,
+      walletChallengeDomain: raw.WALLET_CHALLENGE_DOMAIN ?? 'localhost',
+      walletChallengeTtlSeconds: raw.WALLET_CHALLENGE_TTL_SECONDS,
+    },
     shutdownTimeoutMs: raw.SHUTDOWN_TIMEOUT_MS,
   };
 }
@@ -118,6 +135,7 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
   const env = config.markovEnv;
   const cluster = config.solana.cluster;
   const isProdLike = env === 'staging' || env === 'mainnet-read-only' || env === 'production';
+  const isDev = env === 'local' || env === 'test';
 
   // 1. Runtime mode x cluster matrix.
   if (!ALLOWED_CLUSTERS_BY_ENV[env].includes(cluster)) {
@@ -232,7 +250,49 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
     });
   }
 
-  // 8. CORS origins: exact origins only, never wildcards.
+  // 8. Identity and credentials: no test issuer, development pepper or localhost challenge domain outside local/test.
+  if (config.identity.provider === 'test' && !isDev) {
+    issues.push({
+      path: 'IDENTITY_PROVIDER',
+      message: `the test identity issuer is not allowed when MARKOV_ENV=${env}`,
+    });
+  }
+  if (config.identity.provider === 'oidc') {
+    if (raw.IDENTITY_ISSUER === undefined) {
+      issues.push({ path: 'IDENTITY_ISSUER', message: 'required when IDENTITY_PROVIDER=oidc' });
+    }
+    if (raw.IDENTITY_AUDIENCE === undefined) {
+      issues.push({ path: 'IDENTITY_AUDIENCE', message: 'required when IDENTITY_PROVIDER=oidc' });
+    }
+    if (config.identity.jwksUrl === null) {
+      issues.push({ path: 'IDENTITY_JWKS_URL', message: 'required when IDENTITY_PROVIDER=oidc' });
+    }
+  }
+  for (const algorithm of config.identity.algorithms) {
+    if (!/^(ES256|ES384|ES512|RS256|RS384|RS512|PS256|PS384|PS512|EdDSA)$/.test(algorithm)) {
+      issues.push({
+        path: 'IDENTITY_ALGORITHMS',
+        message: `algorithm "${algorithm}" is not an accepted asymmetric algorithm`,
+      });
+    }
+  }
+  if (!isDev && config.auth.credentialPepper === DEVELOPMENT_CREDENTIAL_PEPPER) {
+    issues.push({
+      path: 'CREDENTIAL_PEPPER',
+      message: `an explicit credential pepper is required when MARKOV_ENV=${env}`,
+    });
+  }
+  if (
+    !isDev &&
+    (config.auth.walletChallengeDomain === 'localhost' || raw.WALLET_CHALLENGE_DOMAIN === undefined)
+  ) {
+    issues.push({
+      path: 'WALLET_CHALLENGE_DOMAIN',
+      message: `the wallet challenge domain must be the real origin host when MARKOV_ENV=${env}`,
+    });
+  }
+
+  // 9. CORS origins: exact origins only, never wildcards.
   for (const origin of config.api.allowedOrigins) {
     if (origin === '*' || origin === 'null') {
       issues.push({
@@ -319,6 +379,14 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
       readCommitment: config.solana.readCommitment,
     },
     execution: config.execution,
+    identity: config.identity,
+    auth: {
+      credentialPepperConfigured: config.auth.credentialPepper !== DEVELOPMENT_CREDENTIAL_PEPPER,
+      sessionTtlSeconds: config.auth.sessionTtlSeconds,
+      stepUpMaxAgeSeconds: config.auth.stepUpMaxAgeSeconds,
+      walletChallengeDomain: config.auth.walletChallengeDomain,
+      walletChallengeTtlSeconds: config.auth.walletChallengeTtlSeconds,
+    },
     shutdownTimeoutMs: config.shutdownTimeoutMs,
   };
 }

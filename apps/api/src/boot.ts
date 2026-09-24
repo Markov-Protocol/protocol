@@ -1,3 +1,8 @@
+import {
+  createIdentityVerifier,
+  createTestIdentityIssuer,
+  type IdentityVerifier,
+} from '@markov/auth';
 import { describeConfig, type EnvSource, type MarkovConfig, tryLoadConfig } from '@markov/config';
 import type { BoundPlatformIdentity } from '@markov/contracts';
 import {
@@ -10,6 +15,7 @@ import {
 import { createLogger, type Logger } from '@markov/observability';
 import { SolanaRpcClient } from '@markov/solana-rpc';
 import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
+import { createIdentityService } from './auth/service.js';
 import { createNetworkIdentityMonitor } from './network-monitor.js';
 
 /** sysexits(3) codes so orchestrators can distinguish configuration from availability failures. */
@@ -221,6 +227,44 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
   }
   monitor.start();
 
+  let verifier: IdentityVerifier;
+  let mintTestToken: ((input: { subject: string; authTime?: string }) => Promise<string>) | null =
+    null;
+  if (config.identity.provider === 'test') {
+    const issuer = await createTestIdentityIssuer({
+      issuer: config.identity.issuer,
+      audience: config.identity.audience,
+    });
+    verifier = createIdentityVerifier({
+      issuer: issuer.issuer,
+      audience: issuer.audience,
+      algorithms: ['ES256'],
+      keys: { jwks: issuer.jwks() },
+    });
+    mintTestToken = (input) =>
+      issuer.mint(
+        input.authTime
+          ? { subject: input.subject, authTime: new Date(input.authTime) }
+          : { subject: input.subject },
+      );
+    logger.warn(
+      'identity provider is the in-process test issuer; never use this outside local or test',
+    );
+  } else {
+    verifier = createIdentityVerifier({
+      issuer: config.identity.issuer,
+      audience: config.identity.audience,
+      algorithms: config.identity.algorithms,
+      keys: { jwksUrl: config.identity.jwksUrl ?? '' },
+    });
+  }
+  const identityService = createIdentityService({
+    config,
+    db: dbClient.db,
+    verifier,
+    genesisHash: expectedGenesisHash,
+  });
+
   const app = await buildApp({
     config,
     logger,
@@ -228,6 +272,8 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     probes: createProbes(config, dbClient),
     network: monitor,
     expectedGenesisHash,
+    identity: identityService,
+    mintTestToken,
   });
 
   let address: string;

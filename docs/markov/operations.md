@@ -43,6 +43,20 @@ Docker; `docker-compose.yml` provides PostgreSQL and Temporal with Docker
 5. CI fails if `drizzle-kit check` or a regenerated migration differs from
    the committed files.
 
+## Operator credentials
+
+Operators never sign in through the public API. With database access:
+
+```
+pnpm markov operators create --label "on-call" --scopes ops:read,ops:credentials:revoke --expires-days 30
+```
+
+The token is printed once; only its peppered hash is stored, and the
+creation is written to `audit_events`. Revoke by expiring or through a
+future operator route (B18). Rotate `CREDENTIAL_PEPPER` only with a
+documented re-issuance of every credential; changing it invalidates all
+sessions and credentials at once.
+
 ## Readiness and monitoring
 
 - Liveness (`/healthz`) restarts a hung process; readiness (`/readyz`) removes

@@ -18,6 +18,7 @@ export default defineConfig({
             'apps/api/test/**/*.test.ts',
             'apps/worker/test/**/*.test.ts',
             'apps/cli/test/**/*.test.ts',
+            'packages/auth/test/**/*.test.ts',
             'packages/config/test/**/*.test.ts',
             'packages/contracts/test/**/*.test.ts',
             'packages/db/test/**/*.test.ts',

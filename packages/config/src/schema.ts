@@ -68,6 +68,18 @@ export const rawEnvSchema = z.object({
   BETA_PARTICIPANT_ALLOWLIST_ENABLED: boolFromEnv.optional(),
   RELEASE_EVIDENCE_REF: z.string().min(1).max(500).optional(),
 
+  IDENTITY_PROVIDER: z.enum(['test', 'oidc']).default('test'),
+  IDENTITY_ISSUER: z.string().min(1).max(500).optional(),
+  IDENTITY_AUDIENCE: z.string().min(1).max(500).optional(),
+  IDENTITY_JWKS_URL: z.url({ protocol: /^https$/ }).optional(),
+  IDENTITY_ALGORITHMS: z.string().min(1).max(200).default('ES256'),
+
+  CREDENTIAL_PEPPER: z.string().min(32).max(512).optional(),
+  AUTH_SESSION_TTL_SECONDS: intFromEnv(300, 30 * 24 * 3600).default(24 * 3600),
+  AUTH_STEP_UP_MAX_AGE_SECONDS: intFromEnv(60, 3600).default(600),
+  WALLET_CHALLENGE_DOMAIN: z.string().min(1).max(253).optional(),
+  WALLET_CHALLENGE_TTL_SECONDS: intFromEnv(60, 900).default(300),
+
   SHUTDOWN_TIMEOUT_MS: intFromEnv(1000, 120_000).default(10_000),
 });
 export type RawEnv = z.infer<typeof rawEnvSchema>;
@@ -122,8 +134,25 @@ export interface MarkovConfig {
     readonly betaCaps: BetaCaps | null;
     readonly releaseEvidenceRef: string | null;
   };
+  readonly identity: {
+    readonly provider: 'test' | 'oidc';
+    readonly issuer: string;
+    readonly audience: string;
+    readonly jwksUrl: string | null;
+    readonly algorithms: readonly string[];
+  };
+  readonly auth: {
+    readonly credentialPepper: string;
+    readonly sessionTtlSeconds: number;
+    readonly stepUpMaxAgeSeconds: number;
+    readonly walletChallengeDomain: string;
+    readonly walletChallengeTtlSeconds: number;
+  };
   readonly shutdownTimeoutMs: number;
 }
+
+/** Development pepper; refused outside local and test. */
+export const DEVELOPMENT_CREDENTIAL_PEPPER = 'local-development-pepper-not-a-secret-0000';
 
 /** Which clusters each runtime mode may bind to. Production is mainnet only. */
 export const ALLOWED_CLUSTERS_BY_ENV: Readonly<Record<MarkovEnv, readonly SolanaCluster[]>> = {

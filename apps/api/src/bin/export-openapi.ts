@@ -7,6 +7,14 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { loadConfig } from '@markov/config';
 import { createSilentLogger } from '@markov/observability';
 import { buildApp } from '../app.js';
+import type { IdentityService } from '../auth/service.js';
+
+/** Export mode never touches a database: every identity call is unreachable. */
+const unavailableIdentity = new Proxy({} as IdentityService, {
+  get: () => () => {
+    throw new Error('identity service is unavailable in export mode');
+  },
+});
 
 async function generate(): Promise<string> {
   const config = loadConfig({
@@ -37,6 +45,8 @@ async function generate(): Promise<string> {
       }),
     },
     expectedGenesisHash: null,
+    identity: unavailableIdentity,
+    mintTestToken: null,
   });
   await app.ready();
   const document = app.swagger();

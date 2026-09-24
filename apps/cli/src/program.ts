@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { createEd25519TestWallet, generateCredential } from '@markov/auth';
 import { describeConfig, type MarkovConfig, tryLoadConfig } from '@markov/config';
 import {
   type HealthResponse,
+  OPERATOR_SCOPES,
   PLATFORM_HEALTH_WORKFLOW_TYPE,
   type PlatformHealthReport,
   platformHealthReportSchema,
@@ -9,11 +11,13 @@ import {
 } from '@markov/contracts';
 import {
   bindPlatformIdentity,
+  createApiCredential,
   createDbClient,
   type DbClient,
   getMigrationState,
   listCapabilityReadiness,
   readPlatformIdentity,
+  recordAuditEvent,
   runMigrations,
   seedCapabilityReadiness,
 } from '@markov/db';
@@ -332,6 +336,180 @@ export function buildProgram(io: CliIo = stdio): Command {
         await connection.close();
       }
     });
+
+  const auth = program.command('auth').description('accounts, sessions and wallet verification');
+
+  const apiCall = async (
+    base: string,
+    method: string,
+    path: string,
+    body?: unknown,
+    token?: string,
+  ) => {
+    const response = await fetch(`${base.replace(/\/+$/, '')}${path}`, {
+      method,
+      headers: {
+        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const text = await response.text();
+    const parsed: unknown = text ? JSON.parse(text) : null;
+    if (!response.ok) {
+      throw new CliExit(
+        `${method} ${path} failed with HTTP ${response.status}: ${text.slice(0, 300)}`,
+        1,
+      );
+    }
+    return parsed;
+  };
+
+  auth
+    .command('test-token')
+    .description('mint an identity token from the API test issuer (nonproduction only)')
+    .requiredOption('--subject <subject>', 'identity subject, for example did:test:alice')
+    .option('--url <url>', 'API base URL', 'http://127.0.0.1:3000')
+    .option(
+      '--auth-time <iso>',
+      'pretend the person authenticated at this time (for step-up tests)',
+    )
+    .action(async (options: { subject: string; url: string; authTime?: string }) => {
+      const result = (await apiCall(options.url, 'POST', '/v1/auth/test-tokens', {
+        subject: options.subject,
+        ...(options.authTime ? { authTime: options.authTime } : {}),
+      })) as { identityToken: string };
+      io.out(result.identityToken);
+    });
+
+  auth
+    .command('session')
+    .description('exchange an identity token for a Markov session; prints the session token once')
+    .requiredOption('--identity-token <token>')
+    .option('--url <url>', 'API base URL', 'http://127.0.0.1:3000')
+    .action(async (options: { identityToken: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(options.url, 'POST', '/v1/auth/sessions', {
+            identityToken: options.identityToken,
+          }),
+        ),
+      );
+    });
+
+  auth
+    .command('whoami')
+    .description('describe the principal behind a bearer token')
+    .requiredOption('--token <token>')
+    .option('--url <url>', 'API base URL', 'http://127.0.0.1:3000')
+    .action(async (options: { token: string; url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/me', undefined, options.token)));
+    });
+
+  auth
+    .command('demo-wallet-link')
+    .description(
+      'NONPRODUCTION: create an in-memory Ed25519 wallet, sign the ownership challenge and link it',
+    )
+    .requiredOption('--token <token>', 'user session token')
+    .option('--url <url>', 'API base URL', 'http://127.0.0.1:3000')
+    .action(async (options: { token: string; url: string }) => {
+      const wallet = createEd25519TestWallet();
+      const challenge = (await apiCall(
+        options.url,
+        'POST',
+        '/v1/me/wallets/challenges',
+        { address: wallet.address },
+        options.token,
+      )) as {
+        challengeId: string;
+        message: string;
+      };
+      const link = await apiCall(
+        options.url,
+        'POST',
+        '/v1/me/wallets',
+        {
+          challengeId: challenge.challengeId,
+          address: wallet.address,
+          signature: wallet.sign(challenge.message),
+        },
+        options.token,
+      );
+      io.err(
+        'the private key of this demo wallet existed only in this process and is now discarded',
+      );
+      io.out(json(link));
+    });
+
+  const operators = program
+    .command('operators')
+    .description('operator credentials (database access required)');
+  operators
+    .command('create')
+    .description(
+      'create an operator credential; the token is printed once and only its hash is stored',
+    )
+    .requiredOption('--label <label>')
+    .option('--scopes <scopes>', 'comma-separated operator scopes', OPERATOR_SCOPES.join(','))
+    .option('--expires-days <n>', 'lifetime in days', '30')
+    .option('--created-by <actor>', 'who is creating it (audit)', 'markov-cli')
+    .action(
+      async (options: {
+        label: string;
+        scopes: string;
+        expiresDays: string;
+        createdBy: string;
+      }) => {
+        const loaded = loadConfigOrExit(io);
+        const scopes = options.scopes.split(',').map((scope) => scope.trim());
+        const invalid = scopes.filter(
+          (scope) => !(OPERATOR_SCOPES as readonly string[]).includes(scope),
+        );
+        if (invalid.length > 0) {
+          throw new CliExit(
+            `unknown operator scopes: ${invalid.join(', ')} (allowed: ${OPERATOR_SCOPES.join(', ')})`,
+            EXIT_USAGE,
+          );
+        }
+        const days = Number.parseInt(options.expiresDays, 10);
+        if (!Number.isInteger(days) || days < 1 || days > 365) {
+          throw new CliExit('--expires-days must be between 1 and 365', EXIT_USAGE);
+        }
+        await withDb(loaded, 'markov-cli-operators', async (client) => {
+          const generated = generateCredential('operator', loaded.auth.credentialPepper);
+          const row = await createApiCredential(client.db, {
+            userId: null,
+            principalClass: 'operator',
+            label: options.label,
+            prefix: generated.prefix,
+            secretHash: generated.secretHash,
+            scopes,
+            expiresAt: new Date(Date.now() + days * 86_400_000),
+          });
+          await recordAuditEvent(client.db, {
+            actorClass: 'operator',
+            actorId: options.createdBy,
+            action: 'operator.credential.created',
+            targetType: 'api_credential',
+            targetId: row.id,
+            requestId: null,
+            details: { scopes, label: options.label },
+          });
+          io.out(
+            json({
+              credentialId: row.id,
+              prefix: row.prefix,
+              scopes,
+              expiresAt: row.expiresAt.toISOString(),
+              token: generated.token,
+            }),
+          );
+          io.err('store the token now; it cannot be shown again');
+        });
+      },
+    );
 
   return program;
 }

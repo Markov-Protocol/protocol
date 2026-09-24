@@ -59,7 +59,10 @@ describe.skipIf(adminUrl === null)('database integration', () => {
       expect((await getMigrationState(db)).status).toBe('unmigrated');
       await runMigrations(db);
       const state = await getMigrationState(db);
-      expect(state).toMatchObject({ status: 'current', latestTag: '0000_platform_identity' });
+      expect(state).toMatchObject({
+        status: 'current',
+        latestTag: readMigrationJournal().at(-1)?.tag,
+      });
       expect(state.applied).toBe(state.expected);
       await runMigrations(db);
       expect((await getMigrationState(db)).applied).toBe(state.applied);

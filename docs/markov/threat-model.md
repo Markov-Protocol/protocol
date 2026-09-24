@@ -26,12 +26,20 @@ not claimed here.
 | Oversized or malicious RPC responses | Bounded timeouts, response-size cap, envelope/id/result validation, no redirects | `packages/solana-rpc/test` |
 | Supply chain: new malicious package versions, install scripts, unpinned CI actions, secrets in git | Exact pins, frozen lockfile, `minimumReleaseAge`, `onlyBuiltDependencies` allowlist, SHA-pinned actions, checksum-verified tool downloads, gitleaks scan, `pnpm audit` | `.github/workflows/ci.yml` |
 | Unattributed or co-authored commits masking provenance | Commit policy hook and CI range check | `tooling/commit-policy/policy.test.mjs` |
+| Cross-account access (user A reads, changes or unlinks user B's wallets, credentials or devices) | Every store function scopes by the verified owner; foreign resources answer NOT_FOUND | `apps/api/test/identity.test.ts`, `packages/db/test/identity-store.test.ts` |
+| Auth or link replay (expired, reused, wrong-account, wrong-address challenge; wrong key; wrong issuer/audience/expired identity token; symmetric algorithms) | Single-use atomic challenge consumption bound to owner, address, chain and time; Ed25519 verification over the stored message; jose verification with an asymmetric allowlist | `packages/auth/test`, identity API tests |
+| Agent, device or operator escalation | Scope checks per route; agents cannot create credentials or challenges; devices cannot read accounts; operators cannot use owner routes; secrets stored only as peppered hashes | identity API tests |
+| Stale sign-in used for security changes | Step-up window on wallet, credential and device mutations | identity API tests (`STEP_UP_REQUIRED`) |
+| Secret leakage through lists, audit or logs | Tokens returned once; lists and audit carry prefixes only; pepper redacted from configuration summaries | identity API tests assert no `mkv_` in audit or lists |
 
 ## Residual risks after B01
 
 - Genesis constants are live-verified (SR-SOL-01), but the platform's own RPC
   client has not yet been exercised against a live endpoint; the first
   deployment must confirm with `markov solana probe`.
-- No authentication exists yet; the API exposes only non-sensitive platform
-  metadata and must not be deployed publicly before B02.
+- The identity provider adapter is verified only against the in-process
+  test issuer; Privy-specific issuer, audience and key configuration are
+  unverified (OD-05). Cookie sessions and CSRF belong to the app layer (F03).
+- Rate limits are per client address and rely on `API_TRUST_PROXY` being set
+  correctly behind a load balancer.
 - The Docker path for local dependencies is unverified (OD-16).
