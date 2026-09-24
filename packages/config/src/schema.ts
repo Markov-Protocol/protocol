@@ -1,4 +1,5 @@
 import {
+  base58AddressSchema,
   genesisHashSchema,
   type MarkovEnv,
   markovEnvSchema,
@@ -84,6 +85,8 @@ export const rawEnvSchema = z.object({
   PRESTOCKS_FEED_URL: z.url().optional(),
   XSTOCKS_FEED_URL: z.url().optional(),
   XSTOCKS_EVENTS_URL: z.url().optional(),
+  /** Stablecoin mint whose balance funding readiness observes; defaults to USDC on mainnet-beta only. */
+  FUNDING_STABLECOIN_MINT: base58AddressSchema.optional(),
 
   SHUTDOWN_TIMEOUT_MS: intFromEnv(1000, 120_000).default(10_000),
 });
@@ -152,6 +155,14 @@ export interface MarkovConfig {
     readonly stepUpMaxAgeSeconds: number;
     readonly walletChallengeDomain: string;
     readonly walletChallengeTtlSeconds: number;
+  };
+  readonly funding: {
+    /** Null when no stablecoin mint is known for the cluster; funding readiness then reports SOL only. */
+    readonly stablecoin: {
+      readonly symbol: string;
+      readonly mint: string;
+      readonly decimals: number;
+    } | null;
   };
   readonly catalog: {
     /** Null until an operator configures a verified feed; fixture sources serve local and test. */

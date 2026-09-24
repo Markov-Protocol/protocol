@@ -40,6 +40,40 @@ the target; only the rows marked *implemented* exist.
   outcome from the OAuth-shaped `error`/`error_description` parameters
   (sanitised, length-limited) and offers to try again or go home.
 
+## Session journeys (F04)
+
+- **Choose a wallet.** `/settings/wallets` lists every Solana wallet the
+  page discovers through the Wallet Standard with its declared capabilities
+  (message signing, transaction signing and versions, sign-and-send, chains).
+  Nothing connects until the person chooses; a wallet with several accounts
+  asks which one will sign. The Markov-managed (embedded) wallet is listed
+  as not available (OD-05).
+- **Network check.** The connected account's chains are compared with the
+  platform cluster; on a mismatch the page explains what to switch and asks
+  for no signature.
+- **Verify ownership.** A fresh challenge from the API is shown verbatim,
+  signed through `solana:signMessage`, and presented once. Replays, wallets
+  verified on another account, stale sign-ins, declined or altered
+  signatures and a session or wallet change mid-flow each end in a stated
+  outcome with what to do next; nothing is linked in the failing cases.
+- **Receive and funding.** Each verified wallet can show its own address
+  (full text, copy, QR), the exact cluster and stablecoin mint, the SOL and
+  stablecoin balances observed by the backend at a stated slot, and the fee
+  requirement with its basis. Unknown balances are shown as unknown.
+- **Disconnect vs sign out.** "Disconnect wallet" forgets the connection
+  and the remembered choice; "Sign out" in the account menu ends the
+  identity session. A reload resumes the previously chosen wallet silently
+  when the wallet allows it; a session change disconnects the wallet and
+  says so.
+- **Eligibility and terms.** `/settings/eligibility` shows the latest
+  decision and its standing, the summary from the API, the remaining steps
+  (declare, await review, acknowledge terms by content hash, verify a
+  wallet) and never suggests changing the declared jurisdiction to get
+  around a denial.
+- **Home checklist.** Lists only what the account still needs (wallet,
+  eligibility and terms, funding once a wallet is verified, strategy later),
+  from live readiness rather than a static list.
+
 Rules that already apply:
 
 - Static paths such as `/strategies/new` must never be mistaken for a dynamic
@@ -47,7 +81,9 @@ Rules that already apply:
   `/strategies/[strategyId]` folder is added.
 - Shell mode is derived from the path (`/` companion, everything else
   workspace); the More menu holds Activity, Rankings, Automations, Settings
-  and the focus preference.
+  and the focus preference. `/settings`, `/settings/wallets` and
+  `/settings/eligibility` are delivered; other settings areas say when they
+  arrive.
 - Private pages are excluded from indexing and shared caching; `noindex` is
   not access control. Until a public product surface exists the root layout
   sets `robots: noindex, nofollow`.

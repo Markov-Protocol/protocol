@@ -1,0 +1,254 @@
+import { describe, expect, it } from 'vitest';
+import { parseWebEnv } from '../../src/config/web-env';
+import { apiPathFrom, matchRoute } from '../../src/server/proxy/allowlist';
+import { handleProxy, type ProxyDeps } from '../../src/server/proxy/handler';
+
+const APP = 'http://127.0.0.1:3100';
+const API = 'http://127.0.0.1:3000';
+const WALLET = '11111111-1111-4111-8111-111111111111';
+const parsed = parseWebEnv({
+  MARKOV_ENV: 'test',
+  NEXT_PUBLIC_APP_ORIGIN: APP,
+  MARKOV_API_ORIGIN: API,
+});
+if (!parsed.ok) {
+  throw new Error('test env invalid');
+}
+const env = parsed.value;
+
+interface Upstream {
+  readonly calls: Request[];
+  readonly deps: ProxyDeps;
+}
+
+function upstream(
+  respond: (request: Request) => Response | Promise<Response> = () =>
+    Response.json({ wallets: [] }),
+  unreachable = false,
+): Upstream {
+  const calls: Request[] = [];
+  return {
+    calls,
+    deps: {
+      env,
+      fetch: async (request) => {
+        calls.push(request);
+        if (unreachable) {
+          throw new TypeError('fetch failed');
+        }
+        return respond(request);
+      },
+      forwardedFor: (request) => request.headers.get('x-forwarded-for'),
+    },
+  };
+}
+
+function request(
+  method: string,
+  path: string,
+  init: {
+    cookie?: string;
+    body?: string;
+    origin?: string;
+    contentType?: string;
+    xff?: string;
+  } = {},
+): Request {
+  const headers = new Headers();
+  if (init.cookie) {
+    headers.set('cookie', init.cookie);
+  }
+  if (init.origin) {
+    headers.set('origin', init.origin);
+  }
+  if (init.contentType) {
+    headers.set('content-type', init.contentType);
+  }
+  if (init.xff) {
+    headers.set('x-forwarded-for', init.xff);
+  }
+  return new Request(`${APP}/api/markov${path}`, {
+    method,
+    headers,
+    ...(init.body !== undefined ? { body: init.body } : {}),
+  });
+}
+
+const COOKIE = `__Host-markov_session=mkv_ss_abcdefgh_${'A'.repeat(43)}`;
+const segments = (path: string) => path.split('/').filter(Boolean);
+
+describe('proxy allowlist', () => {
+  it('matches exactly the operations the app needs and refuses odd segments', () => {
+    expect(matchRoute('GET', '/v1/me/wallets')?.method).toBe('GET');
+    expect(matchRoute('GET', `/v1/me/wallets/${WALLET}/funding`)).not.toBeNull();
+    expect(matchRoute('DELETE', `/v1/me/wallets/${WALLET}`)).not.toBeNull();
+    expect(matchRoute('GET', '/v1/terms/current')?.public).toBe(true);
+    expect(matchRoute('GET', '/v1/me/api-credentials')).toBeNull();
+    expect(matchRoute('DELETE', '/v1/me/wallets/not-a-uuid')).toBeNull();
+    expect(matchRoute('PUT', '/v1/me/limits')).toBeNull();
+    expect(matchRoute('GET', '/v1/ops/policy/participants')).toBeNull();
+    expect(apiPathFrom(['v1', 'me', 'wallets'])).toBe('/v1/me/wallets');
+    expect(apiPathFrom(['v1', '..', 'me'])).toBeNull();
+    expect(apiPathFrom(['v1', 'me%2Fwallets'])).toBeNull();
+    expect(apiPathFrom([])).toBeNull();
+  });
+});
+
+describe('proxy handler', () => {
+  it('forwards an allowlisted read with the cookie as bearer, the client address and no-store', async () => {
+    const api = upstream(() =>
+      Response.json(
+        { wallets: [{ walletId: WALLET }] },
+        { headers: { 'set-cookie': 'leak=1', 'x-upstream': 'secret' } },
+      ),
+    );
+    const response = await handleProxy(
+      request('GET', '/v1/me/wallets', { cookie: COOKIE, xff: '10.1.2.3' }),
+      segments('/v1/me/wallets'),
+      api.deps,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ wallets: [{ walletId: WALLET }] });
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('vary')).toBe('Cookie');
+    expect(response.headers.get('set-cookie')).toBeNull();
+    expect(response.headers.get('x-upstream')).toBeNull();
+    const call = api.calls[0];
+    expect(call?.url).toBe(`${API}/v1/me/wallets`);
+    expect(call?.headers.get('authorization')).toBe(`Bearer mkv_ss_abcdefgh_${'A'.repeat(43)}`);
+    expect(call?.headers.get('x-forwarded-for')).toBe('10.1.2.3');
+    expect(call?.headers.get('cookie')).toBeNull();
+  });
+
+  it('answers 404 for anything outside the allowlist before touching the session', async () => {
+    const api = upstream();
+    for (const [method, path] of [
+      ['GET', '/v1/me/api-credentials'],
+      ['GET', '/v1/ops/policy/participants'],
+      ['POST', '/v1/auth/sessions'],
+      ['GET', '/v1/me/wallets/../devices'],
+    ] as const) {
+      const response = await handleProxy(
+        request(method, path, {
+          cookie: COOKIE,
+          origin: APP,
+          ...(method === 'GET' ? {} : { contentType: 'application/json', body: '{}' }),
+        }),
+        segments(path),
+        api.deps,
+      );
+      expect(response.status, `${method} ${path}`).toBe(404);
+    }
+    expect(api.calls).toHaveLength(0);
+  });
+
+  it('requires a session for private operations and lets the current terms through anonymously', async () => {
+    const api = upstream(() => Response.json({ documents: [] }));
+    expect(
+      (
+        await handleProxy(
+          request('GET', '/v1/me/eligibility'),
+          segments('/v1/me/eligibility'),
+          api.deps,
+        )
+      ).status,
+    ).toBe(401);
+    expect(api.calls).toHaveLength(0);
+    const terms = await handleProxy(
+      request('GET', '/v1/terms/current'),
+      segments('/v1/terms/current'),
+      api.deps,
+    );
+    expect(terms.status).toBe(200);
+    expect(api.calls[0]?.headers.get('authorization')).toBeNull();
+  });
+
+  it('refuses cross-origin, non-JSON, malformed and oversized mutations without calling the API', async () => {
+    const api = upstream();
+    const path = '/v1/me/wallets/challenges';
+    const crossOrigin = await handleProxy(
+      request('POST', path, {
+        cookie: COOKIE,
+        origin: 'https://evil.example',
+        contentType: 'application/json',
+        body: '{}',
+      }),
+      segments(path),
+      api.deps,
+    );
+    expect(crossOrigin.status).toBe(403);
+    const form = await handleProxy(
+      request('POST', path, {
+        cookie: COOKIE,
+        origin: APP,
+        contentType: 'application/x-www-form-urlencoded',
+        body: 'a=1',
+      }),
+      segments(path),
+      api.deps,
+    );
+    expect(form.status).toBe(415);
+    const malformed = await handleProxy(
+      request('POST', path, {
+        cookie: COOKIE,
+        origin: APP,
+        contentType: 'application/json',
+        body: '{oops',
+      }),
+      segments(path),
+      api.deps,
+    );
+    expect(malformed.status).toBe(400);
+    const huge = await handleProxy(
+      request('POST', path, {
+        cookie: COOKIE,
+        origin: APP,
+        contentType: 'application/json',
+        body: JSON.stringify({ pad: 'x'.repeat(70_000) }),
+      }),
+      segments(path),
+      api.deps,
+    );
+    expect(huge.status).toBe(413);
+    expect(api.calls).toHaveLength(0);
+  });
+
+  it('passes upstream error envelopes and status codes through unchanged', async () => {
+    const api = upstream(() =>
+      Response.json(
+        { error: { code: 'WALLET_ALREADY_LINKED', message: 'linked elsewhere', requestId: 'r1' } },
+        { status: 409 },
+      ),
+    );
+    const response = await handleProxy(
+      request('POST', '/v1/me/wallets', {
+        cookie: COOKIE,
+        origin: APP,
+        contentType: 'application/json',
+        body: '{"challengeId":"x"}',
+      }),
+      segments('/v1/me/wallets'),
+      api.deps,
+    );
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe('WALLET_ALREADY_LINKED');
+    expect(await api.calls[0]?.text()).toBe('{"challengeId":"x"}');
+    const noContent = await handleProxy(
+      request('DELETE', `/v1/me/wallets/${WALLET}`, { cookie: COOKIE, origin: APP }),
+      segments(`/v1/me/wallets/${WALLET}`),
+      upstream(() => new Response(null, { status: 204 })).deps,
+    );
+    expect(noContent.status).toBe(204);
+  });
+
+  it('reports an unreachable backend as 503 instead of pretending', async () => {
+    const api = upstream(undefined, true);
+    const response = await handleProxy(
+      request('GET', '/v1/me/wallets', { cookie: COOKIE }),
+      segments('/v1/me/wallets'),
+      api.deps,
+    );
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe('PROVIDER_UNAVAILABLE');
+  });
+});

@@ -6,7 +6,10 @@ session **F02** delivered the full-screen Mark I shell, the companion home
 and honest placeholder routes for every navigation target; session **F03**
 delivered the one authentication and session experience (server-verified
 HttpOnly session cookie, sign-in, expiry recovery, sign-out, account switch
-isolation) and the generated API client. Nothing in this app is deployed.
+isolation) and the generated API client; session **F04** delivered wallet
+selection and ownership verification, receive/funding status, eligibility
+and terms screens and the live readiness checklist. Nothing in this app is
+deployed.
 
 ## Install, run, build
 
@@ -22,7 +25,7 @@ pnpm exec vitest run --project web
 pnpm web:build                   # production build; fails on an unsafe MARKOV_ENV combination
 pnpm api-client:generate         # regenerate packages/api-client from docs/markov/openapi.json
 pnpm web:e2e                     # Playwright evidence (builds must exist; see docs/frontend/verification.md)
-MARKOV_TEST_DATABASE_URL=postgres://markov:markov@127.0.0.1:5432/markov_test pnpm web:e2e   # also the auth journeys against a real API
+MARKOV_TEST_DATABASE_URL=postgres://markov:markov@127.0.0.1:5432/markov_test pnpm web:e2e   # also the auth and wallet journeys against a real API (fixture RPC on 3901)
 ```
 
 ## Environment
@@ -53,11 +56,17 @@ combination at build time (`next.config.ts`) and at server start
 | Mark I shell (frame, screen, eyes, top bar, rail/bottom navigation, modes, focus preference), companion home, unavailable pages | F02 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom tests, Playwright at five widths, lab performance baseline) |
 | Sessions: server-verified HttpOnly cookie, sign-in with the development issuer, callback outcomes, expiry recovery with return path, sign-out, account switch isolation, principal-scoped caches, connection status | F03 | IMPLEMENTED, FIXTURE_VERIFIED (node and jsdom tests), verified against the local API in Playwright; hosted identity provider adapter BLOCKED (OD-05) |
 | Generated API client (`@markov/api-client`) with contract matrix and drift check | F03 | IMPLEMENTED, FIXTURE_VERIFIED |
-| Wallets, discovery, research, builder, publishing, review, execution, portfolio, rankings, maintenance, companion, settings | F04 onward | not started; each needs its backend session (B03 onward) |
+| Wallets: Wallet Standard discovery and capability checks, explicit selection and account choice, network check, ownership verification through the B02 challenge with replay/already-linked/stale-sign-in/altered-signature/context-change outcomes, unlink, disconnect vs sign out, wallet chip in the top bar | F04 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), verified in Playwright with an injected fixture wallet against the local API; real browser wallets and the hosted embedded wallet (OD-05) not verified |
+| Receive and funding: own address with copy and QR, cluster and stablecoin mint, observed SOL/stablecoin balances, fee requirement with basis, unknown shown as unknown | F04 | IMPLEMENTED, FIXTURE_VERIFIED against the fixture RPC; live cluster reads not verified |
+| Eligibility and terms screens, live home checklist, settings index, app-owned API proxy (`/api/markov/*`) | F04 | IMPLEMENTED, FIXTURE_VERIFIED, e2e with the fixture rule set (B05) |
+| Discovery, research, builder, publishing, review, execution, portfolio, rankings, maintenance, companion, other settings | F05 onward | not started; each needs its backend session |
 
 ## Backend prerequisites
 
 F01 depends only on B01 (`@markov/contracts`, workspace conventions). F03
 uses B02 (`/v1/auth/sessions`, `/v1/me`, `/v1/auth/sessions/current`) and
-`/v1/platform`; later sessions require later backend sessions. The app never
-reads provider endpoints directly and the browser never calls the API.
+`/v1/platform`; F04 uses B02 wallet routes, B05 eligibility and terms routes
+and the funding read added in F04 (`/v1/me/wallets/{walletId}/funding`);
+later sessions require later backend sessions. The app never reads provider
+endpoints directly and the browser never calls the API: private calls go
+through the app's own `/api/markov/*` allowlist.

@@ -31,9 +31,11 @@ import { authPlugin } from './auth/plugin.js';
 import type { IdentityService } from './auth/service.js';
 import type { CatalogService } from './catalog/service.js';
 import { ApiError } from './errors.js';
+import type { FundingService } from './funding/service.js';
 import type { NetworkIdentitySource } from './network-monitor.js';
 import type { PolicyService } from './policy/service.js';
 import { catalogRoutes } from './routes/catalog.js';
+import { fundingRoutes } from './routes/funding.js';
 import { identityRoutes } from './routes/identity.js';
 import { policyRoutes } from './routes/policy.js';
 
@@ -68,6 +70,7 @@ export interface AppDependencies {
   readonly identity: IdentityService;
   readonly catalog: CatalogService;
   readonly policy: PolicyService;
+  readonly funding: FundingService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -356,6 +359,7 @@ export async function buildApp(deps: AppDependencies) {
   });
   await app.register(catalogRoutes, { catalog: deps.catalog });
   await app.register(policyRoutes, { policy: deps.policy });
+  await app.register(fundingRoutes, { funding: deps.funding });
 
   return app;
 }

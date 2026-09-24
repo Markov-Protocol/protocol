@@ -104,6 +104,9 @@ function structure(raw: RawEnv): MarkovConfig {
       walletChallengeDomain: raw.WALLET_CHALLENGE_DOMAIN ?? 'localhost',
       walletChallengeTtlSeconds: raw.WALLET_CHALLENGE_TTL_SECONDS,
     },
+    funding: {
+      stablecoin: stablecoinFor(raw.SOLANA_CLUSTER, raw.FUNDING_STABLECOIN_MINT),
+    },
     catalog: {
       prestocksFeedUrl: raw.PRESTOCKS_FEED_URL ?? null,
       xstocksFeedUrl: raw.XSTOCKS_FEED_URL ?? null,
@@ -135,6 +138,22 @@ function checkRpcUrl(path: string, value: string, issues: ConfigIssue[]): URL | 
  * Cross-field invariants. Every rule fails closed: an ambiguous or
  * contradictory combination is rejected rather than interpreted.
  */
+/** USDC on mainnet-beta, read live in B03 (SR-MINT-01); every other cluster needs an explicit mint. */
+export const MAINNET_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
+function stablecoinFor(
+  cluster: string,
+  configured: string | undefined,
+): MarkovConfig['funding']['stablecoin'] {
+  if (configured !== undefined) {
+    return { symbol: 'USDC', mint: configured, decimals: 6 };
+  }
+  if (cluster === 'mainnet-beta') {
+    return { symbol: 'USDC', mint: MAINNET_USDC_MINT, decimals: 6 };
+  }
+  return null;
+}
+
 export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIssue[] {
   const issues: ConfigIssue[] = [];
   const env = config.markovEnv;
@@ -401,6 +420,7 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
       readCommitment: config.solana.readCommitment,
     },
     execution: config.execution,
+    funding: config.funding,
     identity: config.identity,
     auth: {
       credentialPepperConfigured: config.auth.credentialPepper !== DEVELOPMENT_CREDENTIAL_PEPPER,

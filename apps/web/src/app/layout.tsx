@@ -3,6 +3,7 @@ import localFont from 'next/font/local';
 import type { ReactNode } from 'react';
 import { PrivateQueryProvider } from '@/features/auth/private-query-provider';
 import { SessionProvider } from '@/features/auth/session-context';
+import { WalletProvider } from '@/features/wallets/wallet-context';
 import { currentPlatform, currentSession } from '@/server/auth/current';
 import { AppShell } from '@/shell/app-shell';
 import './globals.css';
@@ -47,9 +48,11 @@ export default async function RootLayout({ children }: { readonly children: Reac
           staleCookie={session.staleCookie}
           platform={platform}
         >
-          <PrivateQueryProvider>
-            <AppShell>{children}</AppShell>
-          </PrivateQueryProvider>
+          <WalletProvider>
+            <PrivateQueryProvider>
+              <AppShell>{children}</AppShell>
+            </PrivateQueryProvider>
+          </WalletProvider>
         </SessionProvider>
       </body>
     </html>

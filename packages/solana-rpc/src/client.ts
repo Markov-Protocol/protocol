@@ -91,6 +91,44 @@ export interface SolanaAccountInfo {
   readonly account: SolanaAccount | null;
 }
 
+const balanceSchema = z.object({
+  context: z.object({ slot: z.number().int() }),
+  value: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+});
+
+const keyedAccountsSchema = z.object({
+  context: z.object({ slot: z.number().int() }),
+  value: z.array(
+    z.object({
+      pubkey: z.string().min(32).max(44),
+      account: z.object({
+        data: z.tuple([z.string(), z.literal('base64')]),
+        owner: z.string().min(32).max(44),
+        lamports: z.number(),
+        executable: z.boolean(),
+      }),
+    }),
+  ),
+});
+
+export interface SolanaKeyedAccount {
+  readonly pubkey: string;
+  readonly owner: string;
+  readonly data: Uint8Array;
+  readonly lamports: number;
+}
+
+export interface SolanaTokenAccounts {
+  readonly slot: number;
+  readonly accounts: readonly SolanaKeyedAccount[];
+}
+
+export interface SolanaBalance {
+  readonly slot: number;
+  /** Lamports; balances above 2^53 are refused as malformed rather than rounded. */
+  readonly lamports: number;
+}
+
 export class SolanaRpcClient {
   readonly host: string;
   private readonly options: SolanaRpcClientOptions;
@@ -250,5 +288,45 @@ export class SolanaRpcClient {
 
   getSlot(commitment: 'processed' | 'confirmed' | 'finalized'): Promise<number> {
     return this.call('getSlot', [{ commitment }], z.number().int().nonnegative());
+  }
+
+  /** Native balance of an address (agave `getBalance`). */
+  async getBalance(
+    address: string,
+    commitment: 'processed' | 'confirmed' | 'finalized',
+  ): Promise<SolanaBalance> {
+    const result = await this.call('getBalance', [address, { commitment }], balanceSchema);
+    return { slot: result.context.slot, lamports: result.value };
+  }
+
+  /** Every token account an owner holds for one mint, raw base64 data (agave `getTokenAccountsByOwner`). */
+  async getTokenAccountsByOwner(
+    owner: string,
+    mint: string,
+    commitment: 'processed' | 'confirmed' | 'finalized',
+  ): Promise<SolanaTokenAccounts> {
+    const result = await this.call(
+      'getTokenAccountsByOwner',
+      [owner, { mint }, { encoding: 'base64', commitment }],
+      keyedAccountsSchema,
+    );
+    return {
+      slot: result.context.slot,
+      accounts: result.value.map((entry) => ({
+        pubkey: entry.pubkey,
+        owner: entry.account.owner,
+        data: new Uint8Array(Buffer.from(entry.account.data[0], 'base64')),
+        lamports: entry.account.lamports,
+      })),
+    };
+  }
+
+  /** Lamports an account of `dataLength` bytes needs to be rent exempt (agave `getMinimumBalanceForRentExemption`). */
+  getMinimumBalanceForRentExemption(dataLength: number): Promise<number> {
+    return this.call(
+      'getMinimumBalanceForRentExemption',
+      [dataLength],
+      z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    );
   }
 }

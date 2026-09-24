@@ -9,6 +9,7 @@ import { createSilentLogger } from '@markov/observability';
 import { buildApp } from '../app.js';
 import type { IdentityService } from '../auth/service.js';
 import type { CatalogService } from '../catalog/service.js';
+import type { FundingService } from '../funding/service.js';
 import type { PolicyService } from '../policy/service.js';
 
 /** Export mode never touches a database: every identity call is unreachable. */
@@ -25,6 +26,11 @@ const unavailableCatalog = new Proxy({} as CatalogService, {
 const unavailablePolicy = new Proxy({} as PolicyService, {
   get: () => () => {
     throw new Error('policy service is unavailable in export mode');
+  },
+});
+const unavailableFunding = new Proxy({} as FundingService, {
+  get: () => () => {
+    throw new Error('funding service is unavailable in export mode');
   },
 });
 
@@ -60,6 +66,7 @@ async function generate(): Promise<string> {
     identity: unavailableIdentity,
     catalog: unavailableCatalog,
     policy: unavailablePolicy,
+    funding: unavailableFunding,
     mintTestToken: null,
   });
   await app.ready();

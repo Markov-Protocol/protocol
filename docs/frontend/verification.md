@@ -84,12 +84,50 @@ Readiness: IMPLEMENTED and FIXTURE_VERIFIED for the app; LIVE_READ_VERIFIED
 and LIVE_WRITE_VERIFIED only against the local B02 API in test mode, which
 is not production evidence. Hosted provider sign-in: BLOCKED.
 
+## F04 — wallet, eligibility and funding readiness (2026-09-24)
+
+Environment as for F03, plus the B05 API build with the fixture rule set
+and terms published by `scripts/dev/web-e2e-api.sh`, the fixture RPC on
+port 3901 answering funding reads from a test control endpoint, and an
+injected Wallet Standard wallet (`apps/web/e2e/fixture-wallet.ts`) that
+signs with WebCrypto Ed25519 and approves every request. No real browser
+wallet, hosted embedded wallet or live cluster was involved.
+
+| Check | Command | Result |
+| ----- | ------- | ------ |
+| Backend funding read | `pnpm exec vitest run --project node apps/api/test/funding.test.ts packages/solana-rpc/test/client.test.ts packages/config/test/config.test.ts` | funding: unfunded → needs SOL (two token accounts) → funded → needs stablecoin, unreadable RPC answers 503 (never zero), foreign wallets 404, agent scopes; RPC client: balances, token accounts and rent exemption, unsafe integers refused; config: USDC default on mainnet-beta only |
+| App-owned API proxy | `pnpm exec vitest run --project node apps/web/test/server/proxy.test.ts` | 7 tests: exact allowlist, bearer from the HttpOnly cookie, client address forwarded, upstream headers dropped, `no-store`; 404 outside the allowlist; 401 without a session except the public terms; cross-origin, form, malformed and oversized mutations refused before any API call; error envelopes and 204 passed through; unreachable backend → 503 |
+| Wallet and funding client | `pnpm exec vitest run --project web apps/web/test/wallets.test.tsx` | 10 tests: capability discovery and no connection without a choice, account choice, wrong-network refusal (no signature, no challenge), disconnect keeps the session and a session change forgets the wallet, challenge shown verbatim and presented once with replay and already-linked mapping, signatures obtained under a previous account or after an account change never submitted, altered messages refused, step-up required, funding panel with copy/QR/balances/requirements, unknown balances shown as unknown |
+| Full unit and integration run | `pnpm test` (inside `pnpm verify`, PostgreSQL and the Temporal dev server running) | 42 files, 229 tests passed (one earlier run hit a temporary-database teardown race in `apps/api/test/boot.test.ts`, unrelated to F04; the recorded gate run was clean) |
+| Production build | `pnpm web:build` | 19 routes, all server-rendered on demand (`ƒ`), including `/settings`, `/settings/wallets`, `/settings/eligibility` and the `/api/markov/[...path]` proxy |
+| Browser evidence | `MARKOV_TEST_DATABASE_URL=… pnpm web:e2e` | 50 passed on desktop and phone profiles: 5 wallet, eligibility and funding journeys (below) plus the F01 to F03 suites; each profile uses its own accounts |
+| Screenshots | `docs/frontend/evidence/F04/` | `wallets-choose-*.png`, `wallets-verified-*.png`, `funding-needs-sol-*.png`, `home-readiness-*.png`, `wallets-wrong-network-*.png`, `wallets-already-linked-*.png`, `eligibility-unknown-*.png`, `eligibility-denied-*.png`, `eligibility-eligible-*.png` |
+
+Wallet journeys (desktop 1280×800 and the Pixel 7 profile):
+
+1. Explicit choice → connect → network check → verified ownership through the shown challenge → verified list and top-bar chip → funding: needs SOL (9,000 lamports, 250 USDC) with the requirement basis, then funded after the network shows 1 SOL → home checklist marks the wallet done and links eligibility → disconnect keeps the session.
+2. Wrong network: a mainnet-only wallet gets the explanation, the verify control is disabled, no signature and no challenge request happen.
+3. Replay and already linked: the same signed challenge presented again answers `CHALLENGE_INVALID` (409) through the app's proxy; a second account with the same wallet sees the recovery guidance and keeps no wallet.
+4. Account switch mid-flow: the signature is held while another tab signs in as someone else; when released, nothing is posted and the new account has no wallets.
+5. Eligibility: unknown → denied (`XX`, with the no-evasion notice) → eligible (`ZZ`) → terms acknowledged by content hash → wallet step remains → home shows the eligibility fact.
+
+Not verified in F04: any real browser wallet (Phantom, Solflare, hardware
+wallets), the hosted embedded wallet (OD-05), mobile wallet handoff, live
+cluster balance reads (fixture RPC only), screen-reader journeys through
+the wallet dialog, and transaction signing paths (F10).
+
+Readiness: IMPLEMENTED and FIXTURE_VERIFIED; LIVE_READ_VERIFIED and
+LIVE_WRITE_VERIFIED only against the local B02/B05 API in test mode, which
+is not production evidence. Real wallets and live funding reads: not
+verified.
+
 ## Acceptance matrix (build prompt section 12)
 
 | Journey or risk | Evidence | Status |
 | --------------- | -------- | ------ |
 | Anonymous home → Explore → instrument | Shell fills the viewport at five widths, navigation works, home shows no fabricated personal data (F02 browser suite and screenshots); the instrument page arrives with F05 | partial (F02) |
 | Sign in, reload, expire and recover, sign out, change accounts without private data crossing sessions | F03 browser journeys 1 to 3 against the real API; jsdom late-response and cache-disposal tests; server handler tests | complete for the development issuer (F03); hosted provider BLOCKED (OD-05) |
+| Sign-in → wallet verify → eligibility | F04 journeys 1 and 5 with an injected Wallet Standard wallet against the local API; wallet tests for replay, wrong network, already linked, account switch, altered signature | complete for the fixture wallet (F04); real wallets and the hosted embedded wallet not verified |
 | CSRF or login redirect abuse | Same-origin guard tests, open-redirect vectors in node and browser tests | complete (F03) |
 | Private SSR/CDN response cached publicly | All routes dynamic, session responses `no-store` (build output and e2e header assertion); deployment headers still to be checked in F20 | partial (F03) |
 

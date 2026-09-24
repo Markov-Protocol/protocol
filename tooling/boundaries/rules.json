@@ -71,7 +71,11 @@
     "jose": ["@markov/auth"],
     "fastify-plugin": ["@markov/api"],
     "openapi-fetch": ["@markov/api-client"],
-    "@tanstack/": ["@markov/web"]
+    "@tanstack/": ["@markov/web"],
+    "@wallet-standard/": ["@markov/web"],
+    "@solana/wallet-standard-features": ["@markov/web"],
+    "@solana/wallet-standard-chains": ["@markov/web"],
+    "qr": ["@markov/web"]
   },
   "appDeny": {
     "@markov/web": [

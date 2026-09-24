@@ -107,9 +107,16 @@ for (const pkg of packages) {
         }
         continue;
       }
-      for (const [family, owners] of Object.entries(rules.externalOwners)) {
-        const matches = family.endsWith('/') ? specifier.startsWith(family) : base === family;
-        if (matches && !owners.includes(pkg.name)) {
+      // The most specific family decides: an exact package entry overrides a scope prefix such as `@solana/`.
+      const matching = Object.entries(rules.externalOwners)
+        .filter(([family]) =>
+          family.endsWith('/') ? specifier.startsWith(family) : base === family,
+        )
+        .sort((a, b) => b[0].length - a[0].length);
+      const decisive = matching[0];
+      if (decisive) {
+        const [, owners] = decisive;
+        if (!owners.includes(pkg.name)) {
           violations.push(
             `${rel}: ${specifier} may only be imported by ${owners.length ? owners.join(', ') : 'no package yet (add an owner in rules.json with an ADR)'}`,
           );

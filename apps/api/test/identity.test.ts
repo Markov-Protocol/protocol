@@ -20,6 +20,7 @@ import {
   type CatalogService,
   createIdentityService,
   createProbes,
+  type FundingService,
   type MarkovApi,
   type PolicyService,
 } from '../src/index.js';
@@ -89,6 +90,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         identity,
         catalog: unavailableCatalog,
         policy: unavailablePolicy,
+        funding: unavailableFunding,
         mintTestToken: (input) =>
           issuer.mint(
             input.authTime
@@ -132,6 +134,11 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
   });
 }
 
+const unavailableFunding = new Proxy({} as FundingService, {
+  get: () => () => {
+    throw new Error('funding service is not part of this test');
+  },
+});
 const unavailablePolicy = new Proxy({} as PolicyService, {
   get: () => () => {
     throw new Error('policy service is not part of this test');

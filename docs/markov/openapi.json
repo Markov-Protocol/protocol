@@ -39539,6 +39539,643 @@
           }
         }
       }
+    },
+    "/v1/me/wallets/{walletId}/funding": {
+      "get": {
+        "summary": "Observed SOL and stablecoin balances of a verified wallet with fee requirements",
+        "tags": [
+          "identity"
+        ],
+        "description": "Reads the configured RPC endpoint at request time. Reports the network, the stablecoin mint observed, the rent-exempt minimum for a token account and the base fee allowance, and a readiness verdict. 503 when the endpoint cannot be read: balances are unknown, never zero.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "walletId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "walletId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "chain": {
+                      "type": "string",
+                      "enum": [
+                        "solana"
+                      ]
+                    },
+                    "cluster": {
+                      "type": "string",
+                      "enum": [
+                        "localnet",
+                        "devnet",
+                        "testnet",
+                        "mainnet-beta"
+                      ]
+                    },
+                    "genesisHash": {
+                      "type": "string",
+                      "minLength": 43,
+                      "maxLength": 44,
+                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                    },
+                    "address": {
+                      "type": "string",
+                      "minLength": 32,
+                      "maxLength": 44,
+                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                    },
+                    "observedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "slot": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "commitment": {
+                      "type": "string",
+                      "enum": [
+                        "confirmed",
+                        "finalized"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "rpc"
+                      ]
+                    },
+                    "sol": {
+                      "type": "object",
+                      "properties": {
+                        "lamports": {
+                          "type": "string",
+                          "pattern": "^\\d+$"
+                        },
+                        "sufficientForFees": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "lamports",
+                        "sufficientForFees"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "stablecoin": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "symbol": {
+                              "type": "string",
+                              "maxLength": 10
+                            },
+                            "mint": {
+                              "type": "string",
+                              "minLength": 32,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            "decimals": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 18
+                            },
+                            "raw": {
+                              "type": "string",
+                              "pattern": "^\\d+$"
+                            },
+                            "tokenAccounts": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "symbol",
+                            "mint",
+                            "decimals",
+                            "raw",
+                            "tokenAccounts"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "stablecoinUnavailableReason": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "requirements": {
+                      "type": "object",
+                      "properties": {
+                        "rentExemptTokenAccountLamports": {
+                          "type": "string",
+                          "pattern": "^\\d+$"
+                        },
+                        "baseFeeLamportsPerSignature": {
+                          "type": "string",
+                          "pattern": "^\\d+$"
+                        },
+                        "assumedSignatures": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "requiredLamports": {
+                          "type": "string",
+                          "pattern": "^\\d+$"
+                        },
+                        "explanation": {
+                          "type": "string",
+                          "maxLength": 600
+                        }
+                      },
+                      "required": [
+                        "rentExemptTokenAccountLamports",
+                        "baseFeeLamportsPerSignature",
+                        "assumedSignatures",
+                        "requiredLamports",
+                        "explanation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "readiness": {
+                      "type": "string",
+                      "enum": [
+                        "funded",
+                        "needs_sol",
+                        "needs_stablecoin",
+                        "unfunded"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "walletId",
+                    "chain",
+                    "cluster",
+                    "genesisHash",
+                    "address",
+                    "observedAt",
+                    "slot",
+                    "commitment",
+                    "source",
+                    "sol",
+                    "stablecoin",
+                    "stablecoinUnavailableReason",
+                    "requirements",
+                    "readiness"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "tags": [

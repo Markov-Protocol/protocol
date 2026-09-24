@@ -6,6 +6,7 @@ import {
   type ApiProbes,
   buildApp,
   type CatalogService,
+  type FundingService,
   type IdentityService,
   type NetworkIdentitySnapshot,
   type PolicyService,
@@ -14,6 +15,11 @@ import {
 const unavailableIdentity = new Proxy({} as IdentityService, {
   get: () => () => {
     throw new Error('identity service is not part of this test');
+  },
+});
+const unavailableFunding = new Proxy({} as FundingService, {
+  get: () => () => {
+    throw new Error('funding service is not part of this test');
   },
 });
 const unavailablePolicy = new Proxy({} as PolicyService, {
@@ -86,6 +92,7 @@ async function makeApp(
     identity: unavailableIdentity,
     catalog: unavailableCatalog,
     policy: unavailablePolicy,
+    funding: unavailableFunding,
     mintTestToken: null,
   });
   await app.ready();

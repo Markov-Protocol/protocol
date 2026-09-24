@@ -2,7 +2,9 @@
 # Starts a migrated, bound Markov API with the nonproduction test issuer for
 # the web app's Playwright suite (apps/web/playwright.config.ts starts it when
 # MARKOV_TEST_DATABASE_URL is set). A fresh database is created and dropped
-# around the run; the fixture RPC answers only getGenesisHash/getHealth.
+# around the run; the fixture RPC (scripts/dev/fixture-rpc.mjs) answers the
+# network identity, the synthetic catalog mints and funding reads that the
+# browser tests fill through its control endpoint on MARKOV_E2E_RPC_PORT.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADMIN_URL="${MARKOV_TEST_DATABASE_URL:?set MARKOV_TEST_DATABASE_URL}"
@@ -17,7 +19,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-RPC_PORT=$((20000 + RANDOM % 20000))
+RPC_PORT="${MARKOV_E2E_RPC_PORT:-3901}"
 node scripts/dev/fixture-rpc.mjs "$RPC_PORT" &
 RPC_PID=$!
 
@@ -27,8 +29,23 @@ export API_PORT="$PORT" API_HOST=127.0.0.1 IDENTITY_PROVIDER=test
 export AUTH_SESSION_TTL_SECONDS="${MARKOV_E2E_SESSION_TTL_SECONDS:-3600}"
 # The web server is the only caller and forwards the browser's address.
 export API_TRUST_PROXY=true
+# Synthetic stablecoin mint served by the fixture RPC (never a real token).
+export FUNDING_STABLECOIN_MINT=GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9ts
 
 node apps/cli/dist/main.js db migrate --bound-by web-e2e >/dev/null
 node apps/api/dist/main.js &
 API_PID=$!
+
+# Publish the fixture jurisdiction rules and terms (user-assigned ISO codes only,
+# refused outside local/test) so eligibility journeys can be exercised.
+for _ in $(seq 1 50); do
+  if curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.2
+done
+POLICY_TOKEN=$(node apps/cli/dist/main.js operators create --label web-e2e --scopes ops:policy:read,ops:policy:write --expires-days 1 | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const m=d.match(/mkv_op_[1-9A-HJ-NP-Za-km-z]+_[A-Za-z0-9_-]+/);if(!m){console.error(d);process.exit(1)}console.log(m[0])})')
+node apps/cli/dist/main.js policy rules publish --fixture --token "$POLICY_TOKEN" --url "http://127.0.0.1:$PORT" >/dev/null
+node apps/cli/dist/main.js policy terms publish --fixture --token "$POLICY_TOKEN" --url "http://127.0.0.1:$PORT" >/dev/null
+unset POLICY_TOKEN
 wait "$API_PID"

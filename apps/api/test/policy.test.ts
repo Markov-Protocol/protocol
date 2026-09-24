@@ -21,6 +21,7 @@ import {
   createIdentityService,
   createPolicyService,
   createProbes,
+  type FundingService,
   type MarkovApi,
 } from '../src/index.js';
 import { GENESIS, prestocksFixtureRpcFetch } from './support/fixture-rpc.js';
@@ -112,6 +113,7 @@ async function withHarness(
         identity,
         catalog,
         policy,
+        funding: unavailableFunding,
         mintTestToken: (input) =>
           issuer.mint({
             subject: input.subject,
@@ -196,6 +198,12 @@ async function withHarness(
     }
   });
 }
+
+const unavailableFunding = new Proxy({} as FundingService, {
+  get: () => () => {
+    throw new Error('funding service is not part of this test');
+  },
+});
 
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 const OPERATOR_SCOPES = [

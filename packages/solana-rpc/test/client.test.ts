@@ -54,6 +54,55 @@ describe('SolanaRpcClient', () => {
     });
   });
 
+  it('reads balances, token accounts and the rent-exempt minimum, refusing unsafe integers', async () => {
+    const tokenAccount = Buffer.alloc(165);
+    tokenAccount.writeBigUInt64LE(250_000_000n, 64);
+    const server = await fake({
+      handlers: {
+        getBalance: (params) =>
+          (params as unknown[])[0] === 'whale'
+            ? { context: { slot: 5 }, value: 2 ** 53 + 2 }
+            : { context: { slot: 5 }, value: 12_345 },
+        getTokenAccountsByOwner: () => ({
+          context: { slot: 6 },
+          value: [
+            {
+              pubkey: 'Acct1111111111111111111111111111111111111111',
+              account: {
+                data: [tokenAccount.toString('base64'), 'base64'],
+                executable: false,
+                lamports: 2_039_280,
+                owner: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+                rentEpoch: 0,
+              },
+            },
+          ],
+        }),
+        getMinimumBalanceForRentExemption: () => 2_039_280,
+      },
+    });
+    const rpc = client(server.url);
+    expect(await rpc.getBalance('owner', 'confirmed')).toEqual({ slot: 5, lamports: 12_345 });
+    expect(server.requests[0]).toMatchObject({
+      method: 'getBalance',
+      params: ['owner', { commitment: 'confirmed' }],
+    });
+    const accounts = await rpc.getTokenAccountsByOwner('owner', 'mint', 'confirmed');
+    expect(accounts.slot).toBe(6);
+    expect(accounts.accounts).toHaveLength(1);
+    expect(accounts.accounts[0]?.data.length).toBe(165);
+    expect(server.requests[1]).toMatchObject({
+      method: 'getTokenAccountsByOwner',
+      params: ['owner', { mint: 'mint' }, { encoding: 'base64', commitment: 'confirmed' }],
+    });
+    expect(await rpc.getMinimumBalanceForRentExemption(165)).toBe(2_039_280);
+    expect(server.requests[2]).toMatchObject({
+      method: 'getMinimumBalanceForRentExemption',
+      params: [165],
+    });
+    expect(await failureKind(rpc.getBalance('whale', 'confirmed'))).toBe('malformed');
+  });
+
   it('classifies node-unhealthy rpc errors from getHealth without throwing', async () => {
     const server = await fake({
       handlers: {

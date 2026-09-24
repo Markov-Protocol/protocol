@@ -149,6 +149,17 @@ successful evaluation. `POLICY_DENIED` remains reserved for execution
 sessions that refuse to proceed on a denied decision. Version conflicts
 answer `IDEMPOTENCY_CONFLICT` (409). Details: `docs/markov/eligibility-and-policy.md`.
 
+## Endpoints (F04 additions)
+
+| Method | Path                                                     | Principal                     | Purpose |
+| ------ | -------------------------------------------------------- | ----------------------------- | ------- |
+| GET    | /v1/me/wallets/{walletId}/funding                        | user, agent `portfolio:read`  | Observed SOL and stablecoin balances of one verified wallet from the configured RPC endpoint (`confirmed`), the rent-exempt minimum for a token account, the base fee allowance and a readiness verdict; 503 `PROVIDER_UNAVAILABLE` when the endpoint cannot be read (unknown, never zero) |
+
+The stablecoin observed is USDC on mainnet-beta (`MAINNET_USDC_MINT`) or
+`FUNDING_STABLECOIN_MINT` elsewhere; without one the response reports SOL
+only and says why. Nothing here is a deposit address of Markov's: the
+address is the person's own verified wallet.
+
 ## Planned surface
 
 Research, strategies, discovery, portfolio,

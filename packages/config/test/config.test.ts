@@ -4,6 +4,7 @@ import {
   describeConfig,
   KNOWN_GENESIS_HASHES,
   loadConfig,
+  MAINNET_USDC_MINT,
   redactUrl,
   tryLoadConfig,
 } from '../src/index.js';
@@ -220,6 +221,26 @@ describe('identity and credential configuration', () => {
     expect(issuesOf({ ...base, IDENTITY_JWKS_URL: 'http://auth.example.test/jwks' })).toEqual([
       expect.stringContaining('IDENTITY_JWKS_URL'),
     ]);
+  });
+
+  it('knows USDC on mainnet-beta only and otherwise needs an explicit stablecoin mint', () => {
+    expect(loadConfig(base).funding.stablecoin).toBeNull();
+    expect(
+      loadConfig({
+        ...base,
+        FUNDING_STABLECOIN_MINT: 'GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9ts',
+      }).funding.stablecoin,
+    ).toEqual({
+      symbol: 'USDC',
+      mint: 'GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9ts',
+      decimals: 6,
+    });
+    expect(loadConfig({ ...base, SOLANA_CLUSTER: 'mainnet-beta' }).funding.stablecoin).toEqual({
+      symbol: 'USDC',
+      mint: MAINNET_USDC_MINT,
+      decimals: 6,
+    });
+    expect(() => loadConfig({ ...base, FUNDING_STABLECOIN_MINT: 'not-base58!' })).toThrow();
   });
 
   it('keeps the pepper out of the configuration summary', () => {

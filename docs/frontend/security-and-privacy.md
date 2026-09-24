@@ -59,11 +59,44 @@ any credential, token or account identifier in it. If the same identity
 provider is used on both sites, each site completes its own provider flow
 and its own server-side exchange.
 
+## Wallets, ownership and funding (F04)
+
+- The browser reaches the API only through `/api/markov/*`, an explicit
+  allowlist of operations (`apps/web/src/server/proxy/allowlist.ts`). The
+  session token stays in the HttpOnly cookie and is attached server side;
+  mutations must pass the same-origin check, bodies must be small JSON,
+  responses are `no-store` and upstream headers are dropped.
+- Wallet discovery uses the Wallet Standard events; Markov never picks
+  `wallets[0]`, never connects silently and never creates a wallet. A wallet
+  without `solana:signMessage` cannot verify ownership and is told so before
+  any popup. The embedded-wallet option is shown as unavailable (OD-05).
+- Ownership verification signs the API's fresh, account- and chain-bound
+  challenge (B02). The exact text is displayed first; the wallet's
+  `signedMessage` must equal it byte for byte and the signature must be 64
+  bytes; a signature obtained under another session epoch or after the
+  wallet's accounts changed is discarded without being submitted. Replay
+  answers `CHALLENGE_INVALID`; a wallet verified elsewhere answers
+  `WALLET_ALREADY_LINKED` with recovery guidance and no automatic transfer.
+  Linking and unlinking need a recent sign-in (`STEP_UP_REQUIRED`).
+- Network checks compare the account's declared chains with the platform's
+  cluster (`/v1/platform`) before a signature is requested.
+- Funding shows the person's own verified address only (full text, copy,
+  QR drawn from the encoder's matrix, no injected markup), the exact cluster
+  and stablecoin mint, and balances as observed by the backend at a stated
+  slot. No pooled deposit address, bridge, onramp, fee sponsorship or deposit
+  credit exists. An unreadable RPC endpoint is reported as unknown.
+- Disconnecting a wallet never signs the identity session out; the two
+  controls state their effects. The only wallet fact kept in the browser is
+  the name of the wallet the person chose (`localStorage`,
+  `markov.wallet.preferred`), used to resume that wallet silently after a
+  reload; it is never the first wallet found, it is cleared on disconnect,
+  a wallet that refuses a silent connect stays disconnected, and a session
+  change disconnects regardless.
+
 ## Planned (with the sessions that own them)
 
 Full CSP with exact identity/wallet allowances and report-only rollout,
 HSTS at the deployment, the hosted identity provider browser adapter
-(BLOCKED on OD-05), wallet connection and signing-path validation (F04,
-F10), analytics consent and retention (F14/F20). Threat-model rows from the
+(BLOCKED on OD-05), transaction signing-path validation (F10), analytics consent and retention (F14/F20). Threat-model rows from the
 build prompt are tracked in `docs/frontend/verification.md` as they gain
 tests.

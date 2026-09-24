@@ -36,6 +36,7 @@ import type { ReactNode } from 'react';
 import { AccountMenu } from '@/features/auth/account-menu';
 import { useSession } from '@/features/auth/session-context';
 import { SessionExpiredNotice } from '@/features/auth/session-expired-notice';
+import { WalletChip } from '@/features/wallets/wallet-chip';
 import { routeInfoFor } from './routes';
 
 const primaryItems: readonly NavigationItem[] = [
@@ -117,8 +118,8 @@ function ConnectionStatus() {
 
 /**
  * The app-owned composition of the Mark I shell. The connection status and
- * the account control come from the verified session; the wallet state is
- * still a placeholder until F04 and says so.
+ * the account control come from the verified session; the wallet chip says
+ * which wallet would sign and whether it is verified.
  */
 export function AppShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
@@ -139,7 +140,12 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
               <CompanionPresence status="Markov is ready" size="compact" />
             ) : null
           }
-          status={<ConnectionStatus />}
+          status={
+            <div className="flex flex-wrap items-center gap-2">
+              <WalletChip />
+              <ConnectionStatus />
+            </div>
+          }
           account={<AccountMenu />}
         />
       }

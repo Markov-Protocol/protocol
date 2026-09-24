@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { shortSubject } from '@/features/auth/format';
 import type { SessionAccount } from '@/features/auth/session-types';
+import { useReadiness } from '@/features/wallets/readiness';
 
 export type HomeState = 'anonymous' | 'auth-loading' | 'signed-in' | 'unavailable';
 
@@ -17,12 +18,62 @@ export interface HomeViewProps {
 
 const CHECKLIST_DISMISSED_KEY = 'markov.home.checklist.dismissed';
 
-/** Actions a new account actually needs before its first strategy, each with its honest availability. */
-const nextSteps = [
-  { key: 'wallet', label: 'Choose and verify a wallet', arrives: 'F04 (needs B02 and B05)' },
-  { key: 'eligibility', label: 'Resolve eligibility', arrives: 'F04 (needs B05)' },
-  { key: 'strategy', label: 'Build a strategy you can explain', arrives: 'F07 (needs B07)' },
-] as const;
+interface NextStep {
+  readonly key: string;
+  readonly label: string;
+  readonly href: string | null;
+  readonly state: 'done' | 'todo' | 'later' | 'checking';
+  readonly note: string;
+}
+
+/** Only the actions this account still needs, from live readiness; a delivered step disappears from the list. */
+function useNextSteps(): readonly NextStep[] {
+  const readiness = useReadiness();
+  const verified = readiness.facts.find((fact) => fact.key === 'verified');
+  const eligible = readiness.facts.find((fact) => fact.key === 'eligible');
+  const stateOf = (fact: typeof verified): NextStep['state'] =>
+    !fact || fact.state === 'loading'
+      ? 'checking'
+      : fact.state === 'yes' || fact.state === 'partial'
+        ? fact.state === 'yes'
+          ? 'done'
+          : 'todo'
+        : 'todo';
+  return [
+    {
+      key: 'wallet',
+      label: 'Choose and verify a wallet',
+      href: '/settings/wallets',
+      state:
+        verified?.state === 'partial' || verified?.state === 'yes' ? 'done' : stateOf(verified),
+      note: verified?.detail ?? '',
+    },
+    {
+      key: 'eligibility',
+      label: 'Resolve eligibility and terms',
+      href: '/settings/eligibility',
+      state: stateOf(eligible),
+      note: eligible?.detail ?? '',
+    },
+    {
+      key: 'funding',
+      label: 'Add funds if needed',
+      href: readiness.verifiedWallets.length > 0 ? '/settings/wallets' : null,
+      state: readiness.verifiedWallets.length > 0 ? 'todo' : 'later',
+      note:
+        readiness.verifiedWallets.length > 0
+          ? 'Receive into your own verified wallet; balances show once the network has them.'
+          : 'Available once a wallet is verified.',
+    },
+    {
+      key: 'strategy',
+      label: 'Build a strategy you can explain',
+      href: null,
+      state: 'later',
+      note: 'Arrives with F07 (needs B07).',
+    },
+  ];
+}
 
 function readDismissed(): boolean {
   try {
@@ -33,6 +84,7 @@ function readDismissed(): boolean {
 }
 
 function SignedInHome({ account }: { readonly account: SessionAccount }) {
+  const nextSteps = useNextSteps();
   const [dismissed, setDismissed] = useState(false);
   useEffect(() => {
     setDismissed(readDismissed());
@@ -78,8 +130,35 @@ function SignedInHome({ account }: { readonly account: SessionAccount }) {
                 key={step.key}
                 className="flex flex-wrap items-center justify-between gap-2 text-supporting"
               >
-                <span>{step.label}</span>
-                <StatusBadge tone="neutral">Arrives with {step.arrives}</StatusBadge>
+                <span>
+                  {step.href && step.state !== 'done' ? (
+                    <Link href={step.href} className="underline underline-offset-2">
+                      {step.label}
+                    </Link>
+                  ) : (
+                    step.label
+                  )}
+                  <span className="block text-caption text-text-muted">{step.note}</span>
+                </span>
+                <StatusBadge
+                  tone={
+                    step.state === 'done'
+                      ? 'success'
+                      : step.state === 'todo'
+                        ? 'attention'
+                        : step.state === 'checking'
+                          ? 'pending'
+                          : 'neutral'
+                  }
+                >
+                  {step.state === 'done'
+                    ? 'Done'
+                    : step.state === 'todo'
+                      ? 'To do'
+                      : step.state === 'checking'
+                        ? 'Checking'
+                        : 'Later'}
+                </StatusBadge>
               </li>
             ))}
           </ul>

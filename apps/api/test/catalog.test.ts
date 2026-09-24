@@ -20,6 +20,7 @@ import {
   createIdentityService,
   createPolicyService,
   createProbes,
+  type FundingService,
   type MarkovApi,
 } from '../src/index.js';
 
@@ -187,6 +188,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         identity,
         catalog,
         policy: createPolicyService({ config, db: client.db, catalog }),
+        funding: unavailableFunding,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();
@@ -228,6 +230,12 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
     }
   });
 }
+
+const unavailableFunding = new Proxy({} as FundingService, {
+  get: () => () => {
+    throw new Error('funding service is not part of this test');
+  },
+});
 
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 

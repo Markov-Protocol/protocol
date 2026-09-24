@@ -1,8 +1,13 @@
 import type { Metadata } from 'next';
-import { FeatureUnavailable } from '@/features/home/feature-unavailable';
+import { PrivateGate } from '@/features/auth/private-gate';
+import { SettingsView } from '@/features/settings/settings-view';
 
 export const metadata: Metadata = { title: 'Settings' };
 
 export default function Page() {
-  return <FeatureUnavailable pathname="/settings" />;
+  return (
+    <PrivateGate title="Settings">
+      <SettingsView />
+    </PrivateGate>
+  );
 }

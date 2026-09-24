@@ -17,6 +17,7 @@ import { SolanaRpcClient } from '@markov/solana-rpc';
 import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
 import { createIdentityService } from './auth/service.js';
 import { createCatalogService } from './catalog/service.js';
+import { createFundingService } from './funding/service.js';
 import { createNetworkIdentityMonitor } from './network-monitor.js';
 import { createPolicyService } from './policy/service.js';
 
@@ -277,6 +278,12 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     rpcClients: clients,
   });
   const policyService = createPolicyService({ config, db: dbClient.db, catalog: catalogService });
+  const fundingService = createFundingService({
+    config,
+    db: dbClient.db,
+    genesisHash: expectedGenesisHash,
+    rpcClients: clients,
+  });
 
   const app = await buildApp({
     config,
@@ -288,6 +295,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     identity: identityService,
     catalog: catalogService,
     policy: policyService,
+    funding: fundingService,
     mintTestToken,
   });
 
