@@ -1,0 +1,23 @@
+{
+  "$comment": "Import direction rules enforced by check-boundaries.mjs. Keys are workspace package names; `allow` lists the internal packages each may import. Apps may import any package but never another app. External provider SDK families are restricted to the packages listed under `externalOwners`.",
+  "layers": {
+    "@markov/contracts": { "allow": [] },
+    "@markov/config": { "allow": ["@markov/contracts"] },
+    "@markov/observability": { "allow": [] },
+    "@markov/solana-rpc": { "allow": [] },
+    "@markov/testkit": { "allow": [] },
+    "@markov/db": { "allow": ["@markov/contracts"] }
+  },
+  "apps": ["@markov/api", "@markov/worker", "@markov/cli"],
+  "testOnlyPackages": ["@markov/testkit"],
+  "externalOwners": {
+    "@temporalio/": ["@markov/worker", "@markov/cli"],
+    "fastify": ["@markov/api"],
+    "@fastify/": ["@markov/api"],
+    "drizzle-orm": ["@markov/db"],
+    "pg": ["@markov/db", "@markov/testkit"],
+    "@solana/": [],
+    "@jup-ag/": [],
+    "@meteora-ag/": []
+  }
+}

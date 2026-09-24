@@ -1,0 +1,582 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Markov API",
+    "description": "Proposed Markov contracts. Schemas are generated from the runtime validators; see docs/markov/api.md.",
+    "version": "1.0.0"
+  },
+  "components": {
+    "schemas": {}
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Liveness",
+        "tags": [
+          "platform"
+        ],
+        "description": "The process is running. Says nothing about dependencies.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    },
+                    "service": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "uptimeSeconds": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "service",
+                    "version",
+                    "uptimeSeconds",
+                    "timestamp"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Readiness",
+        "tags": [
+          "platform"
+        ],
+        "description": "Every required dependency check passes: database, schema, platform identity and Solana network identity. 503 otherwise.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ready",
+                        "not_ready"
+                      ]
+                    },
+                    "service": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "checks": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pass",
+                              "fail",
+                              "unverified"
+                            ]
+                          },
+                          "required": {
+                            "type": "boolean"
+                          },
+                          "detail": {
+                            "type": "string",
+                            "maxLength": 1000
+                          },
+                          "observedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "durationMs": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "required",
+                          "detail",
+                          "observedAt",
+                          "durationMs"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "platform": {
+                      "type": "object",
+                      "properties": {
+                        "markovEnv": {
+                          "type": "string",
+                          "enum": [
+                            "local",
+                            "test",
+                            "staging",
+                            "mainnet-read-only",
+                            "production"
+                          ]
+                        },
+                        "solanaCluster": {
+                          "type": "string",
+                          "enum": [
+                            "localnet",
+                            "devnet",
+                            "testnet",
+                            "mainnet-beta"
+                          ]
+                        },
+                        "expectedGenesisHash": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 43,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "observedGenesisHash": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 43,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "schemaVersion": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "markovEnv",
+                        "solanaCluster",
+                        "expectedGenesisHash",
+                        "observedGenesisHash",
+                        "schemaVersion"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "service",
+                    "timestamp",
+                    "checks",
+                    "platform"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ready",
+                        "not_ready"
+                      ]
+                    },
+                    "service": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "checks": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pass",
+                              "fail",
+                              "unverified"
+                            ]
+                          },
+                          "required": {
+                            "type": "boolean"
+                          },
+                          "detail": {
+                            "type": "string",
+                            "maxLength": 1000
+                          },
+                          "observedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "durationMs": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "required",
+                          "detail",
+                          "observedAt",
+                          "durationMs"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "platform": {
+                      "type": "object",
+                      "properties": {
+                        "markovEnv": {
+                          "type": "string",
+                          "enum": [
+                            "local",
+                            "test",
+                            "staging",
+                            "mainnet-read-only",
+                            "production"
+                          ]
+                        },
+                        "solanaCluster": {
+                          "type": "string",
+                          "enum": [
+                            "localnet",
+                            "devnet",
+                            "testnet",
+                            "mainnet-beta"
+                          ]
+                        },
+                        "expectedGenesisHash": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 43,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "observedGenesisHash": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 43,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "schemaVersion": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "markovEnv",
+                        "solanaCluster",
+                        "expectedGenesisHash",
+                        "observedGenesisHash",
+                        "schemaVersion"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "service",
+                    "timestamp",
+                    "checks",
+                    "platform"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/platform": {
+      "get": {
+        "summary": "Platform identity and capability readiness",
+        "tags": [
+          "platform"
+        ],
+        "description": "Secret-free description of the running platform, including the verification state of every capability.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "service": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "contractSchemaVersion": {
+                      "type": "string",
+                      "enum": [
+                        "1"
+                      ]
+                    },
+                    "identity": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "markovEnv": {
+                              "type": "string",
+                              "enum": [
+                                "local",
+                                "test",
+                                "staging",
+                                "mainnet-read-only",
+                                "production"
+                              ]
+                            },
+                            "solanaCluster": {
+                              "type": "string",
+                              "enum": [
+                                "localnet",
+                                "devnet",
+                                "testnet",
+                                "mainnet-beta"
+                              ]
+                            },
+                            "genesisHash": {
+                              "type": "string",
+                              "minLength": 43,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            }
+                          },
+                          "required": [
+                            "markovEnv",
+                            "solanaCluster",
+                            "genesisHash"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "executionWritesEnabled": {
+                      "type": "boolean"
+                    },
+                    "capabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "capability": {
+                            "type": "string",
+                            "enum": [
+                              "platform.api.health",
+                              "platform.db.migrations",
+                              "platform.worker.temporal",
+                              "solana.rpc.read",
+                              "solana.rpc.submit",
+                              "catalog.prestocks.ingest",
+                              "catalog.xstocks.ingest",
+                              "catalog.tessera.ingest",
+                              "identity.provider.verify",
+                              "execution.jupiter.quote",
+                              "execution.jupiter.build",
+                              "execution.spot.submit",
+                              "registry.strategy.publish",
+                              "research.model.generate",
+                              "notifications.email",
+                              "liquidity.meteora.read",
+                              "liquidity.meteora.dbc-simulate",
+                              "automation.unattended"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "IMPLEMENTED",
+                              "FIXTURE_VERIFIED",
+                              "LIVE_READ_VERIFIED",
+                              "LIVE_WRITE_VERIFIED",
+                              "BLOCKED",
+                              "DISABLED"
+                            ]
+                          },
+                          "summary": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "evidence": {
+                            "default": {},
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "updatedBy": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          }
+                        },
+                        "required": [
+                          "capability",
+                          "status",
+                          "summary",
+                          "evidence",
+                          "updatedAt",
+                          "updatedBy"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "service",
+                    "version",
+                    "contractSchemaVersion",
+                    "identity",
+                    "executionWritesEnabled",
+                    "capabilities"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "platform",
+      "description": "Service health, readiness and platform identity"
+    }
+  ]
+}

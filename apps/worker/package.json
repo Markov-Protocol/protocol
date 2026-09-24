@@ -1,0 +1,36 @@
+{
+  "name": "@markov/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/main.js",
+    "dev": "node --env-file-if-exists=../../.env --import tsx src/main.ts"
+  },
+  "dependencies": {
+    "@markov/config": "workspace:*",
+    "@markov/contracts": "workspace:*",
+    "@markov/db": "workspace:*",
+    "@markov/observability": "workspace:*",
+    "@temporalio/activity": "1.24.0",
+    "@temporalio/client": "1.24.0",
+    "@temporalio/common": "1.24.0",
+    "@temporalio/worker": "1.24.0",
+    "@temporalio/workflow": "1.24.0"
+  },
+  "devDependencies": {
+    "@markov/testkit": "workspace:*"
+  }
+}

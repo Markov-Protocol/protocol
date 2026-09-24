@@ -1,0 +1,43 @@
+{
+  "name": "markov-protocol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Markov stock strategy backend: versioned, executable portfolios of admitted tokenized stock exposures on Solana.",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.12.0 <27",
+    "pnpm": ">=10.33.0"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -b tsconfig.json && tsc -p tsconfig.tests.json",
+    "clean": "node tooling/scripts/clean.mjs",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "boundaries:check": "node tooling/boundaries/check-boundaries.mjs",
+    "commit-policy:check": "node tooling/commit-policy/check-message.mjs",
+    "commit-policy:range": "node tooling/commit-policy/check-range.mjs",
+    "hooks:install": "git config core.hooksPath .githooks && echo 'git hooks path set to .githooks'",
+    "openapi:generate": "node apps/api/dist/bin/export-openapi.js docs/markov/openapi.json",
+    "openapi:check": "node apps/api/dist/bin/export-openapi.js --check docs/markov/openapi.json",
+    "db:generate": "pnpm --filter @markov/db run db:generate",
+    "db:check": "pnpm --filter @markov/db run db:check",
+    "secrets:scan": "bash tooling/secrets/scan.sh",
+    "markov": "node apps/cli/dist/main.js",
+    "dev:api": "node --env-file-if-exists=.env --import tsx apps/api/src/main.ts",
+    "dev:worker": "node --env-file-if-exists=.env --import tsx apps/worker/src/main.ts",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm boundaries:check && pnpm openapi:check && pnpm db:check"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@types/node": "22.20.4",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.0.1"
+  }
+}

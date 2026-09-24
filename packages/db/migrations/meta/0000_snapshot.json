@@ -1,0 +1,130 @@
+{
+  "id": "cbe2380b-2392-4e6e-b72a-3f0897e4274b",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.capability_readiness": {
+      "name": "capability_readiness",
+      "schema": "",
+      "columns": {
+        "capability": {
+          "name": "capability",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "summary": {
+          "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evidence": {
+          "name": "evidence",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "capability_readiness_status_check": {
+          "name": "capability_readiness_status_check",
+          "value": "\"status\" IN ('IMPLEMENTED', 'FIXTURE_VERIFIED', 'LIVE_READ_VERIFIED', 'LIVE_WRITE_VERIFIED', 'BLOCKED', 'DISABLED')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.platform_identity": {
+      "name": "platform_identity",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "markov_env": {
+          "name": "markov_env",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "solana_cluster": {
+          "name": "solana_cluster",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "genesis_hash": {
+          "name": "genesis_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bound_at": {
+          "name": "bound_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "bound_by": {
+          "name": "bound_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "platform_identity_singleton": {
+          "name": "platform_identity_singleton",
+          "value": "\"platform_identity\".\"id\" = 1"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -1,0 +1,149 @@
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MARKOV_ENV: test
+  CI: "true"
+
+jobs:
+  checks:
+    name: lint, typecheck, test, contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: markov
+          POSTGRES_PASSWORD: markov
+          POSTGRES_DB: markov_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U markov -d markov_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Commit message policy (pull request range)
+        if: github.event_name == 'pull_request'
+        run: node tooling/commit-policy/check-range.mjs "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+
+      - name: Commit message policy (push range)
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: node tooling/commit-policy/check-range.mjs "${{ github.event.before }}..${{ github.sha }}"
+
+      - name: Lint and format
+        run: pnpm lint
+
+      - name: Build and typecheck
+        run: pnpm typecheck
+
+      - name: Dependency boundaries
+        run: pnpm boundaries:check
+
+      - name: OpenAPI drift
+        run: pnpm openapi:check
+
+      - name: Migration drift
+        run: |
+          pnpm db:check
+          pnpm db:generate --name drift-check
+          if [ -n "$(git status --porcelain packages/db/migrations)" ]; then
+            echo "schema changed without a committed migration:" >&2
+            git status --porcelain packages/db/migrations >&2
+            exit 1
+          fi
+
+      - name: Install Temporal CLI (pinned, checksum verified)
+        run: bash scripts/dev/install-temporal-cli.sh "$HOME/.local/bin" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Start Temporal dev server
+        run: |
+          mkdir -p .temporal
+          nohup temporal server start-dev --headless --ip 127.0.0.1 --port 7233 --db-filename .temporal/ci.db --log-level warn > .temporal/ci.log 2>&1 &
+          for i in $(seq 1 30); do
+            if temporal operator namespace describe -n default --address 127.0.0.1:7233 >/dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          echo "temporal dev server did not become ready" >&2
+          cat .temporal/ci.log >&2
+          exit 1
+
+      - name: Test (unit + integration)
+        env:
+          MARKOV_TEST_DATABASE_URL: postgres://markov:markov@127.0.0.1:5432/markov_test
+          MARKOV_TEST_TEMPORAL_ADDRESS: 127.0.0.1:7233
+        run: pnpm test
+
+      - name: Headless startup check
+        env:
+          MARKOV_TEST_DATABASE_URL: postgres://markov:markov@127.0.0.1:5432/markov_test
+        run: bash scripts/ci/startup-check.sh
+
+      - name: Upload test report
+        if: always()
+        run: |
+          if [ -f .markov-tmp/junit.xml ]; then echo "junit report at .markov-tmp/junit.xml"; fi
+
+  supply-chain:
+    name: secrets, advisories, licenses
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install gitleaks (pinned, checksum verified)
+        run: bash scripts/dev/install-gitleaks.sh "$HOME/.local/bin" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Secret scan (full history of this ref)
+        run: gitleaks git --redact --no-banner --config .gitleaks.toml .
+
+      - name: Dependency advisories
+        run: pnpm audit --audit-level=high
+
+      - name: License inventory
+        run: pnpm licenses list --long --json > licenses.json && node -e "const l=require('./licenses.json');const names=Object.keys(l);console.log('license families:',names.join(', '));"

@@ -1,0 +1,28 @@
+# dependencies and build output
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+
+# local environment and secrets: only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# local development state
+.temporal/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.log
+.local/
+
+# editors and OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# temporary verification output
+.markov-tmp/

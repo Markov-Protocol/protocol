@@ -1,0 +1,39 @@
+{
+  "name": "@markov/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/main.js",
+    "dev": "node --env-file-if-exists=../../.env --import tsx src/main.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "11.3.0",
+    "@fastify/helmet": "13.1.1",
+    "@fastify/rate-limit": "11.2.0",
+    "@fastify/swagger": "9.9.0",
+    "@markov/config": "workspace:*",
+    "@markov/contracts": "workspace:*",
+    "@markov/db": "workspace:*",
+    "@markov/observability": "workspace:*",
+    "@markov/solana-rpc": "workspace:*",
+    "fastify": "5.12.5",
+    "fastify-type-provider-zod": "7.0.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@markov/testkit": "workspace:*"
+  }
+}

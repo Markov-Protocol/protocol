@@ -1,0 +1,57 @@
+# Local dependencies for development. Not executed in the B01 build session
+# (Docker was unavailable there); see docs/sessions/B01.md. The Temporal
+# service mirrors the upstream temporalio/docker-compose layout without
+# Elasticsearch.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: markov
+      POSTGRES_PASSWORD: markov
+      POSTGRES_DB: markov_dev
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - markov-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U markov -d markov_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  temporal-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+    volumes:
+      - markov-temporal-postgres:/var/lib/postgresql/data
+
+  temporal:
+    image: temporalio/auto-setup:1.32.0
+    depends_on:
+      - temporal-postgres
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=temporal-postgres
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    ports:
+      - "127.0.0.1:7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:2.54.1
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "127.0.0.1:8233:8080"
+
+volumes:
+  markov-postgres:
+  markov-temporal-postgres:

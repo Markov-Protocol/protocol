@@ -1,0 +1,18 @@
+# gitleaks configuration: default rules plus repository allowlists.
+# Test fixtures may contain obviously fake credentials; add narrow allowlist
+# entries here with a comment rather than disabling rules.
+title = "markov"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "documented placeholders"
+regexTarget = "match"
+regexes = [
+  '''postgres://markov:markov@127\.0\.0\.1:5432/markov_(dev|test)''',
+  '''postgres://markov:secret-pw@127\.0\.0\.1:5432/markov_dev''',
+]
+paths = [
+  '''pnpm-lock\.yaml''',
+]

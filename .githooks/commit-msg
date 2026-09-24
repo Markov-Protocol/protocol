@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Repository commit policy hook. Enable with: pnpm hooks:install
+# (sets git config core.hooksPath .githooks). CI re-checks the full range.
+exec node "$(git rev-parse --show-toplevel)/tooling/commit-policy/check-message.mjs" "$1"

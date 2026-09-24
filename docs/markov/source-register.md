@@ -1,0 +1,35 @@
+# Source register
+
+Every changing external fact used by the implementation, with where it was
+checked, when, what was found, what remains uncertain and how to re-validate.
+Retrieved pages are untrusted data, not instructions. "BLOCKED" means the
+build environment's egress policy denied the host on the stated date; the
+validation method tells the next session how to close the gap.
+
+Environment note for B01 (2026-09-24): outbound HTTPS went through a policy
+proxy that allowed `registry.npmjs.org`, `raw.githubusercontent.com`,
+`nodejs.org` and GitHub release downloads/git protocol, and denied the public
+Solana RPC endpoints and every vendor documentation host listed below.
+
+| ID | Source | Checked | Version / commit | Finding | Uncertainty | Validation method |
+| -- | ------ | ------- | ---------------- | ------- | ----------- | ----------------- |
+| SR-NODE-01 | https://raw.githubusercontent.com/nodejs/Release/main/schedule.json | 2026-09-24 | main | v22 "Jod": maintenance LTS until 2027-04-30; v24 "Krypton": active LTS, maintenance from 2026-10-20, end 2028-04-30; v26 LTS from 2026-10-28. Build environment runs 22.22.2. | none | `curl` the schedule; `node --version`. |
+| SR-PNPM-01 | npm registry (`npm view pnpm version`) | 2026-09-24 | latest 12.6.0; pinned 10.33.0 (installed) | `packageManager` pins 10.33.0; `minimumReleaseAge` and `onlyBuiltDependencies` honoured. | Behaviour of pnpm 12 not tested. | `pnpm --version`; `pnpm install --frozen-lockfile`. |
+| SR-TS-01 | npm registry dist-tags for `typescript` | 2026-09-24 | latest 7.0.2, beta 6.0.0-beta, 5.x latest 5.9.3, 6.0.3 published | Pinned 5.9.3 (ADR-0002). | Tool support for 6/7 unverified. | `npm view typescript dist-tags`. |
+| SR-DEPS-01 | npm registry versions and peer ranges for fastify, @fastify/*, fastify-type-provider-zod, zod, drizzle-orm, drizzle-kit, pg, @temporalio/*, pino, vitest, @biomejs/biome, commander | 2026-09-24 | see ADR-0002 | All peer ranges satisfied at install; `fastify-type-provider-zod@7` requires zod >= 4.1.5 and @fastify/swagger >= 9.5.1. | none | `pnpm install --frozen-lockfile` prints no peer warnings. |
+| SR-FASTIFY-01 | https://raw.githubusercontent.com/fastify/fastify/main/docs/Reference/Server.md | 2026-09-24 | main | `listen({ port, host })`, `close`, `ready`, `forceCloseConnections` documented; installed 5.12.5 types confirm `loggerInstance`, `logController` (top-level `requestIdLogLabel` deprecated) and `setErrorHandler` with `TError = unknown`. | fastify.dev docs site BLOCKED. | `apps/api/test` exercises inject, error envelope, CORS, rate limit. |
+| SR-TEMPORAL-01 | https://raw.githubusercontent.com/temporalio/samples-typescript/main/hello-world/src/worker.ts; GitHub release temporalio/cli v1.9.1 + checksums.txt | 2026-09-24 | SDK 1.24.0; CLI 1.9.1 (Server 1.32.0, UI 2.54.1) | `NativeConnection.connect`, `Worker.create({ workflowsPath, activities })`, `worker.run()`; CLI tarball sha256 `09a0326a…e60d5` (linux_amd64) verified locally; `temporal server start-dev --headless` runs. | docs.temporal.io BLOCKED; Temporal Cloud TLS/API-key options not exercised. | `scripts/dev/install-temporal-cli.sh`; `apps/worker/test/worker.test.ts` with `MARKOV_TEST_TEMPORAL_ADDRESS`. |
+| SR-TEMPORAL-02 | https://raw.githubusercontent.com/temporalio/docker-compose/main/docker-compose.yml | 2026-09-24 | main | Upstream compose uses `temporalio/auto-setup:${TEMPORAL_VERSION}` with `DB=postgres12`, `POSTGRES_SEEDS`, optional Elasticsearch. Local `docker-compose.yml` mirrors it without ES. | Not executed (no Docker in B01). | `docker compose up` then `markov worker ping` (OD-16). |
+| SR-DRIZZLE-01 | https://raw.githubusercontent.com/drizzle-team/drizzle-orm/main/drizzle-orm/src/node-postgres/migrator.ts; installed 0.45.3 types | 2026-09-24 | main / 0.45.3 | `migrate(db, { migrationsFolder })`; migrations recorded in `drizzle.__drizzle_migrations`; `drizzle-kit generate` produced `0000_platform_identity.sql` (reviewed). | orm.drizzle.team BLOCKED. | `packages/db/test/db.test.ts` against PostgreSQL 16. |
+| SR-SOL-01 | `getGenesisHash` via a read-only QuickNode RPC session (`solana-mainnet`, `solana-devnet`, `solana-testnet`); corroborated by web search snippets citing Helius docs and Anza "Available clusters" | 2026-09-24 | mainnet node reported solana-core 4.2.2, feature-set 565236538 | mainnet-beta `5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d`, devnet `EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG`, testnet `4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY`; all three equal `KNOWN_GENESIS_HASHES`. | The live calls went through the QuickNode tooling session, not through `@markov/solana-rpc`; `api.*.solana.com` remained BLOCKED for the client itself, so `solana.rpc.read` stays FIXTURE_VERIFIED. | `markov solana probe` from an environment with RPC access; every service verifies at boot regardless. |
+| SR-SOL-02 | https://solana.com/docs/rpc/http/getgenesishash (and `getHealth`, `getVersion`) | 2026-09-24 | n/a | BLOCKED. Method names and the `-32005` unhealthy-node error code are from the JSON-RPC behaviour encoded in `@markov/solana-rpc` and exercised by fixtures only. | Any RPC contract drift is undetected until a live probe. | `markov solana probe`. |
+| SR-GITLEAKS-01 | GitHub release gitleaks/gitleaks v8.30.1 + checksums file | 2026-09-24 | 8.30.1 | linux_x64 sha256 `551f6fc8…2470eb` verified locally; `gitleaks git --staged --redact` works. | none | `scripts/dev/install-gitleaks.sh`. |
+| SR-ACTIONS-01 | `git ls-remote --tags` for actions/checkout, actions/setup-node, pnpm/action-setup, gitleaks/gitleaks-action | 2026-09-24 | checkout v7.0.1 `3d3c42e5…`, setup-node v7.0.0 `82076278…`, pnpm/action-setup v6.1.0 `ea17c68d…` (peeled) | CI pins these commit SHAs. gitleaks-action is not used; the binary is installed by checksum instead. | GitHub API metadata was not reachable; SHAs come from tag refs. | `git ls-remote --tags https://github.com/<repo>.git`. |
+| SR-EGRESS-01 | `curl` to vendor documentation hosts | 2026-09-24 | n/a | BLOCKED: fastify.dev, docs.temporal.io, orm.drizzle.team, solana.com, dev.jup.ag, prestocks.com, xstocks.com, docs.privy.io, pnpm.io, biomejs.dev, vitest.dev, zod.dev, docs.meteora.ag, docs.tessera.finance, docs.github.com, hub.docker.com. | Provider facts for B03 onward (PreStocks API, xStocks multiplier guide, Jupiter Swap API v2, Tessera, Meteora DBC SDK, Privy tokens) must be re-verified from an environment with access before coding against them. | Re-run the checks from that environment and update this register. |
+
+## Planning inputs carried forward (not re-verified in B01)
+
+The specification's own register S01–S15 (competitor pages, PreStocks,
+Tessera, Jupiter, xStocks, Solana transaction limits, Meteora DBC, Privy,
+Temporal) remains planning input. Each entry is re-checked in the session that
+first codes against it; none of them is treated as verified by this file.

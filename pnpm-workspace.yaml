@@ -1,0 +1,15 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 10 refuses to run dependency lifecycle scripts unless the package is
+# listed here. Keep this list minimal and reviewed: each entry runs code at
+# install time.
+onlyBuiltDependencies:
+  - "@swc/core"
+  - esbuild
+
+# Supply-chain guard: only install versions that have been published for at
+# least 24 hours (minutes). Reviewed hotfix versions can be allowed per package
+# with minimumReleaseAgeExclude.
+minimumReleaseAge: 1440

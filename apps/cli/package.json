@@ -1,0 +1,36 @@
+{
+  "name": "@markov/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "markov": "./dist/main.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "node --env-file-if-exists=../../.env --import tsx src/main.ts"
+  },
+  "dependencies": {
+    "@markov/config": "workspace:*",
+    "@markov/contracts": "workspace:*",
+    "@markov/db": "workspace:*",
+    "@markov/observability": "workspace:*",
+    "@markov/solana-rpc": "workspace:*",
+    "@temporalio/client": "1.24.0",
+    "commander": "15.0.0"
+  },
+  "devDependencies": {
+    "@markov/testkit": "workspace:*"
+  }
+}
