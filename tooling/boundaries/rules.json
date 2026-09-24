@@ -48,6 +48,9 @@
     },
     "@markov/policy": {
       "allow": ["@markov/contracts", "@markov/amounts"]
+    },
+    "@markov/research": {
+      "allow": ["@markov/contracts"]
     }
   },
   "apps": ["@markov/api", "@markov/worker", "@markov/cli", "@markov/web"],

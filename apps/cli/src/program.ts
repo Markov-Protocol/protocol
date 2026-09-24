@@ -1162,5 +1162,322 @@ export function buildProgram(io: CliIo = stdio): Command {
       );
     });
 
+  const research = program
+    .command('research')
+    .description('sourced theses, safe source retrieval, company mapping and bounded model runs');
+  // `--input`, not `--json`: the global `--json` flag selects the output format.
+  const readRevision = async (options: { file?: string; input?: string }): Promise<unknown> => {
+    if (options.file) {
+      const { readFile } = await import('node:fs/promises');
+      return JSON.parse(await readFile(options.file, 'utf8'));
+    }
+    if (options.input) {
+      return JSON.parse(options.input);
+    }
+    throw new CliExit(
+      'provide --file <path> or --input <text> with the revision input',
+      EXIT_USAGE,
+    );
+  };
+  const thesis = research.command('thesis').description('theses and their revisions');
+  thesis
+    .command('create')
+    .description('create a thesis; the first revision comes from --file/--input or --title/--claim')
+    .option('--title <text>')
+    .option('--claim <text>')
+    .option('--file <path>', 'JSON file with the revision input (title, claim, statements, ...)')
+    .option('--input <text>', 'inline JSON revision input')
+    .option('--visibility <visibility>', 'private|public', 'private')
+    .requiredOption('--token <token>', 'user session or agent credential (research:write)')
+    .option(...apiUrlOption)
+    .action(
+      async (options: {
+        title?: string;
+        claim?: string;
+        file?: string;
+        input?: string;
+        visibility: string;
+        token: string;
+        url: string;
+      }) => {
+        const revision =
+          options.file || options.input
+            ? await readRevision(options)
+            : { title: options.title, claim: options.claim };
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              '/v1/me/theses',
+              { visibility: options.visibility, revision },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  thesis
+    .command('list')
+    .requiredOption('--token <token>', 'user session or agent credential (research:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/me/theses', undefined, options.token)));
+    });
+  thesis
+    .command('get <thesisId>')
+    .description('a thesis with its current revision and sources')
+    .requiredOption('--token <token>', 'user session or agent credential (research:read)')
+    .option(...apiUrlOption)
+    .action(async (thesisId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/theses/${encodeURIComponent(thesisId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  thesis
+    .command('revise <thesisId>')
+    .description('append an immutable revision from --file or --input')
+    .option('--file <path>')
+    .option('--input <text>', 'inline JSON revision input')
+    .requiredOption('--token <token>', 'user session or agent credential (research:write)')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        thesisId: string,
+        options: { file?: string; input?: string; token: string; url: string },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/theses/${encodeURIComponent(thesisId)}/revisions`,
+              await readRevision(options),
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  thesis
+    .command('publish <thesisId>')
+    .description('set visibility (public|private) or archive; person only')
+    .option('--visibility <visibility>')
+    .option('--archive', 'archive the thesis')
+    .requiredOption('--token <token>', 'user session')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        thesisId: string,
+        options: { visibility?: string; archive?: boolean; token: string; url: string },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'PATCH',
+              `/v1/me/theses/${encodeURIComponent(thesisId)}`,
+              {
+                ...(options.visibility ? { visibility: options.visibility } : {}),
+                ...(options.archive ? { status: 'archived' } : {}),
+              },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  thesis
+    .command('public <thesisId>')
+    .description('the public projection of a published thesis (no credential)')
+    .option(...apiUrlOption)
+    .action(async (thesisId: string, options: { url: string }) => {
+      io.out(
+        json(
+          await apiCall(options.url, 'GET', `/v1/research/theses/${encodeURIComponent(thesisId)}`),
+        ),
+      );
+    });
+  const source = research.command('source').description('source records');
+  source
+    .command('attach <thesisId>')
+    .description('fetch a URL under the safe-retrieval policy and record it')
+    .requiredOption('--source-url <url>', 'https URL of the source')
+    .option('--role <role>', 'issuer|legal|filing|news|data|other', 'other')
+    .option('--published-at <iso>')
+    .option('--observed-at <iso>')
+    .requiredOption('--token <token>', 'user session or agent credential (research:write)')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        thesisId: string,
+        options: {
+          sourceUrl: string;
+          role: string;
+          publishedAt?: string;
+          observedAt?: string;
+          token: string;
+          url: string;
+        },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/theses/${encodeURIComponent(thesisId)}/sources`,
+              {
+                url: options.sourceUrl,
+                role: options.role,
+                publishedAt: options.publishedAt ?? null,
+                observedAt: options.observedAt ?? null,
+              },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  source
+    .command('list <thesisId>')
+    .requiredOption('--token <token>', 'user session or agent credential (research:read)')
+    .option(...apiUrlOption)
+    .action(async (thesisId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/theses/${encodeURIComponent(thesisId)}/sources`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  research
+    .command('map')
+    .description(
+      'deterministic company-to-instrument mapping; unmatched names stay research subjects',
+    )
+    .requiredOption('--company <name...>', 'one or more company names')
+    .requiredOption('--token <token>', 'user session or agent credential (research:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { company: string[]; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/me/research/mappings',
+            { companies: options.company },
+            options.token,
+          ),
+        ),
+      );
+    });
+  const run = research.command('run').description('bounded model runs');
+  run
+    .command('create')
+    .requiredOption('--thesis <thesisId>')
+    .requiredOption('--question <text>')
+    .option('--source <sourceId...>', 'fetched source ids the model may read')
+    .option('--max-statements <n>', 'statement budget', '8')
+    .option('--max-chars <n>', 'character budget', '4000')
+    .requiredOption('--token <token>', 'user session or agent credential (research:write)')
+    .option(...apiUrlOption)
+    .action(
+      async (options: {
+        thesis: string;
+        question: string;
+        source?: string[];
+        maxStatements: string;
+        maxChars: string;
+        token: string;
+        url: string;
+      }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              '/v1/me/research/runs',
+              {
+                thesisId: options.thesis,
+                question: options.question,
+                sourceIds: options.source ?? [],
+                budget: {
+                  maxStatements: Number.parseInt(options.maxStatements, 10),
+                  maxOutputChars: Number.parseInt(options.maxChars, 10),
+                },
+              },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  run
+    .command('get <runId>')
+    .requiredOption('--token <token>', 'user session or agent credential (research:read)')
+    .option(...apiUrlOption)
+    .action(async (runId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/research/runs/${encodeURIComponent(runId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  run
+    .command('list')
+    .option('--thesis <thesisId>')
+    .requiredOption('--token <token>', 'user session or agent credential (research:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { thesis?: string; token: string; url: string }) => {
+      const query = options.thesis ? `?thesisId=${encodeURIComponent(options.thesis)}` : '';
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/research/runs${query}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  run
+    .command('cancel <runId>')
+    .requiredOption('--token <token>', 'user session or agent credential (research:write)')
+    .option(...apiUrlOption)
+    .action(async (runId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/me/research/runs/${encodeURIComponent(runId)}/cancel`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+
   return program;
 }

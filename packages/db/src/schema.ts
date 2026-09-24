@@ -11,6 +11,7 @@ import {
   INSTRUMENT_DECISIONS,
   INSTRUMENT_KINDS,
   INSTRUMENT_STATUSES,
+  type InstrumentReference,
   ISSUERS,
   JURISDICTION_EVIDENCE_KINDS,
   type JurisdictionRule,
@@ -20,8 +21,15 @@ import {
   type OwnerLimits,
   type PolicyDenial,
   RESERVATION_STATUSES,
+  type ResearchSubject,
+  RUN_STATUSES,
   SNAPSHOT_KINDS,
   SNAPSHOT_STATUSES,
+  SOURCE_ROLES,
+  SOURCE_STATUSES,
+  THESIS_STATUSES,
+  THESIS_VISIBILITIES,
+  type ThesisStatement,
   TOKEN_PROGRAMS,
 } from '@markov/contracts';
 import { sql } from 'drizzle-orm';
@@ -638,5 +646,114 @@ export const policyDecisions = pgTable(
   (table) => [
     index('policy_decisions_user_idx').on(table.userId, table.seq),
     check('policy_decisions_outcome_check', sql`${table.outcome} IN ('allow', 'deny')`),
+  ],
+);
+
+/* ---------------------------------------------------------------------------
+ * Research: theses, immutable revisions, source records and bounded runs
+ * (session B06). Revisions are never edited; a change is a new revision.
+ * ------------------------------------------------------------------------- */
+
+export const theses = pgTable(
+  'theses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    visibility: text('visibility').notNull().default('private'),
+    status: text('status').notNull().default('draft'),
+    currentRevisionNumber: integer('current_revision_number').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('theses_owner_idx').on(table.ownerUserId, table.updatedAt),
+    enumCheck('theses_visibility_check', table.visibility, THESIS_VISIBILITIES),
+    enumCheck('theses_status_check', table.status, THESIS_STATUSES),
+  ],
+);
+
+export const thesisRevisions = pgTable(
+  'thesis_revisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    thesisId: uuid('thesis_id')
+      .notNull()
+      .references(() => theses.id, { onDelete: 'cascade' }),
+    revisionNumber: integer('revision_number').notNull(),
+    title: text('title').notNull(),
+    claim: text('claim').notNull(),
+    statements: jsonb('statements').$type<ThesisStatement[]>().notNull().default([]),
+    counterarguments: jsonb('counterarguments').$type<string[]>().notNull().default([]),
+    instruments: jsonb('instruments').$type<InstrumentReference[]>().notNull().default([]),
+    subjects: jsonb('subjects').$type<ResearchSubject[]>().notNull().default([]),
+    /** Never part of a public projection or the content hash. */
+    privateNotes: text('private_notes'),
+    authorPrincipal: text('author_principal').notNull(),
+    contentHash: text('content_hash').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('thesis_revisions_number_unique').on(table.thesisId, table.revisionNumber),
+  ],
+);
+
+export const sourceRecords = pgTable(
+  'source_records',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    thesisId: uuid('thesis_id')
+      .notNull()
+      .references(() => theses.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+    url: text('url').notNull(),
+    finalUrl: text('final_url'),
+    title: text('title'),
+    status: text('status').notNull(),
+    blockedReason: text('blocked_reason'),
+    contentType: text('content_type'),
+    byteLength: integer('byte_length'),
+    contentHash: text('content_hash'),
+    excerpt: text('excerpt'),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' }),
+    observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' }),
+    retrievedAt: timestamp('retrieved_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    redirects: jsonb('redirects').$type<string[]>().notNull().default([]),
+  },
+  (table) => [
+    index('source_records_thesis_idx').on(table.thesisId, table.retrievedAt),
+    enumCheck('source_records_role_check', table.role, SOURCE_ROLES),
+    enumCheck('source_records_status_check', table.status, SOURCE_STATUSES),
+  ],
+);
+
+export const researchRuns = pgTable(
+  'research_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    thesisId: uuid('thesis_id')
+      .notNull()
+      .references(() => theses.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('queued'),
+    question: text('question').notNull(),
+    sourceIds: jsonb('source_ids').$type<string[]>().notNull().default([]),
+    budget: jsonb('budget').$type<{ maxOutputChars: number; maxStatements: number }>().notNull(),
+    provenance: jsonb('provenance').$type<Record<string, unknown>>(),
+    output: jsonb('output').$type<Record<string, unknown>>(),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
+    finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('research_runs_owner_idx').on(table.ownerUserId, table.createdAt),
+    index('research_runs_thesis_idx').on(table.thesisId, table.createdAt),
+    enumCheck('research_runs_status_check', table.status, RUN_STATUSES),
   ],
 );

@@ -41,6 +41,13 @@ not claimed here.
 | Owner or operator loosening limits silently; fixture rules reaching production | Owner limits validated against the ceiling (policy defaults tightened by `BETA_*`), refused with details, step-up required; rule and terms versions immutable; user-assigned jurisdiction codes refused outside local/test; https-only terms; acknowledgement requires the exact content hash | policy API tests |
 | Hidden concentration across issuers (two issuers' tokens for one company) | Company identity normalised (`companyKeyOf`) so exposure is summed across issuers | domain and API concentration tests |
 | Secret leakage through lists, audit or logs | Tokens returned once; lists and audit carry prefixes only; pepper redacted from configuration summaries | identity API tests assert no `mkv_` in audit or lists |
+| Server-side request forgery through a research source URL (loopback, metadata service, private ranges, address literals in odd spellings, local names, credentialed URLs, redirects into private space, DNS rebinding between check and use) | URL policy before any network activity; every DNS answer classified against the special-use ranges; connection pinned to the classified address with the URL host as SNI; redirects never followed by the transport, each hop revalidated and re-resolved, at most 3; https only; retriever holds no credentials | `packages/research/test/retrieval-policy.test.ts`, `apps/api/test/research-retrieval.test.ts`, `apps/api/test/research.test.ts` |
+| Oversized, binary or hostile retrieved content (multi-GB bodies, PDFs, scripts, event handlers, comments carrying instructions, control characters) | Declared and streamed 2 MiB cap, text-like content types only, 10 s timeout, HTML reduced to plain text with script/style/template/embedded content dropped, entities decoded, control and line-separator characters removed, bounded excerpts | retrieval tests assert no `script`, `onload`, `<`, `>` or instruction text survives |
+| Prompt injection: a page or a model output steering the system | Retrieved text is data in an excerpt; the model has no tools and no credentials; its output is validated deterministically and labelled `model_inference` bound to a run; nothing it says changes policy, catalog or execution | `packages/research/test/research-rules.test.ts`, research API run test |
+| An unknown company becoming an executable token through research | Instrument references and run suggestions are validated against admitted or paused catalog ids; unmatched companies are research subjects (text) and are reported, never mapped fuzzily | research API tests (`suggestedInstrumentIds` never contains an unknown), mapping test |
+| Unsupported claims presented as facts (backing, rights, fees, redemption without issuer or legal evidence; facts without sources; inferences without provenance) | Typed statements with citation rules; evidence-role rule for backing/rights/fees/redemption; run id required for inferences and checked against succeeded runs; blocked or failed sources cannot be cited; content hash over public content | research rules tests, research API journey |
+| Private notes or the owner leaking through the public projection | Projection built from an explicit allowlist of fields; private notes excluded from the hash and the projection; owner id omitted; archived or private theses answer 404 | research API test asserts the projection body contains neither |
+| Research writes by read-only agents or publishing by any agent | `research:read` vs `research:write` scopes; visibility and archiving are user-only | research API scope tests |
 
 ## Residual risks after B01
 
@@ -53,3 +60,8 @@ not claimed here.
 - Rate limits are per client address and rely on `API_TRUST_PROXY` being set
   correctly behind a load balancer.
 - The Docker path for local dependencies is unverified (OD-16).
+- The research retriever's `node:https` transport is exercised only through
+  its in-memory stand-in (the policy, classification, pinning and caps are
+  tested; the socket path is not); no live page has been retrieved. No
+  hosted model provider is integrated (OD-19); the fixture adapter is
+  refused outside local/test.

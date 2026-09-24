@@ -22,7 +22,7 @@ RPC_PORT=$((20000 + RANDOM % 20000))
 node scripts/dev/fixture-rpc.mjs "$RPC_PORT" &
 RPC_PID=$!
 
-export MARKOV_ENV=test SERVICE_VERSION=startup-check LOG_LEVEL=warn LOG_FORMAT=json
+export MARKOV_ENV=test SERVICE_VERSION=startup-check LOG_LEVEL=warn LOG_FORMAT=json RESEARCH_MODEL_PROVIDER=fixture
 export DATABASE_URL="$DB_URL" SOLANA_CLUSTER=devnet SOLANA_RPC_PRIMARY_URL="http://127.0.0.1:$RPC_PORT"
 API_PORT=$((30000 + RANDOM % 20000)); export API_PORT API_HOST=127.0.0.1
 
@@ -110,6 +110,28 @@ CAPPED=$(node apps/cli/dist/main.js policy evaluate --instrument "$AERO_ID" --no
 echo "order above the cap: $CAPPED"; [ "$CAPPED" = "ORDER_CAP_EXCEEDED:1000000000:1500000000" ]
 RELEASED=$(node apps/cli/dist/main.js policy reservations release startup-1 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).status))')
 echo "reservation released: $RELEASED"; [ "$RELEASED" = "released" ]
+
+echo "== research journey: thesis -> fixture issuer source -> sourced revision -> fixture model run -> mapping -> public projection -> SSRF refusal"
+THESIS_ID=$(node apps/cli/dist/main.js research thesis create --title "Fixture Aerospace exposure" --claim "Tokenised pre-IPO exposure to Fixture Aerospace Inc is worth a small position." --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.thesis.thesisId)})')
+echo "thesis: $THESIS_ID"
+SOURCE_JSON=$(node apps/cli/dist/main.js research source attach "$THESIS_ID" --source-url "https://fixture.markov.invalid/issuer/terms" --role issuer --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+SOURCE_ID=$(echo "$SOURCE_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.status+":"+j.sourceId+":"+(j.excerpt||"").includes("<script")+":"+j.title)})')
+echo "issuer source status:id:script-leaked:title = $SOURCE_ID"
+case "$SOURCE_ID" in fetched:*:false:*) ;; *) echo "unexpected source record"; exit 1;; esac
+SOURCE_UUID=$(echo "$SOURCE_ID" | cut -d: -f2)
+REVISION=$(node apps/cli/dist/main.js research thesis revise "$THESIS_ID" --input "{\"title\":\"Fixture Aerospace exposure\",\"claim\":\"Tokenised pre-IPO exposure to Fixture Aerospace Inc is worth a small position.\",\"statements\":[{\"statementId\":\"ia-1\",\"kind\":\"issuer_assertion\",\"topic\":\"rights\",\"text\":\"The issuer states that holders have no shareholder voting rights.\",\"sourceIds\":[\"$SOURCE_UUID\"]}],\"instruments\":[{\"instrumentId\":\"$AERO_ID\"}],\"subjects\":[{\"name\":\"Unknown Rocket Co\"}]}" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.revisionNumber+":"+j.statements[0].kind+":"+j.contentHash.slice(0,12))})')
+echo "revision number:kind:hash = $REVISION"; case "$REVISION" in 2:issuer_assertion:*) ;; *) exit 1;; esac
+RUN=$(node apps/cli/dist/main.js research run create --thesis "$THESIS_ID" --question "Should I hold Fixture Aerospace Inc rather than Unknown Rocket Co?" --source "$SOURCE_UUID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.status+":"+j.provenance.provider+":"+j.output.draft.length+":"+j.output.draft[0].kind+":"+(j.output.suggestedInstrumentIds[0]===process.argv[1])+":"+j.output.unmatchedCompanies.join("|"))})' "$AERO_ID")
+echo "run status:provider:draft:kind:suggests-aero:unmatched = $RUN"; [ "$RUN" = "succeeded:fixture:1:model_inference:true:Unknown Rocket Co" ]
+MAPPED=$(node apps/cli/dist/main.js research map --company "Fixture Aerospace, Inc." "Unknown Rocket Co" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.results.map(r=>r.unmatched+":"+r.matches.length).join(","))})')
+echo "mapping (aero, unknown) = $MAPPED"; [ "$MAPPED" = "false:1,true:0" ]
+PUBLIC_BEFORE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$API_PORT/v1/research/theses/$THESIS_ID")
+echo "public projection before publishing: $PUBLIC_BEFORE"; [ "$PUBLIC_BEFORE" = "404" ]
+node apps/cli/dist/main.js research thesis publish "$THESIS_ID" --visibility public --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+PUBLIC_AFTER=$(curl -fsS "http://127.0.0.1:$API_PORT/v1/research/theses/$THESIS_ID" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.revisionNumber+":"+("privateNotes" in j)+":"+("ownerUserId" in j)+":"+j.sources.length)})')
+echo "public projection revision:privateNotes:owner:sources = $PUBLIC_AFTER"; [ "$PUBLIC_AFTER" = "2:false:false:1" ]
+SSRF=$(node apps/cli/dist/main.js research source attach "$THESIS_ID" --source-url "https://169.254.169.254/latest/meta-data/" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.status+":"+j.blockedReason)})')
+echo "metadata address: $SSRF"; case "$SSRF" in blocked:*) ;; *) exit 1;; esac
 
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""

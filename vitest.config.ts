@@ -30,6 +30,7 @@ export default defineConfig({
             'packages/issuer-xstocks/test/**/*.test.ts',
             'packages/observability/test/**/*.test.ts',
             'packages/policy/test/**/*.test.ts',
+            'packages/research/test/**/*.test.ts',
             'packages/solana-rpc/test/**/*.test.ts',
             'packages/testkit/test/**/*.test.ts',
             'tooling/**/*.test.mjs',

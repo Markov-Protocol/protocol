@@ -118,6 +118,26 @@ caps (OD-12), never a per-user override. Beta caps apply to every account
 as soon as they are configured; the participant allowlist is enforced only
 when `BETA_PARTICIPANT_ALLOWLIST_ENABLED=true`.
 
+## Research
+
+```
+markov research thesis create --title … --claim … --token <session> --url …
+markov research source attach <thesisId> --source-url https://… --role issuer --token <session> --url …
+markov research run create --thesis <thesisId> --question "…" --source <sourceId> --token <session> --url …
+markov research thesis publish <thesisId> --visibility public --token <session> --url …
+```
+
+`RESEARCH_MODEL_PROVIDER` is `disabled` by default: theses, sources and
+mapping work without a model, and runs answer 503. `fixture` is a
+deterministic adapter for local and test only (configuration refuses it
+elsewhere); no hosted provider exists yet (OD-19). Source retrieval goes
+out from the API process under the safe-retrieval policy
+(`docs/markov/research.md`): if the deployment sits behind an egress
+proxy, allow public https to the sources people cite; nothing needs
+access to internal names, and the policy refuses them anyway. A blocked
+or failed source is recorded with its reason and can be re-attached later.
+Audit actions: `research.*`.
+
 ## Readiness and monitoring
 
 - Liveness (`/healthz`) restarts a hung process; readiness (`/readyz`) removes

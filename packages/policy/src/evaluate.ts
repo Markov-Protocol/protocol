@@ -7,6 +7,7 @@ import type {
   PolicyDenial,
   PolicyDenialCode,
 } from '@markov/contracts';
+import { companyKey } from '@markov/contracts';
 import { eligibilityStanding } from './eligibility.js';
 
 export interface PolicyInstrument {
@@ -400,15 +401,7 @@ export function evaluatePolicy(input: PolicyInput): PolicyEvaluation {
   };
 }
 
-/** Company identity for concentration: case- and punctuation-insensitive so "Fixture Alpha Inc." and "FIXTURE ALPHA INC" share exposure. */
+/** Company identity for concentration: the shared contracts rule (`companyKey`). */
 export function companyKeyOf(companyName: string): string {
-  return companyName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(
-      /\b(inc|incorporated|corp|corporation|ltd|limited|plc|ag|sa|nv|llc|co|holdings)\b/g,
-      '',
-    )
-    .replace(/\s+/g, ' ')
-    .trim();
+  return companyKey(companyName);
 }

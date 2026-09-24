@@ -113,9 +113,10 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
     },
     {
       capability: 'research.model.generate',
-      status: 'DISABLED',
-      summary: 'Not started; planned for session B06.',
-      evidence: {},
+      status: 'BLOCKED',
+      summary:
+        'Manual research is implemented (B06); the model adapter is fixture-verified only and no hosted provider is configured (OD-19).',
+      evidence: { session: 'B06', config: 'RESEARCH_MODEL_PROVIDER' },
     },
     {
       capability: 'notifications.email',

@@ -11,7 +11,12 @@ export const principalClassSchema = z.enum(PRINCIPAL_CLASSES);
 export type PrincipalClass = z.infer<typeof principalClassSchema>;
 
 /** Scopes an API agent credential may hold in V1. None can submit or approve a transaction. */
-export const AGENT_SCOPES = ['research:read', 'portfolio:read', 'proposals:create'] as const;
+export const AGENT_SCOPES = [
+  'research:read',
+  'research:write',
+  'portfolio:read',
+  'proposals:create',
+] as const;
 export const agentScopeSchema = z.enum(AGENT_SCOPES);
 export type AgentScope = z.infer<typeof agentScopeSchema>;
 

@@ -11,6 +11,7 @@ import type { IdentityService } from '../auth/service.js';
 import type { CatalogService } from '../catalog/service.js';
 import type { FundingService } from '../funding/service.js';
 import type { PolicyService } from '../policy/service.js';
+import type { ResearchService } from '../research/service.js';
 
 /** Export mode never touches a database: every identity call is unreachable. */
 const unavailableIdentity = new Proxy({} as IdentityService, {
@@ -31,6 +32,11 @@ const unavailablePolicy = new Proxy({} as PolicyService, {
 const unavailableFunding = new Proxy({} as FundingService, {
   get: () => () => {
     throw new Error('funding service is unavailable in export mode');
+  },
+});
+const unavailableResearch = new Proxy({} as ResearchService, {
+  get: () => () => {
+    throw new Error('research service is unavailable in export mode');
   },
 });
 
@@ -67,6 +73,7 @@ async function generate(): Promise<string> {
     catalog: unavailableCatalog,
     policy: unavailablePolicy,
     funding: unavailableFunding,
+    research: unavailableResearch,
     mintTestToken: null,
   });
   await app.ready();

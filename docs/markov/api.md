@@ -1,6 +1,6 @@
 # API
 
-Status: B01 exposes only platform endpoints. The committed OpenAPI document is
+Status: platform (B01), identity (B02), catalog (B03/B04), policy (B05), funding (F04) and research (B06) endpoints are live. The committed OpenAPI document is
 `docs/markov/openapi.json`; `pnpm openapi:generate` regenerates it from the
 runtime validators and `pnpm openapi:check` fails CI on drift.
 
@@ -149,6 +149,30 @@ successful evaluation. `POLICY_DENIED` remains reserved for execution
 sessions that refuse to proceed on a denied decision. Version conflicts
 answer `IDEMPOTENCY_CONFLICT` (409). Details: `docs/markov/eligibility-and-policy.md`.
 
+## Endpoints (B06)
+
+| Method | Path                                                     | Principal                                  | Purpose |
+| ------ | -------------------------------------------------------- | ------------------------------------------ | ------- |
+| POST   | /v1/me/theses                                            | user, agent `research:write`               | Create a thesis with its first revision; research rules apply (`docs/markov/research.md`) |
+| GET    | /v1/me/theses                                            | user, agent `research:read`                | Own theses with the current title and claim |
+| GET    | /v1/me/theses/{thesisId}                                 | user, agent `research:read`                | Thesis, current revision and source records |
+| PATCH  | /v1/me/theses/{thesisId}                                 | user                                       | Set `visibility` (private/public) or `status` (archived) |
+| POST   | /v1/me/theses/{thesisId}/revisions                       | user, agent `research:write`               | Append an immutable numbered revision; 400 with `details[].path` on a broken rule |
+| GET    | /v1/me/theses/{thesisId}/revisions                       | user, agent `research:read`                | Every revision, newest first |
+| POST   | /v1/me/theses/{thesisId}/sources                         | user, agent `research:write` (10/min)      | Retrieve a URL under the safe-retrieval policy and record it (`fetched`, `blocked` or `failed` with the reason) |
+| GET    | /v1/me/theses/{thesisId}/sources                         | user, agent `research:read`                | Source records, newest first |
+| POST   | /v1/me/research/mappings                                 | user, agent `research:read`                | Deterministic company → admitted/paused instrument mapping; unmatched names stay unmatched |
+| POST   | /v1/me/research/runs                                     | user, agent `research:write` (10/min)      | Run the bounded model adapter over named fetched sources; 503 `PROVIDER_UNAVAILABLE` when no provider is configured |
+| GET    | /v1/me/research/runs                                     | user, agent `research:read`                | Runs, newest first; `?thesisId=` filters |
+| GET    | /v1/me/research/runs/{runId}                             | user, agent `research:read`                | Status, provenance and validated output |
+| POST   | /v1/me/research/runs/{runId}/cancel                      | user, agent `research:write`               | Cancel a queued or running run; a finished run is returned unchanged |
+| GET    | /v1/research/theses/{thesisId}                           | anonymous                                  | Public projection of a published thesis: no private notes, no owner |
+
+Rule violations answer `VALIDATION_FAILED` with one `details` entry per
+issue (`statements/0: a fact must cite at least one source`). A refused
+retrieval is not an error: the source record says `blocked` and why, and
+citing it is refused. Another person's thesis or run is `NOT_FOUND`.
+
 ## Endpoints (F04 additions)
 
 | Method | Path                                                     | Principal                     | Purpose |
@@ -162,8 +186,8 @@ address is the person's own verified wallet.
 
 ## Planned surface
 
-Research, strategies, discovery, portfolio,
+Strategies, discovery, portfolio,
 execution, receipts, maintenance, agents and operations routes are specified
-in the build document and arrive with sessions B06 to B18. Authentication,
+in the build document and arrive with sessions B07 to B18. Authentication,
 idempotency keys, cursor pagination and streaming are introduced with the
 first routes that need them (B02, B07, B10).

@@ -26,6 +26,9 @@
       "path": "../../packages/policy"
     },
     {
+      "path": "../../packages/research"
+    },
+    {
       "path": "../../packages/solana-rpc"
     }
   ]

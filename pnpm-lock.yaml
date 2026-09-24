@@ -74,6 +74,9 @@ importers:
       '@markov/policy':
         specifier: workspace:*
         version: link:../../packages/policy
+      '@markov/research':
+        specifier: workspace:*
+        version: link:../../packages/research
       '@markov/solana-rpc':
         specifier: workspace:*
         version: link:../../packages/solana-rpc
@@ -114,6 +117,9 @@ importers:
       '@markov/policy':
         specifier: workspace:*
         version: link:../../packages/policy
+      '@markov/research':
+        specifier: workspace:*
+        version: link:../../packages/research
       '@markov/solana-rpc':
         specifier: workspace:*
         version: link:../../packages/solana-rpc
@@ -395,6 +401,12 @@ importers:
       '@markov/amounts':
         specifier: workspace:*
         version: link:../amounts
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+  packages/research:
+    dependencies:
       '@markov/contracts':
         specifier: workspace:*
         version: link:../contracts

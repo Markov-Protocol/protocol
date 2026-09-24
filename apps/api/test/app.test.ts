@@ -10,6 +10,7 @@ import {
   type IdentityService,
   type NetworkIdentitySnapshot,
   type PolicyService,
+  type ResearchService,
 } from '../src/index.js';
 
 const unavailableIdentity = new Proxy({} as IdentityService, {
@@ -20,6 +21,11 @@ const unavailableIdentity = new Proxy({} as IdentityService, {
 const unavailableFunding = new Proxy({} as FundingService, {
   get: () => () => {
     throw new Error('funding service is not part of this test');
+  },
+});
+const unavailableResearch = new Proxy({} as ResearchService, {
+  get: () => () => {
+    throw new Error('research service is not part of this test');
   },
 });
 const unavailablePolicy = new Proxy({} as PolicyService, {
@@ -93,6 +99,7 @@ async function makeApp(
     catalog: unavailableCatalog,
     policy: unavailablePolicy,
     funding: unavailableFunding,
+    research: unavailableResearch,
     mintTestToken: null,
   });
   await app.ready();

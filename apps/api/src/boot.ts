@@ -13,6 +13,7 @@ import {
   readPlatformIdentity,
 } from '@markov/db';
 import { createLogger, type Logger } from '@markov/observability';
+import { createFixtureModelAdapter } from '@markov/research';
 import { SolanaRpcClient } from '@markov/solana-rpc';
 import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
 import { createIdentityService } from './auth/service.js';
@@ -20,6 +21,8 @@ import { createCatalogService } from './catalog/service.js';
 import { createFundingService } from './funding/service.js';
 import { createNetworkIdentityMonitor } from './network-monitor.js';
 import { createPolicyService } from './policy/service.js';
+import { createRetriever } from './research/retrieval.js';
+import { createResearchService } from './research/service.js';
 
 /** sysexits(3) codes so orchestrators can distinguish configuration from availability failures. */
 export const EXIT_CONFIG = 78;
@@ -285,6 +288,17 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     rpcClients: clients,
   });
 
+  const nonproduction = config.markovEnv === 'local' || config.markovEnv === 'test';
+  const researchService = createResearchService({
+    config,
+    db: dbClient.db,
+    retriever: createRetriever({ fixtures: nonproduction }),
+    model: config.research.modelProvider === 'fixture' ? createFixtureModelAdapter() : null,
+  });
+  if (config.research.modelProvider === null) {
+    logger.info('no research model provider is configured; research runs answer 503');
+  }
+
   const app = await buildApp({
     config,
     logger,
@@ -296,6 +310,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     catalog: catalogService,
     policy: policyService,
     funding: fundingService,
+    research: researchService,
     mintTestToken,
   });
 

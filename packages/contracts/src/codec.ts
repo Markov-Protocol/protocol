@@ -70,3 +70,21 @@ export function isSolanaAddress(text: string): boolean {
     return false;
   }
 }
+
+/**
+ * Company identity for matching and concentration: lowercase, punctuation
+ * collapsed, common legal suffixes dropped, so "Fixture Alpha Inc." and
+ * "FIXTURE ALPHA INC" are one company. Deterministic and reversible enough
+ * to explain; never a fuzzy guess.
+ */
+export function companyKey(companyName: string): string {
+  return companyName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(
+      /\b(inc|incorporated|corp|corporation|ltd|limited|plc|ag|sa|nv|llc|co|holdings|group)\b/g,
+      '',
+    )
+    .replace(/\s+/g, ' ')
+    .trim();
+}

@@ -34,10 +34,12 @@ import { ApiError } from './errors.js';
 import type { FundingService } from './funding/service.js';
 import type { NetworkIdentitySource } from './network-monitor.js';
 import type { PolicyService } from './policy/service.js';
+import type { ResearchService } from './research/service.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { fundingRoutes } from './routes/funding.js';
 import { identityRoutes } from './routes/identity.js';
 import { policyRoutes } from './routes/policy.js';
+import { researchRoutes } from './routes/research.js';
 
 export interface ProbeOutcome {
   readonly ok: boolean;
@@ -71,6 +73,7 @@ export interface AppDependencies {
   readonly catalog: CatalogService;
   readonly policy: PolicyService;
   readonly funding: FundingService;
+  readonly research: ResearchService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -218,6 +221,11 @@ export async function buildApp(deps: AppDependencies) {
           description:
             'Eligibility, terms, limits, capability states and deterministic trading policy',
         },
+        {
+          name: 'research',
+          description:
+            'Sourced theses, safe source retrieval, company mapping and bounded model runs',
+        },
       ],
     },
     transform: jsonSchemaTransform,
@@ -360,6 +368,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(catalogRoutes, { catalog: deps.catalog });
   await app.register(policyRoutes, { policy: deps.policy });
   await app.register(fundingRoutes, { funding: deps.funding });
+  await app.register(researchRoutes, { research: deps.research });
 
   return app;
 }

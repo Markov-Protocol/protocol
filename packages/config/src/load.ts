@@ -107,6 +107,10 @@ function structure(raw: RawEnv): MarkovConfig {
     funding: {
       stablecoin: stablecoinFor(raw.SOLANA_CLUSTER, raw.FUNDING_STABLECOIN_MINT),
     },
+    research: {
+      modelProvider:
+        raw.RESEARCH_MODEL_PROVIDER === 'disabled' ? null : raw.RESEARCH_MODEL_PROVIDER,
+    },
     catalog: {
       prestocksFeedUrl: raw.PRESTOCKS_FEED_URL ?? null,
       xstocksFeedUrl: raw.XSTOCKS_FEED_URL ?? null,
@@ -292,6 +296,13 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
     }
   }
 
+  if (config.research.modelProvider === 'fixture' && !isDev) {
+    issues.push({
+      path: 'RESEARCH_MODEL_PROVIDER',
+      message: `the fixture research model is not allowed when MARKOV_ENV=${env}`,
+    });
+  }
+
   if (config.identity.provider === 'test' && !isDev) {
     issues.push({
       path: 'IDENTITY_PROVIDER',
@@ -421,6 +432,7 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
     },
     execution: config.execution,
     funding: config.funding,
+    research: config.research,
     identity: config.identity,
     auth: {
       credentialPepperConfigured: config.auth.credentialPepper !== DEVELOPMENT_CREDENTIAL_PEPPER,

@@ -1,0 +1,25 @@
+{
+  "name": "@markov/research",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@markov/contracts": "workspace:*"
+  },
+  "devDependencies": {},
+  "description": "Pure research rules: thesis validation, safe retrieval policy, sanitisation, deterministic company mapping and the bounded model adapter contract"
+}

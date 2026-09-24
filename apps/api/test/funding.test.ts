@@ -25,6 +25,7 @@ import {
   createProbes,
   type MarkovApi,
   type PolicyService,
+  type ResearchService,
   tokenAccountAmount,
 } from '../src/index.js';
 import { GENESIS } from './support/fixture-rpc.js';
@@ -117,6 +118,11 @@ const unavailablePolicy = new Proxy({} as PolicyService, {
     throw new Error('policy service is not part of this test');
   },
 });
+const unavailableResearch = new Proxy({} as ResearchService, {
+  get: () => () => {
+    throw new Error('research service is not part of this test');
+  },
+});
 
 interface Harness {
   app: MarkovApi;
@@ -200,6 +206,7 @@ async function withHarness(
         catalog: unavailableCatalog,
         policy: unavailablePolicy,
         funding,
+        research: unavailableResearch,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();

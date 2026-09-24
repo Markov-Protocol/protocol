@@ -19,3 +19,4 @@ export * from './identity.js';
 export * from './platform.js';
 export * from './policy.js';
 export * from './price.js';
+export * from './research.js';

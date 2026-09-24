@@ -87,6 +87,8 @@ export const rawEnvSchema = z.object({
   XSTOCKS_EVENTS_URL: z.url().optional(),
   /** Stablecoin mint whose balance funding readiness observes; defaults to USDC on mainnet-beta only. */
   FUNDING_STABLECOIN_MINT: base58AddressSchema.optional(),
+  /** Research model adapter (B06): `disabled` keeps research manual; `fixture` is allowed in local/test only. */
+  RESEARCH_MODEL_PROVIDER: z.enum(['disabled', 'fixture']).default('disabled'),
 
   SHUTDOWN_TIMEOUT_MS: intFromEnv(1000, 120_000).default(10_000),
 });
@@ -163,6 +165,10 @@ export interface MarkovConfig {
       readonly mint: string;
       readonly decimals: number;
     } | null;
+  };
+  readonly research: {
+    /** Null when no model provider is configured; manual research works without one. */
+    readonly modelProvider: 'fixture' | null;
   };
   readonly catalog: {
     /** Null until an operator configures a verified feed; fixture sources serve local and test. */

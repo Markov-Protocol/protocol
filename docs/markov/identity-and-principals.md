@@ -8,7 +8,7 @@ unverified (OD-05); the adapter is provider-neutral.
 | Class     | Credential                                   | Obtains it by                                            | Can |
 | --------- | -------------------------------------------- | -------------------------------------------------------- | --- |
 | user      | opaque session (`mkv_ss_…`)                  | exchanging a verified identity-provider token             | every owner operation on its own resources (`owner:*`) |
-| agent     | scoped API credential (`mkv_ag_…`)           | a user with a fresh sign-in creates it                    | only its scopes: `research:read`, `portfolio:read`, `proposals:create`; never signing, approval or security changes |
+| agent     | scoped API credential (`mkv_ag_…`)           | a user with a fresh sign-in creates it                    | only its scopes: `research:read`, `research:write`, `portfolio:read`, `proposals:create`; never signing, approval, publishing or security changes |
 | operator  | scoped credential (`mkv_op_…`)               | `markov operators create` with database access            | `ops:read`, `ops:credentials:revoke`, `ops:capabilities:write`; no user resources |
 | device    | device credential (`mkv_dv_…`)               | presenting a single-use pairing code                      | its capabilities (`preferences:sync`, `status:read`, `notifications:receive`); no account reads, no spending |
 | worker    | process identity (no bearer token)           | running the worker binary                                 | internal activities only |

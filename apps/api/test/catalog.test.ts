@@ -22,6 +22,7 @@ import {
   createProbes,
   type FundingService,
   type MarkovApi,
+  type ResearchService,
 } from '../src/index.js';
 
 const adminUrl = testDatabaseUrl();
@@ -189,6 +190,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         catalog,
         policy: createPolicyService({ config, db: client.db, catalog }),
         funding: unavailableFunding,
+        research: unavailableResearch,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();
@@ -234,6 +236,11 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
 const unavailableFunding = new Proxy({} as FundingService, {
   get: () => () => {
     throw new Error('funding service is not part of this test');
+  },
+});
+const unavailableResearch = new Proxy({} as ResearchService, {
+  get: () => () => {
+    throw new Error('research service is not part of this test');
   },
 });
 

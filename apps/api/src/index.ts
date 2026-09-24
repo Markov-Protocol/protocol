@@ -12,3 +12,5 @@ export * from './errors.js';
 export * from './funding/service.js';
 export * from './network-monitor.js';
 export * from './policy/service.js';
+export * from './research/retrieval.js';
+export * from './research/service.js';

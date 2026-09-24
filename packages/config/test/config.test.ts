@@ -243,6 +243,23 @@ describe('identity and credential configuration', () => {
     expect(() => loadConfig({ ...base, FUNDING_STABLECOIN_MINT: 'not-base58!' })).toThrow();
   });
 
+  it('allows the fixture research model in local and test only', () => {
+    expect(loadConfig(base).research.modelProvider).toBeNull();
+    expect(loadConfig({ ...base, RESEARCH_MODEL_PROVIDER: 'fixture' }).research.modelProvider).toBe(
+      'fixture',
+    );
+    const staging = tryLoadConfig({
+      ...base,
+      MARKOV_ENV: 'staging',
+      RESEARCH_MODEL_PROVIDER: 'fixture',
+    });
+    expect(staging.ok).toBe(false);
+    if (!staging.ok) {
+      expect(staging.issues.map((issue) => issue.path)).toContain('RESEARCH_MODEL_PROVIDER');
+    }
+    expect(() => loadConfig({ ...base, RESEARCH_MODEL_PROVIDER: 'openai' })).toThrow();
+  });
+
   it('keeps the pepper out of the configuration summary', () => {
     const config = loadConfig({
       ...base,
