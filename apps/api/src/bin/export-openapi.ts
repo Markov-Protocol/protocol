@@ -12,6 +12,7 @@ import type { CatalogService } from '../catalog/service.js';
 import type { FundingService } from '../funding/service.js';
 import type { PolicyService } from '../policy/service.js';
 import type { ResearchService } from '../research/service.js';
+import type { StrategyService } from '../strategies/service.js';
 import type { WatchlistService } from '../watchlists/service.js';
 
 /** Export mode never touches a database: every identity call is unreachable. */
@@ -43,6 +44,11 @@ const unavailableResearch = new Proxy({} as ResearchService, {
 const unavailableWatchlists = new Proxy({} as WatchlistService, {
   get: () => () => {
     throw new Error('watchlist service is unavailable in export mode');
+  },
+});
+const unavailableStrategies = new Proxy({} as StrategyService, {
+  get: () => () => {
+    throw new Error('strategy service is unavailable in export mode');
   },
 });
 
@@ -81,6 +87,7 @@ async function generate(): Promise<string> {
     funding: unavailableFunding,
     research: unavailableResearch,
     watchlists: unavailableWatchlists,
+    strategies: unavailableStrategies,
     mintTestToken: null,
   });
   await app.ready();

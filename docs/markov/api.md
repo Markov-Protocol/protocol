@@ -195,10 +195,35 @@ address is the person's own verified wallet.
 Watchlists are bookkeeping: saving implies nothing about eligibility,
 execution or advice. Details: `packages/contracts/src/watchlist.ts`.
 
+## Endpoints (B07)
+
+| Method | Path                                                     | Principal                                  | Purpose |
+| ------ | -------------------------------------------------------- | ------------------------------------------ | ------- |
+| GET    | /v1/strategies/limits                                    | anonymous                                  | Recipe rules this deployment enforces: schema version, kinds, exact total, `maxLegs`, issuer and company concentration ceilings and their source |
+| POST   | /v1/me/strategies                                        | user, agent `proposals:create`             | Create a strategy with its first draft; the response carries the validation result (errors and warnings by path) |
+| GET    | /v1/me/strategies                                        | user, agent `portfolio:read`               | Own strategies, newest first (`?status=archived` for archived ones) |
+| GET    | /v1/me/strategies/{strategyId}                           | user, agent `portfolio:read`               | Strategy, validated draft with its revision and the version summaries |
+| PATCH  | /v1/me/strategies/{strategyId}                           | user                                       | `status: archived` (no more edits, freezes or forks; history stays) or `active` |
+| PUT    | /v1/me/strategies/{strategyId}/draft                     | user, agent `proposals:create`             | Replace the draft; `ifRevision` detects an edit made elsewhere (`IDEMPOTENCY_CONFLICT`, 409, current revision in `details`); invalid content is saved and reported, never renormalised |
+| POST   | /v1/me/strategies/{strategyId}/versions                  | user (10/min)                              | Freeze the draft as the next immutable version with admission snapshots, disclosures, canonical manifest, `manifestHash` and `contentDigest`; 201, or 200 with the current version when the content is unchanged; 400 `VALIDATION_FAILED` with one `details` entry per error path |
+| GET    | /v1/me/strategies/{strategyId}/versions                  | user, agent `portfolio:read`               | Every frozen version, newest first |
+| GET    | /v1/me/strategies/{strategyId}/versions/{versionId}      | user, agent `portfolio:read`               | One frozen version |
+| GET    | /v1/me/strategies/{strategyId}/versions/{versionId}/diff?against= | user, agent `portfolio:read`      | Machine-readable difference from another version of the same strategy (legs added, removed, changed; cash; turnover) |
+| POST   | /v1/me/strategies/{strategyId}/forks                     | user                                       | Fork a version into a new strategy of the caller's own with `forkOf` provenance |
+| POST   | /v1/me/instances                                         | user                                       | Follow a version in one of the caller's verified wallets; the pin is explicit |
+| GET    | /v1/me/instances                                         | user, agent `portfolio:read`               | Own instances with pinned and proposed versions |
+| GET    | /v1/me/instances/{instanceId}                            | user, agent `portfolio:read`               | One instance |
+| POST   | /v1/me/instances/{instanceId}/pin                        | user                                       | Accept a version of the same strategy: the only way a pin moves; clears the proposal |
+
+A creator's freeze proposes the new version to every active instance and
+moves no pin. No route edits or deletes a version. Another person's
+strategy, version or instance is `NOT_FOUND`. Rules, encodings and test
+vectors: `docs/markov/strategies.md`.
+
 ## Planned surface
 
-Strategies, discovery, portfolio,
+Registry, discovery, portfolio,
 execution, receipts, maintenance, agents and operations routes are specified
-in the build document and arrive with sessions B07 to B18. Authentication,
+in the build document and arrive with sessions B08 to B18. Authentication,
 idempotency keys, cursor pagination and streaming are introduced with the
 first routes that need them (B02, B07, B10).

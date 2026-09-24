@@ -20,4 +20,5 @@ export * from './platform.js';
 export * from './policy.js';
 export * from './price.js';
 export * from './research.js';
+export * from './strategy.js';
 export * from './watchlist.js';

@@ -111,6 +111,7 @@ function structure(raw: RawEnv): MarkovConfig {
       modelProvider:
         raw.RESEARCH_MODEL_PROVIDER === 'disabled' ? null : raw.RESEARCH_MODEL_PROVIDER,
     },
+    strategies: { maxLegs: raw.STRATEGY_MAX_LEGS },
     catalog: {
       prestocksFeedUrl: raw.PRESTOCKS_FEED_URL ?? null,
       xstocksFeedUrl: raw.XSTOCKS_FEED_URL ?? null,
@@ -433,6 +434,7 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
     execution: config.execution,
     funding: config.funding,
     research: config.research,
+    strategies: config.strategies,
     identity: config.identity,
     auth: {
       credentialPepperConfigured: config.auth.credentialPepper !== DEVELOPMENT_CREDENTIAL_PEPPER,

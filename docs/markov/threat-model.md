@@ -50,6 +50,12 @@ not claimed here.
 | Research writes by read-only agents or publishing by any agent | `research:read` vs `research:write` scopes; visibility and archiving are user-only | research API scope tests |
 | Cross-account watchlists or a list overwritten from another device | Owner-scoped tables and store; every write locks the person's list head and compares `ifVersion`; conflicts answer 409 with the current version | `apps/api/test/watchlists.test.ts` |
 | Query-string smuggling through the app's API proxy (public catalog reads) | Only allowlisted routes accept a query; at most 8 plain keys and 512 characters, values re-encoded, control characters refused; the API validates semantics | `apps/web/test/server/proxy.test.ts` |
+| Creator edits changing what a follower holds (silent rebalance), or a version rewritten after publication | Versions are immutable rows: no API route or store function updates one; a freeze creates the next version and only sets `proposedVersionId` on instances; a pin moves only by the owner's explicit acceptance; archiving hides without deleting | `apps/api/test/strategies.test.ts`, `packages/db/test/strategy-store.test.ts` |
+| Recipes that hide leverage, renormalise weights, duplicate a mint or reference an unadmitted or unknown instrument | One kind (spot basket), positive integer basis points, exact 10,000 total, duplicate instrument and duplicate mint checks, only `admitted` instruments freeze, leg cap ≤ 10; validation is deterministic and reports every issue by path | `packages/strategy/test/strategy.test.ts`, strategy API test |
+| Manifest replayed on another network or schema, or a hash collision between content and manifest encodings | Domain-separated SHA-256 (`markov-strategy-manifest/v<schema>/<genesis>` and `markov-strategy-content/…`), canonical JSON with sorted keys, legs and references, recorded test vectors | strategy domain tests |
+| Private budgets, identities or wallets leaking through a recipe | Manifests carry no author, wallet, holding or budget; `authorPrincipal` is owner-visible only; forks name neither the original owner nor their wallets; operators have no route to private recipes | strategy API test |
+| An agent freezing, forking or moving money on a person's behalf | `proposals:create` covers drafts only; freeze, fork, archive, instance creation and pins are user-only interactive routes; nothing in B07 plans or places an order | strategy API test (scope matrix) |
+| Lost updates between two clients editing the same draft, or two freezes racing | Row lock on the strategy for saves and freezes; `ifRevision` optimistic check answers `IDEMPOTENCY_CONFLICT` with the current revision; concurrent freezes create exactly one version | `packages/db/test/strategy-store.test.ts` |
 
 ## Residual risks after B01
 
@@ -67,3 +73,9 @@ not claimed here.
   tested; the socket path is not); no live page has been retrieved. No
   hosted model provider is integrated (OD-19); the fixture adapter is
   refused outside local/test.
+- Strategy versions are immutable at the API and store level, not yet
+  anchored anywhere outside the database: a database role could still
+  alter a row. B08 registers manifest hashes on chain so a version can be
+  verified independently. Admission snapshots are evidence at freeze
+  time; a later delisting does not alter a version, and the execution
+  policy re-checks availability at order time (B05, B09).

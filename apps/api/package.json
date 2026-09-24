@@ -35,6 +35,7 @@
     "@markov/observability": "workspace:*",
     "@markov/policy": "workspace:*",
     "@markov/research": "workspace:*",
+    "@markov/strategy": "workspace:*",
     "@markov/solana-rpc": "workspace:*",
     "fastify": "5.12.5",
     "fastify-plugin": "6.0.0",

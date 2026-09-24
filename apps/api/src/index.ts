@@ -14,4 +14,5 @@ export * from './network-monitor.js';
 export * from './policy/service.js';
 export * from './research/retrieval.js';
 export * from './research/service.js';
+export * from './strategies/service.js';
 export * from './watchlists/service.js';

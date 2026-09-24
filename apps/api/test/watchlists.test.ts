@@ -22,6 +22,7 @@ import {
   type FundingService,
   type MarkovApi,
   type ResearchService,
+  type StrategyService,
 } from '../src/index.js';
 import { GENESIS, prestocksFixtureRpcFetch } from './support/fixture-rpc.js';
 
@@ -31,6 +32,11 @@ const BOGUS = '99999999-9999-4999-8999-999999999999';
 const unavailableFunding = new Proxy({} as FundingService, {
   get: () => () => {
     throw new Error('funding service is not part of this test');
+  },
+});
+const unavailableStrategies = new Proxy({} as StrategyService, {
+  get: () => () => {
+    throw new Error('strategy service is not part of this test');
   },
 });
 const unavailableResearch = new Proxy({} as ResearchService, {
@@ -121,6 +127,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         funding: unavailableFunding,
         research: unavailableResearch,
         watchlists: createWatchlistService({ db: client.db, catalog }),
+        strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();

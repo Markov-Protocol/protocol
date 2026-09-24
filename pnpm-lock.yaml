@@ -80,6 +80,9 @@ importers:
       '@markov/solana-rpc':
         specifier: workspace:*
         version: link:../../packages/solana-rpc
+      '@markov/strategy':
+        specifier: workspace:*
+        version: link:../../packages/strategy
       fastify:
         specifier: 5.12.5
         version: 5.12.5
@@ -123,6 +126,9 @@ importers:
       '@markov/solana-rpc':
         specifier: workspace:*
         version: link:../../packages/solana-rpc
+      '@markov/strategy':
+        specifier: workspace:*
+        version: link:../../packages/strategy
       '@temporalio/client':
         specifier: 1.24.0
         version: 1.24.0
@@ -420,6 +426,12 @@ importers:
       '@markov/testkit':
         specifier: workspace:*
         version: link:../testkit
+
+  packages/strategy:
+    dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/testkit:
     dependencies:

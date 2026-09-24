@@ -30,6 +30,7 @@ import {
   createRetriever,
   type FundingService,
   type MarkovApi,
+  type StrategyService,
   type WatchlistService,
 } from '../src/index.js';
 import { fakeTransport } from './support/fake-transport.js';
@@ -57,6 +58,11 @@ const unavailableFunding = new Proxy({} as FundingService, {
 const unavailableWatchlists = new Proxy({} as WatchlistService, {
   get: () => () => {
     throw new Error('watchlist service is not part of this test');
+  },
+});
+const unavailableStrategies = new Proxy({} as StrategyService, {
+  get: () => () => {
+    throw new Error('strategy service is not part of this test');
   },
 });
 
@@ -172,6 +178,7 @@ async function withHarness(
         funding: unavailableFunding,
         research,
         watchlists: unavailableWatchlists,
+        strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();

@@ -51,6 +51,9 @@
     },
     "@markov/research": {
       "allow": ["@markov/contracts"]
+    },
+    "@markov/strategy": {
+      "allow": ["@markov/contracts"]
     }
   },
   "apps": ["@markov/api", "@markov/worker", "@markov/cli", "@markov/web"],

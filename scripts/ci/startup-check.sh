@@ -133,6 +133,42 @@ echo "public projection revision:privateNotes:owner:sources = $PUBLIC_AFTER"; [ 
 SSRF=$(node apps/cli/dist/main.js research source attach "$THESIS_ID" --source-url "https://169.254.169.254/latest/meta-data/" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.status+":"+j.blockedReason)})')
 echo "metadata address: $SSRF"; case "$SSRF" in blocked:*) ;; *) exit 1;; esac
 
+echo "== strategy journey: draft -> validation errors -> freeze v1 -> fork -> instance pinned -> creator v2 -> pin unchanged -> explicit acceptance -> diff"
+DRAFT_OK="{\"title\":\"Aerospace tilt\",\"thesis\":\"Launch cadence is underestimated.\",\"legs\":[{\"instrumentId\":\"$AERO_ID\",\"weightBps\":6000},{\"instrumentId\":\"$XSA_ID\",\"weightBps\":3000}],\"cashWeightBps\":1000}"
+STRATEGY_JSON=$(node apps/cli/dist/main.js strategy create --input "$DRAFT_OK" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+STRATEGY_ID=$(echo "$STRATEGY_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.strategy.strategyId+":"+j.draft.validation.valid+":"+j.draft.validation.totals.totalBps+":"+j.draft.revision)})')
+echo "strategy id:valid:total:revision = $STRATEGY_ID"; case "$STRATEGY_ID" in *:true:10000:1) ;; *) exit 1;; esac
+STRATEGY_ID=${STRATEGY_ID%%:*}
+BAD_TOTAL=$(node apps/cli/dist/main.js strategy draft "$STRATEGY_ID" --if-revision 1 --input "{\"title\":\"Aerospace tilt\",\"thesis\":\"t\",\"legs\":[{\"instrumentId\":\"$AERO_ID\",\"weightBps\":6000},{\"instrumentId\":\"$AERO_ID\",\"weightBps\":3000},{\"instrumentId\":\"$XSB_ID\",\"weightBps\":999}],\"cashWeightBps\":0}" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.validation.valid+":"+j.validation.issues.filter(i=>i.severity==="error").map(i=>i.code).sort().join(",")+":"+j.revision)})')
+echo "invalid draft valid:errors:revision = $BAD_TOTAL"; [ "$BAD_TOTAL" = "false:DUPLICATE_INSTRUMENT,INSTRUMENT_NOT_ADMITTED,WEIGHTS_TOTAL:2" ]
+set +e
+node apps/cli/dist/main.js strategy freeze "$STRATEGY_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null 2>&1
+FREEZE_BAD=$?
+set -e
+echo "freezing the invalid draft exits with: $FREEZE_BAD"; [ "$FREEZE_BAD" -ne 0 ]
+STALE=$(node apps/cli/dist/main.js strategy draft "$STRATEGY_ID" --if-revision 1 --input "$DRAFT_OK" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "IDEMPOTENCY_CONFLICT" || true)
+echo "stale revision refused: $STALE"; [ "$STALE" = "1" ]
+node apps/cli/dist/main.js strategy draft "$STRATEGY_ID" --if-revision 2 --input "$DRAFT_OK" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+V1=$(node apps/cli/dist/main.js strategy freeze "$STRATEGY_ID" --if-revision 3 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.versionId+":"+j.versionNumber+":"+j.legs.length+":"+j.manifestHash.length+":"+j.disclosures.issuers.map(x=>x.issuer+"="+x.weightBps).join("|"))})')
+echo "v1 id:number:legs:hashlen:issuers = $V1"; case "$V1" in *:1:2:64:prestocks=6000\|xstocks=3000) ;; *) exit 1;; esac
+V1_ID=${V1%%:*}
+FORK=$(node apps/cli/dist/main.js strategy fork "$STRATEGY_ID" --version-id "$V1_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log((j.strategy.forkOf.versionId===process.argv[1])+":"+j.draft.content.title)})' "$V1_ID")
+echo "fork provenance:title = $FORK"; [ "$FORK" = "true:Aerospace tilt (fork)" ]
+WALLET_ID=$(node apps/cli/dist/main.js auth whoami --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null; curl -fsS -H "Authorization: Bearer $SESSION_TOKEN" "http://127.0.0.1:$API_PORT/v1/me/wallets" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).wallets[0].walletId))')
+INSTANCE=$(node apps/cli/dist/main.js instance create --strategy "$STRATEGY_ID" --version-id "$V1_ID" --wallet "$WALLET_ID" --label "startup" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.instanceId+":"+j.pinnedVersionNumber+":"+j.proposedVersionId)})')
+echo "instance id:pinned:proposed = $INSTANCE"; case "$INSTANCE" in *:1:null) ;; *) exit 1;; esac
+INSTANCE_ID=${INSTANCE%%:*}
+node apps/cli/dist/main.js strategy draft "$STRATEGY_ID" --input "{\"title\":\"Aerospace tilt v2\",\"thesis\":\"Launch cadence is underestimated.\",\"legs\":[{\"instrumentId\":\"$AERO_ID\",\"weightBps\":5000},{\"instrumentId\":\"$XSA_ID\",\"weightBps\":3000}],\"cashWeightBps\":2000}" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+V2_ID=$(node apps/cli/dist/main.js strategy freeze "$STRATEGY_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).versionId))')
+AFTER_V2=$(node apps/cli/dist/main.js instance list --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const i=JSON.parse(d).instances.find(x=>x.instanceId===process.argv[1]);console.log(i.pinnedVersionNumber+":"+(i.proposedVersionId===process.argv[2]))})' "$INSTANCE_ID" "$V2_ID")
+echo "after creator v2, instance pinned:proposed-is-v2 = $AFTER_V2"; [ "$AFTER_V2" = "1:true" ]
+PINNED=$(node apps/cli/dist/main.js instance pin "$INSTANCE_ID" --version-id "$V2_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.pinnedVersionNumber+":"+j.proposedVersionId)})')
+echo "after explicit acceptance pinned:proposed = $PINNED"; [ "$PINNED" = "2:null" ]
+DIFF=$(node apps/cli/dist/main.js strategy diff "$STRATEGY_ID" "$V2_ID" --against "$V1_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.legs.changed.length+":"+j.cashWeightBps.from+"->"+j.cashWeightBps.to+":"+j.turnoverBps)})')
+echo "diff changed:cash:turnover = $DIFF"; [ "$DIFF" = "1:1000->2000:1000" ]
+V1_AGAIN=$(curl -fsS -H "Authorization: Bearer $SESSION_TOKEN" "http://127.0.0.1:$API_PORT/v1/me/strategies/$STRATEGY_ID/versions/$V1_ID" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.versionNumber+":"+j.legs.find(l=>l.instrumentId===process.argv[1]).weightBps+":"+j.cashWeightBps)})' "$AERO_ID")
+echo "v1 unchanged after v2 = $V1_AGAIN"; [ "$V1_AGAIN" = "1:6000:1000" ]
+
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""
 

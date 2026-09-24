@@ -10,7 +10,7 @@ code that enforces it.
 
 | Principal | How it exists | Scopes | Cannot |
 | --------- | ------------- | ------ | ------ |
-| agent (`mkv_ag_…`) | created by a person with a fresh sign-in (B02) | `research:read`, `research:write`, `portfolio:read`, `proposals:create` | sign, approve, spend, change security settings, publish a thesis, create credentials, read another account |
+| agent (`mkv_ag_…`) | created by a person with a fresh sign-in (B02) | `research:read`, `research:write`, `portfolio:read`, `proposals:create` | sign, approve, spend, change security settings, publish a thesis, freeze, fork or archive a strategy, create a portfolio instance or move its pin, create credentials, read another account |
 | operator (`mkv_op_…`) | `markov operators create` with database access | `ops:*` scopes only | use owner routes or read private research |
 | device (`mkv_dv_…`) | pairing code | `preferences:sync`, `status:read`, `notifications:receive` | read accounts, research or holdings |
 | worker | process identity | Temporal activities only | act as a person |
@@ -52,6 +52,11 @@ and must be reviewed against this file first.
   (20 s). Runs can be cancelled; a cancelled run drops its result.
 - No agent scope grants publishing: visibility changes and archiving are
   user-only, interactive operations.
+- `proposals:create` lets an agent create and edit strategy drafts, which
+  are proposals: validated recipes that hold nothing and order nothing.
+  Freezing a version, forking, archiving, following a version in a wallet
+  and moving a pin are interactive, user-only operations
+  (`docs/markov/strategies.md`).
 
 ## Model and data handling
 

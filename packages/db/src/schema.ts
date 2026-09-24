@@ -4,10 +4,13 @@ import {
   CORPORATE_ACTION_STATUSES,
   CORPORATE_ACTION_TYPES,
   type CorporateActionDetails,
+  type Disclosures,
   ELIGIBILITY_CAPABILITIES,
   ELIGIBILITY_OUTCOMES,
   type ExtensionAssessment,
+  type FrozenLeg,
   INGESTION_SOURCES,
+  INSTANCE_STATUSES,
   INSTRUMENT_DECISIONS,
   INSTRUMENT_KINDS,
   INSTRUMENT_STATUSES,
@@ -15,11 +18,14 @@ import {
   ISSUERS,
   JURISDICTION_EVIDENCE_KINDS,
   type JurisdictionRule,
+  type Maintenance,
   MINT_VERIFICATION_RESULTS,
+  MODERATION_STATUSES,
   MULTIPLIER_SOURCES,
   type OnChainMint,
   type OwnerLimits,
   type PolicyDenial,
+  PUBLICATION_STATES,
   RESERVATION_STATUSES,
   type ResearchSubject,
   RUN_STATUSES,
@@ -27,12 +33,15 @@ import {
   SNAPSHOT_STATUSES,
   SOURCE_ROLES,
   SOURCE_STATUSES,
+  STRATEGY_STATUSES,
+  type StrategyDraftContent,
   THESIS_STATUSES,
   THESIS_VISIBILITIES,
   type ThesisStatement,
   TOKEN_PROGRAMS,
 } from '@markov/contracts';
 import { sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
   bigint,
   bigserial,
@@ -787,5 +796,115 @@ export const watchlistItems = pgTable(
   (table) => [
     primaryKey({ columns: [table.userId, table.instrumentId] }),
     index('watchlist_items_user_idx').on(table.userId, table.addedAt),
+  ],
+);
+
+/* -------------------------------------------------------------------------
+ * Strategies (B07): a person's recipes. One working draft per strategy with
+ * a revision counter; versions are immutable rows written once at freeze;
+ * instances pin a version explicitly and only move when the owner accepts.
+ * ------------------------------------------------------------------------- */
+
+export const strategies = pgTable(
+  'strategies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('active'),
+    forkOfStrategyId: uuid('fork_of_strategy_id').references((): AnyPgColumn => strategies.id),
+    forkOfVersionId: uuid('fork_of_version_id').references((): AnyPgColumn => strategyVersions.id),
+    currentVersionId: uuid('current_version_id').references((): AnyPgColumn => strategyVersions.id),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('strategies_owner_idx').on(table.ownerUserId, table.updatedAt),
+    enumCheck('strategies_status_check', table.status, STRATEGY_STATUSES),
+  ],
+);
+
+export const strategyDrafts = pgTable('strategy_drafts', {
+  strategyId: uuid('strategy_id')
+    .primaryKey()
+    .references(() => strategies.id, { onDelete: 'cascade' }),
+  revision: integer('revision').notNull().default(1),
+  content: jsonb('content').$type<StrategyDraftContent>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+});
+
+export const strategyVersions = pgTable(
+  'strategy_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    strategyId: uuid('strategy_id')
+      .notNull()
+      .references(() => strategies.id, { onDelete: 'cascade' }),
+    versionNumber: integer('version_number').notNull(),
+    schemaVersion: text('schema_version').notNull(),
+    kind: text('kind').notNull(),
+    authorPrincipal: text('author_principal').notNull(),
+    publisherWallet: text('publisher_wallet'),
+    parentVersionId: uuid('parent_version_id').references((): AnyPgColumn => strategyVersions.id),
+    forkOfStrategyId: uuid('fork_of_strategy_id'),
+    forkOfVersionId: uuid('fork_of_version_id'),
+    title: text('title').notNull(),
+    thesis: text('thesis').notNull(),
+    thesisId: uuid('thesis_id'),
+    legs: jsonb('legs').$type<FrozenLeg[]>().notNull(),
+    cashWeightBps: integer('cash_weight_bps').notNull(),
+    maintenance: jsonb('maintenance').$type<Maintenance>().notNull(),
+    disclosures: jsonb('disclosures').$type<Disclosures>().notNull(),
+    references: jsonb('reference_urls').$type<string[]>().notNull().default([]),
+    /** The exact bytes hashed; kept so a manifest can be re-verified and served. */
+    canonicalManifest: text('canonical_manifest').notNull(),
+    manifestHash: text('manifest_hash').notNull(),
+    /** Lineage-free digest of the economic content; equal across versions whose recipe did not change. */
+    contentDigest: text('content_digest').notNull(),
+    publication: text('publication').notNull().default('unpublished'),
+    moderation: text('moderation').notNull().default('none'),
+    deprecatedBy: uuid('deprecated_by'),
+    frozenAt: timestamp('frozen_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('strategy_versions_number_unique').on(table.strategyId, table.versionNumber),
+    index('strategy_versions_hash_idx').on(table.manifestHash),
+    enumCheck('strategy_versions_publication_check', table.publication, PUBLICATION_STATES),
+    enumCheck('strategy_versions_moderation_check', table.moderation, MODERATION_STATUSES),
+    check(
+      'strategy_versions_cash_check',
+      sql`${table.cashWeightBps} >= 0 AND ${table.cashWeightBps} <= 10000`,
+    ),
+  ],
+);
+
+export const portfolioInstances = pgTable(
+  'portfolio_instances',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    strategyId: uuid('strategy_id')
+      .notNull()
+      .references(() => strategies.id),
+    pinnedVersionId: uuid('pinned_version_id')
+      .notNull()
+      .references(() => strategyVersions.id),
+    proposedVersionId: uuid('proposed_version_id').references(() => strategyVersions.id),
+    walletId: uuid('wallet_id')
+      .notNull()
+      .references(() => walletLinks.id),
+    label: text('label'),
+    status: text('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('portfolio_instances_owner_idx').on(table.ownerUserId, table.updatedAt),
+    index('portfolio_instances_strategy_idx').on(table.strategyId),
+    enumCheck('portfolio_instances_status_check', table.status, INSTANCE_STATUSES),
   ],
 );

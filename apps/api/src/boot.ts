@@ -23,6 +23,7 @@ import { createNetworkIdentityMonitor } from './network-monitor.js';
 import { createPolicyService } from './policy/service.js';
 import { createRetriever } from './research/retrieval.js';
 import { createResearchService } from './research/service.js';
+import { createStrategyService } from './strategies/service.js';
 import { createWatchlistService } from './watchlists/service.js';
 
 /** sysexits(3) codes so orchestrators can distinguish configuration from availability failures. */
@@ -313,6 +314,11 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     funding: fundingService,
     research: researchService,
     watchlists: createWatchlistService({ db: dbClient.db, catalog: catalogService }),
+    strategies: createStrategyService({
+      config,
+      db: dbClient.db,
+      genesisHash: expectedGenesisHash,
+    }),
     mintTestToken,
   });
 

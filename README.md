@@ -11,6 +11,7 @@ accounts), **B03** (admitted PreStocks catalog, fixture-verified) and
 **B04** (xStocks quantities and lifecycle events, fixture-verified),
 **B05** (eligibility, terms, limits and deterministic policy decisions),
 **B06** (sourced research, safe retrieval and bounded model runs),
+**B07** (immutable stock basket versions with explicit follower pins),
 **F04** (verified wallet and trading readiness flows),
 **F05** (issuer-aware discovery and watchlists) and
 frontend sessions **F01** (shared design system), **F02** (Mark I shell) and
@@ -93,7 +94,8 @@ bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful s
 | Listed stocks: Token-2022 extension policy, scaled-amount multiplier evidence, exact raw/scaled quantities, corporate-action lifecycle (splits, halts, migrations, sunsets) | implemented, tested with synthetic fixtures and events (B04); live xStocks endpoints BLOCKED (OD-18) |
 | Eligibility: versioned decisions under operator-published rules, terms acknowledgements by content hash, tighten-only owner limits with beta caps, capability states, deterministic policy decisions with machine-readable denials, race-safe spend reservations | implemented, tested (B05); real rules and terms BLOCKED on counsel (OD-06) |
 | Research: versioned theses with typed statements and citation rules, SSRF-safe source retrieval with sanitised excerpts, deterministic company mapping, bounded model runs with provenance, labelled public projections | implemented, tested (B06); model adapter fixture-only, no hosted provider (OD-19) |
-| Strategies, registry, execution, accounting, discovery, agents, maintenance | not started (B07 onward) |
+| Strategies: exact-weight recipes with cash, deterministic validation, immutable versions with admission snapshots, canonical manifest and content digest with test vectors, forks with provenance, explicit follower pins that a creator's edit never moves, optimistic concurrency | implemented, tested (B07); publication and registry are B08 (OD-20) |
+| Registry, execution, accounting, discovery, agents, maintenance | not started (B08 onward) |
 | Web design system, exact formatters, internal component reference, production guards | implemented, tested (F01) |
 | Mark I shell, companion home, navigation with honest placeholder routes | implemented, tested (F02) |
 | App sessions: server-verified HttpOnly cookie, sign-in, expiry recovery, sign-out, account switch isolation, generated API client | implemented, tested against the local API (F03); hosted identity provider adapter BLOCKED (OD-05) |

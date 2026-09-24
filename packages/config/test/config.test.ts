@@ -260,6 +260,13 @@ describe('identity and credential configuration', () => {
     expect(() => loadConfig({ ...base, RESEARCH_MODEL_PROVIDER: 'openai' })).toThrow();
   });
 
+  it('bounds the recipe leg limit to at most ten', () => {
+    expect(loadConfig(base).strategies.maxLegs).toBe(10);
+    expect(loadConfig({ ...base, STRATEGY_MAX_LEGS: '4' }).strategies.maxLegs).toBe(4);
+    expect(() => loadConfig({ ...base, STRATEGY_MAX_LEGS: '11' })).toThrow();
+    expect(() => loadConfig({ ...base, STRATEGY_MAX_LEGS: '0' })).toThrow();
+  });
+
   it('keeps the pepper out of the configuration summary', () => {
     const config = loadConfig({
       ...base,

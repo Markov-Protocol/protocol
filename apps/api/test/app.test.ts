@@ -11,6 +11,7 @@ import {
   type NetworkIdentitySnapshot,
   type PolicyService,
   type ResearchService,
+  type StrategyService,
   type WatchlistService,
 } from '../src/index.js';
 
@@ -32,6 +33,11 @@ const unavailableResearch = new Proxy({} as ResearchService, {
 const unavailableWatchlists = new Proxy({} as WatchlistService, {
   get: () => () => {
     throw new Error('watchlist service is not part of this test');
+  },
+});
+const unavailableStrategies = new Proxy({} as StrategyService, {
+  get: () => () => {
+    throw new Error('strategy service is not part of this test');
   },
 });
 const unavailablePolicy = new Proxy({} as PolicyService, {
@@ -107,6 +113,7 @@ async function makeApp(
     funding: unavailableFunding,
     research: unavailableResearch,
     watchlists: unavailableWatchlists,
+    strategies: unavailableStrategies,
     mintTestToken: null,
   });
   await app.ready();

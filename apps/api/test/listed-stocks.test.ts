@@ -29,6 +29,7 @@ import {
   type FundingService,
   type MarkovApi,
   type ResearchService,
+  type StrategyService,
   type WatchlistService,
 } from '../src/index.js';
 
@@ -222,6 +223,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         funding: unavailableFunding,
         research: unavailableResearch,
         watchlists: unavailableWatchlists,
+        strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();
@@ -268,6 +270,11 @@ const unavailableResearch = new Proxy({} as ResearchService, {
 const unavailableWatchlists = new Proxy({} as WatchlistService, {
   get: () => () => {
     throw new Error('watchlist service is not part of this test');
+  },
+});
+const unavailableStrategies = new Proxy({} as StrategyService, {
+  get: () => () => {
+    throw new Error('strategy service is not part of this test');
   },
 });
 

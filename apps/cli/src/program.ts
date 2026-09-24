@@ -1479,5 +1479,273 @@ export function buildProgram(io: CliIo = stdio): Command {
       );
     });
 
+  const strategy = program
+    .command('strategy')
+    .description('versioned recipes: drafts, immutable versions, diffs and forks');
+  const readContent = async (options: { file?: string; input?: string }): Promise<unknown> => {
+    if (options.file) {
+      const { readFile } = await import('node:fs/promises');
+      return JSON.parse(await readFile(options.file, 'utf8'));
+    }
+    if (options.input) {
+      return JSON.parse(options.input);
+    }
+    throw new CliExit('provide --file <path> or --input <text> with the draft content', EXIT_USAGE);
+  };
+  strategy
+    .command('limits')
+    .description('the recipe rules this deployment enforces')
+    .option(...apiUrlOption)
+    .action(async (options: { url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/strategies/limits')));
+    });
+  strategy
+    .command('create')
+    .description('create a strategy from draft content (--file or --input JSON)')
+    .option('--file <path>')
+    .option('--input <text>')
+    .requiredOption('--token <token>', 'user session or agent credential (proposals:create)')
+    .option(...apiUrlOption)
+    .action(async (options: { file?: string; input?: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/me/strategies',
+            { content: await readContent(options) },
+            options.token,
+          ),
+        ),
+      );
+    });
+  strategy
+    .command('list')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(
+        json(await apiCall(options.url, 'GET', '/v1/me/strategies', undefined, options.token)),
+      );
+    });
+  strategy
+    .command('get <strategyId>')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (strategyId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/strategies/${encodeURIComponent(strategyId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  strategy
+    .command('draft <strategyId>')
+    .description('replace the working draft; --if-revision detects edits made elsewhere')
+    .option('--file <path>')
+    .option('--input <text>')
+    .option('--if-revision <n>')
+    .requiredOption('--token <token>', 'user session or agent credential (proposals:create)')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        strategyId: string,
+        options: { file?: string; input?: string; ifRevision?: string; token: string; url: string },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'PUT',
+              `/v1/me/strategies/${encodeURIComponent(strategyId)}/draft`,
+              {
+                content: await readContent(options),
+                ...(options.ifRevision
+                  ? { ifRevision: Number.parseInt(options.ifRevision, 10) }
+                  : {}),
+              },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  strategy
+    .command('freeze <strategyId>')
+    .description('freeze the draft as the next immutable version (person only)')
+    .option('--if-revision <n>')
+    .requiredOption('--token <token>', 'user session')
+    .option(...apiUrlOption)
+    .action(
+      async (strategyId: string, options: { ifRevision?: string; token: string; url: string }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/strategies/${encodeURIComponent(strategyId)}/versions`,
+              options.ifRevision ? { ifRevision: Number.parseInt(options.ifRevision, 10) } : {},
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  strategy
+    .command('versions <strategyId>')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (strategyId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/strategies/${encodeURIComponent(strategyId)}/versions`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  strategy
+    .command('diff <strategyId> <versionId>')
+    .description('machine-readable difference from another version')
+    .requiredOption('--against <versionId>')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        strategyId: string,
+        versionId: string,
+        options: { against: string; token: string; url: string },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'GET',
+              `/v1/me/strategies/${encodeURIComponent(strategyId)}/versions/${encodeURIComponent(versionId)}/diff?against=${encodeURIComponent(options.against)}`,
+              undefined,
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  strategy
+    .command('fork <strategyId>')
+    .description('fork a version into a new strategy of your own (person only)')
+    .requiredOption('--version-id <versionId>', 'explicit version id')
+    .requiredOption('--token <token>', 'user session')
+    .option(...apiUrlOption)
+    .action(
+      async (strategyId: string, options: { versionId: string; token: string; url: string }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/strategies/${encodeURIComponent(strategyId)}/forks`,
+              { versionId: options.versionId },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  strategy
+    .command('archive <strategyId>')
+    .option('--restore', 'restore an archived strategy')
+    .requiredOption('--token <token>', 'user session')
+    .option(...apiUrlOption)
+    .action(
+      async (strategyId: string, options: { restore?: boolean; token: string; url: string }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'PATCH',
+              `/v1/me/strategies/${encodeURIComponent(strategyId)}`,
+              { status: options.restore ? 'active' : 'archived' },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  const instance = program
+    .command('instance')
+    .description('portfolio instances: a pinned version in a verified wallet');
+  instance
+    .command('create')
+    .requiredOption('--strategy <strategyId>')
+    .requiredOption('--version-id <versionId>', 'explicit version id')
+    .requiredOption('--wallet <walletId>', 'a verified wallet of the signed-in person')
+    .option('--label <text>')
+    .requiredOption('--token <token>', 'user session')
+    .option(...apiUrlOption)
+    .action(
+      async (options: {
+        strategy: string;
+        versionId: string;
+        wallet: string;
+        label?: string;
+        token: string;
+        url: string;
+      }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              '/v1/me/instances',
+              {
+                strategyId: options.strategy,
+                versionId: options.versionId,
+                walletId: options.wallet,
+                label: options.label ?? null,
+              },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  instance
+    .command('list')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/me/instances', undefined, options.token)));
+    });
+  instance
+    .command('pin <instanceId>')
+    .description('accept a version for an instance; the only way a pin moves')
+    .requiredOption('--version-id <versionId>', 'explicit version id')
+    .requiredOption('--token <token>', 'user session')
+    .option(...apiUrlOption)
+    .action(
+      async (instanceId: string, options: { versionId: string; token: string; url: string }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/instances/${encodeURIComponent(instanceId)}/pin`,
+              { versionId: options.versionId },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+
   return program;
 }

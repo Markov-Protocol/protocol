@@ -138,6 +138,27 @@ access to internal names, and the policy refuses them anyway. A blocked
 or failed source is recorded with its reason and can be re-attached later.
 Audit actions: `research.*`.
 
+## Strategies
+
+```
+markov strategy limits --url …
+markov strategy create --input '{"title":"…","thesis":"…","legs":[{"instrumentId":"…","weightBps":6000}],"cashWeightBps":4000}' --token <session> --url …
+markov strategy freeze <strategyId> --if-revision <n> --token <session> --url …
+markov instance create --strategy <strategyId> --version-id <versionId> --wallet <walletId> --token <session> --url …
+```
+
+`STRATEGY_MAX_LEGS` (default and maximum 10) may be lowered for a beta;
+raising it above 10 is refused by configuration. Lowering it affects
+drafts and freezes from then on and never invalidates a frozen version.
+Concentration ceilings come from the policy defaults or the configured
+`BETA_*` caps (`GET /v1/strategies/limits` shows which). Migration
+`0007_strategies` adds `strategies`, `strategy_drafts`,
+`strategy_versions` and `portfolio_instances`; versions are never
+updated or deleted by the application, and an archived strategy keeps
+every row. Audit actions: `strategy.*`, `instance.*`. Publication and
+on-chain registration do not exist yet (B08): every version reads
+`publication: unpublished`.
+
 ## Readiness and monitoring
 
 - Liveness (`/healthz`) restarts a hung process; readiness (`/readyz`) removes
