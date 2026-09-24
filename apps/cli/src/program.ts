@@ -815,5 +815,352 @@ export function buildProgram(io: CliIo = stdio): Command {
       },
     );
 
+  const policy = program
+    .command('policy')
+    .description('eligibility, terms, limits, capability states and policy decisions');
+  const readJsonFile = async (path: string): Promise<unknown> => {
+    const { readFile } = await import('node:fs/promises');
+    return JSON.parse(await readFile(path, 'utf8')) as unknown;
+  };
+  const rules = policy.command('rules').description('jurisdiction rule sets (operator)');
+  rules
+    .command('publish')
+    .description(
+      'publish a jurisdiction rule set from a JSON file, or the fixture set (local/test only)',
+    )
+    .option('--file <path>', 'rule set JSON matching the jurisdictionRuleSet contract')
+    .option('--fixture', 'publish the fixture rule set (user-assigned ISO codes only)')
+    .requiredOption('--token <token>', 'operator credential (ops:policy:write)')
+    .option(...apiUrlOption)
+    .action(async (options: { file?: string; fixture?: boolean; token: string; url: string }) => {
+      let body: unknown;
+      if (options.fixture) {
+        const { FIXTURE_JURISDICTION_RULE_SET } = await import('@markov/policy');
+        body = FIXTURE_JURISDICTION_RULE_SET;
+      } else if (options.file) {
+        body = await readJsonFile(options.file);
+      } else {
+        throw new CliExit('provide --file <path> or --fixture', EXIT_USAGE);
+      }
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/ops/policy/jurisdiction-rules',
+            body,
+            options.token,
+          ),
+        ),
+      );
+    });
+  rules
+    .command('list')
+    .description('published rule sets, newest first (operator ops:policy:read)')
+    .requiredOption('--token <token>', 'operator credential')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            '/v1/ops/policy/jurisdiction-rules',
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  const terms = policy.command('terms').description('terms and disclosure documents');
+  terms
+    .command('publish')
+    .description('publish a terms document from a JSON file, or the fixture document (local/test)')
+    .option('--file <path>', 'document JSON matching the termsPublishRequest contract')
+    .option('--fixture', 'publish the fixture terms document')
+    .requiredOption('--token <token>', 'operator credential (ops:policy:write)')
+    .option(...apiUrlOption)
+    .action(async (options: { file?: string; fixture?: boolean; token: string; url: string }) => {
+      let body: unknown;
+      if (options.fixture) {
+        const { FIXTURE_TERMS_DOCUMENT } = await import('@markov/policy');
+        body = FIXTURE_TERMS_DOCUMENT;
+      } else if (options.file) {
+        body = await readJsonFile(options.file);
+      } else {
+        throw new CliExit('provide --file <path> or --fixture', EXIT_USAGE);
+      }
+      io.out(json(await apiCall(options.url, 'POST', '/v1/ops/policy/terms', body, options.token)));
+    });
+  terms
+    .command('current')
+    .description('active terms documents with their content hashes')
+    .option(...apiUrlOption)
+    .action(async (options: { url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/terms/current')));
+    });
+  terms
+    .command('acknowledge')
+    .description('acknowledge an active terms document by version and content hash (user session)')
+    .requiredOption('--terms-version <version>')
+    .requiredOption('--content-hash <sha256>', 'hash of the text you were shown')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(
+      async (options: {
+        termsVersion: string;
+        contentHash: string;
+        token: string;
+        url: string;
+      }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              '/v1/me/terms/acknowledgements',
+              {
+                termsVersion: options.termsVersion,
+                contentHash: options.contentHash,
+                channel: 'cli',
+              },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  policy
+    .command('eligibility')
+    .description('eligibility, terms and next steps for the signed-in person')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(
+        json(await apiCall(options.url, 'GET', '/v1/me/eligibility', undefined, options.token)),
+      );
+    });
+  policy
+    .command('declare')
+    .description(
+      'declare a jurisdiction (self-declared evidence) and record an eligibility decision',
+    )
+    .requiredOption('--jurisdiction <code>', 'ISO 3166-1 alpha-2 code')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (options: { jurisdiction: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/me/eligibility/declarations',
+            { jurisdiction: options.jurisdiction, attestation: true },
+            options.token,
+          ),
+        ),
+      );
+    });
+  policy
+    .command('limits')
+    .description('show effective limits; with --set, tighten the owner limits (step-up required)')
+    .option(
+      '--set <pairs...>',
+      'key=value, for example maxOrderNotionalUsdcRaw=50000000 maxSlippageBps=25',
+    )
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (options: { set?: string[]; token: string; url: string }) => {
+      if (!options.set || options.set.length === 0) {
+        io.out(json(await apiCall(options.url, 'GET', '/v1/me/limits', undefined, options.token)));
+        return;
+      }
+      const body: Record<string, unknown> = {};
+      for (const pair of options.set) {
+        const [key, value] = pair.split('=');
+        if (!key || value === undefined) {
+          throw new CliExit(`invalid --set pair: ${pair}`, EXIT_USAGE);
+        }
+        if (key === 'allowedVenues') {
+          body[key] = value.split(',');
+        } else if (key.endsWith('Raw')) {
+          body[key] = value;
+        } else {
+          body[key] = Number(value);
+        }
+      }
+      io.out(json(await apiCall(options.url, 'PUT', '/v1/me/limits', body, options.token)));
+    });
+  policy
+    .command('availability <instrumentId>')
+    .description('capability states of an instrument for the signed-in person')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (instrumentId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/instruments/${encodeURIComponent(instrumentId)}/availability`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  policy
+    .command('evaluate')
+    .description('evaluate an intent against policy; --reserve holds the notional when allowed')
+    .requiredOption('--instrument <instrumentId>')
+    .requiredOption('--notional <usdcRaw>', 'raw USDC integer (6 decimals)')
+    .requiredOption(
+      '--intent <intentId>',
+      'caller-chosen intent id (reservations are idempotent per intent)',
+    )
+    .option('--side <side>', 'buy|sell', 'buy')
+    .option('--stage <stage>', 'quote|submit', 'quote')
+    .option('--cash <usdcRaw>', 'declared cash, raw USDC (declares exposure)')
+    .option('--position <pairs...>', 'instrumentId=notionalUsdcRaw declared holdings')
+    .option('--slippage-bps <bps>', 'slippage tolerance', '50')
+    .option('--reserve', 'hold the notional against the daily and account budgets')
+    .requiredOption('--token <token>', 'user session or agent credential (proposals:create)')
+    .option(...apiUrlOption)
+    .action(
+      async (options: {
+        instrument: string;
+        notional: string;
+        intent: string;
+        side: string;
+        stage: string;
+        cash?: string;
+        position?: string[];
+        slippageBps: string;
+        reserve?: boolean;
+        token: string;
+        url: string;
+      }) => {
+        const positions = (options.position ?? []).map((pair) => {
+          const [instrumentId, notionalUsdcRaw] = pair.split('=');
+          if (!instrumentId || !notionalUsdcRaw) {
+            throw new CliExit(`invalid --position pair: ${pair}`, EXIT_USAGE);
+          }
+          return { instrumentId, notionalUsdcRaw };
+        });
+        const declared = options.cash !== undefined || positions.length > 0;
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              '/v1/me/policy/evaluations',
+              {
+                stage: options.stage,
+                side: options.side,
+                instrumentId: options.instrument,
+                notionalUsdcRaw: options.notional,
+                intentId: options.intent,
+                slippageBps: Number(options.slippageBps),
+                exposure: declared
+                  ? {
+                      source: 'caller_declared',
+                      observedAt: new Date().toISOString(),
+                      positions,
+                      cashUsdcRaw: options.cash ?? null,
+                    }
+                  : { source: 'none', observedAt: null, positions: [], cashUsdcRaw: null },
+                reserve: options.reserve === true,
+              },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  const reservations = policy.command('reservations').description('pending-spend reservations');
+  reservations
+    .command('list')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(
+        json(await apiCall(options.url, 'GET', '/v1/me/reservations', undefined, options.token)),
+      );
+    });
+  reservations
+    .command('release <intentId>')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (intentId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'DELETE',
+            `/v1/me/reservations/${encodeURIComponent(intentId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  policy
+    .command('revoke <decisionId>')
+    .description('revoke an eligibility decision (operator ops:policy:write)')
+    .requiredOption('--reason <reason>')
+    .requiredOption('--token <token>', 'operator credential')
+    .option(...apiUrlOption)
+    .action(async (decisionId: string, options: { reason: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/ops/policy/eligibility/${encodeURIComponent(decisionId)}/revoke`,
+            { reason: options.reason },
+            options.token,
+          ),
+        ),
+      );
+    });
+  const participants = policy
+    .command('participants')
+    .description('beta participant allowlist (operator)');
+  participants
+    .command('add <userId>')
+    .option('--note <note>', 'why this person is in the beta', '')
+    .requiredOption('--token <token>', 'operator credential (ops:policy:write)')
+    .option(...apiUrlOption)
+    .action(async (userId: string, options: { note: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/ops/policy/participants',
+            { userId, note: options.note },
+            options.token,
+          ),
+        ),
+      );
+    });
+  participants
+    .command('list')
+    .requiredOption('--token <token>', 'operator credential (ops:policy:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            '/v1/ops/policy/participants',
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+
   return program;
 }

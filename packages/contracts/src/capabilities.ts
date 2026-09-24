@@ -35,6 +35,7 @@ export const CAPABILITY_IDS = [
   'catalog.xstocks.ingest',
   'catalog.tessera.ingest',
   'identity.provider.verify',
+  'policy.eligibility.rules',
   'execution.jupiter.quote',
   'execution.jupiter.build',
   'execution.spot.submit',

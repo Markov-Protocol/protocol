@@ -4,15 +4,22 @@ import {
   CORPORATE_ACTION_STATUSES,
   CORPORATE_ACTION_TYPES,
   type CorporateActionDetails,
+  ELIGIBILITY_CAPABILITIES,
+  ELIGIBILITY_OUTCOMES,
   type ExtensionAssessment,
   INGESTION_SOURCES,
   INSTRUMENT_DECISIONS,
   INSTRUMENT_KINDS,
   INSTRUMENT_STATUSES,
   ISSUERS,
+  JURISDICTION_EVIDENCE_KINDS,
+  type JurisdictionRule,
   MINT_VERIFICATION_RESULTS,
   MULTIPLIER_SOURCES,
   type OnChainMint,
+  type OwnerLimits,
+  type PolicyDenial,
+  RESERVATION_STATUSES,
   SNAPSHOT_KINDS,
   SNAPSHOT_STATUSES,
   TOKEN_PROGRAMS,
@@ -463,5 +470,173 @@ export const instrumentMultipliers = pgTable(
     ),
     index('instrument_multipliers_instrument_idx').on(table.instrumentId, table.effectiveAt),
     enumCheck('instrument_multipliers_source_check', table.source, MULTIPLIER_SOURCES),
+  ],
+);
+
+/* ---------------------------------------------------------------------------
+ * Eligibility, terms, limits and policy (session B05). Decisions and
+ * evidence are recorded; rules are published by operators, never invented.
+ * ------------------------------------------------------------------------- */
+
+export const jurisdictionRuleSets = pgTable(
+  'jurisdiction_rule_sets',
+  {
+    policyVersion: text('policy_version').primaryKey(),
+    validityDays: integer('validity_days').notNull(),
+    rules: jsonb('rules').$type<JurisdictionRule[]>().notNull(),
+    evidence: jsonb('evidence').$type<Record<string, string>>().notNull().default({}),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    publishedBy: text('published_by').notNull(),
+    active: integer('active').notNull().default(1),
+  },
+  (table) => [index('jurisdiction_rule_sets_active_idx').on(table.active, table.publishedAt)],
+);
+
+export const termsDocuments = pgTable(
+  'terms_documents',
+  {
+    termsVersion: text('terms_version').primaryKey(),
+    title: text('title').notNull(),
+    contentHash: text('content_hash').notNull(),
+    url: text('url').notNull(),
+    requiredFor: jsonb('required_for').$type<string[]>().notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    publishedBy: text('published_by').notNull(),
+    active: integer('active').notNull().default(1),
+  },
+  (table) => [index('terms_documents_active_idx').on(table.active, table.publishedAt)],
+);
+
+export const termsAcknowledgements = pgTable(
+  'terms_acknowledgements',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    termsVersion: text('terms_version')
+      .notNull()
+      .references(() => termsDocuments.termsVersion),
+    contentHash: text('content_hash').notNull(),
+    acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    channel: text('channel').notNull(),
+  },
+  (table) => [
+    uniqueIndex('terms_acknowledgements_user_version_unique').on(table.userId, table.termsVersion),
+  ],
+);
+
+export const eligibilityDecisions = pgTable(
+  'eligibility_decisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Monotonic insertion order; the latest decision is the highest `seq`, whatever the clock says. */
+    seq: bigserial('seq', { mode: 'number' }).notNull().unique(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    capability: text('capability').notNull(),
+    policyVersion: text('policy_version'),
+    jurisdiction: text('jurisdiction').notNull(),
+    evidenceKind: text('evidence_kind').notNull(),
+    outcome: text('outcome').notNull(),
+    reasons: jsonb('reasons').$type<string[]>().notNull().default([]),
+    issuers: jsonb('issuers').$type<string[]>().notNull().default([]),
+    decidedAt: timestamp('decided_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    revokedReason: text('revoked_reason'),
+    decidedBy: text('decided_by').notNull(),
+  },
+  (table) => [
+    index('eligibility_decisions_user_idx').on(table.userId, table.capability, table.seq),
+    enumCheck('eligibility_decisions_capability_check', table.capability, ELIGIBILITY_CAPABILITIES),
+    enumCheck(
+      'eligibility_decisions_evidence_check',
+      table.evidenceKind,
+      JURISDICTION_EVIDENCE_KINDS,
+    ),
+    enumCheck('eligibility_decisions_outcome_check', table.outcome, ELIGIBILITY_OUTCOMES),
+  ],
+);
+
+export const ownerLimits = pgTable('owner_limits', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  limits: jsonb('limits').$type<Partial<OwnerLimits>>().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+});
+
+export const spendReservations = pgTable(
+  'spend_reservations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    intentId: text('intent_id').notNull(),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id),
+    side: text('side').notNull(),
+    /** Raw USDC digit string. */
+    notionalUsdcRaw: text('notional_usdc_raw').notNull(),
+    status: text('status').notNull().default('held'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    releasedAt: timestamp('released_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    uniqueIndex('spend_reservations_user_intent_unique').on(table.userId, table.intentId),
+    index('spend_reservations_user_status_idx').on(table.userId, table.status, table.createdAt),
+    enumCheck('spend_reservations_status_check', table.status, RESERVATION_STATUSES),
+    check('spend_reservations_side_check', sql`${table.side} IN ('buy', 'sell')`),
+  ],
+);
+
+export const betaParticipants = pgTable('beta_participants', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  note: text('note').notNull().default(''),
+  addedAt: timestamp('added_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  addedBy: text('added_by').notNull(),
+});
+
+export const policyDecisions = pgTable(
+  'policy_decisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    seq: bigserial('seq', { mode: 'number' }).notNull().unique(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id),
+    side: text('side').notNull(),
+    stage: text('stage').notNull(),
+    notionalUsdcRaw: text('notional_usdc_raw').notNull(),
+    outcome: text('outcome').notNull(),
+    denials: jsonb('denials').$type<PolicyDenial[]>().notNull().default([]),
+    evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull().default({}),
+    limits: jsonb('limits').$type<OwnerLimits>().notNull(),
+    budget: jsonb('budget').$type<Record<string, string>>().notNull(),
+    reservationId: uuid('reservation_id').references(() => spendReservations.id),
+    evaluatedAt: timestamp('evaluated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    index('policy_decisions_user_idx').on(table.userId, table.seq),
+    check('policy_decisions_outcome_check', sql`${table.outcome} IN ('allow', 'deny')`),
   ],
 );

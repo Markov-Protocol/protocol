@@ -122,10 +122,37 @@ admission refuses unsupported extension sets and requires
 `ADMISSION_BLOCKED` (409) answers an admit or resume without a current
 matching mint verification. Details: `docs/markov/catalog.md`.
 
+## Endpoints (B05)
+
+| Method | Path                                                     | Principal                                  | Purpose |
+| ------ | -------------------------------------------------------- | ------------------------------------------ | ------- |
+| GET    | /v1/me/eligibility                                       | user, agent `portfolio:read`               | Latest eligibility decision and its standing, terms to acknowledge, remaining steps, plain summary |
+| POST   | /v1/me/eligibility/declarations                          | user (10/min)                              | Declare a jurisdiction (self-declared evidence); records a versioned decision with expiry |
+| GET    | /v1/terms/current                                        | anonymous                                  | Active terms documents with content hashes |
+| POST   | /v1/me/terms/acknowledgements                            | user (10/min)                              | Acknowledge a document by version and exact hash; idempotent |
+| GET    | /v1/me/limits                                            | user, agent `portfolio:read`               | Effective limits, the owner's settings, the ceiling and its source |
+| PUT    | /v1/me/limits                                            | user, step-up                              | Tighten owner limits; loosening is refused with the ceiling in `details` |
+| GET    | /v1/me/instruments/{instrumentId}/availability           | user, agent `portfolio:read`               | Capability states with conditions; 404 unless the instrument is admitted or paused |
+| POST   | /v1/me/policy/evaluations                                | user, agent `proposals:create`             | Deterministic policy decision (`stage` quote or submit); `reserve: true` holds the notional |
+| GET    | /v1/me/reservations                                      | user, agent `portfolio:read`               | Pending-spend reservations (expired ones swept) |
+| DELETE | /v1/me/reservations/{intentId}                           | user, agent `proposals:create`             | Release a held reservation; 404 when nothing is held |
+| POST   | /v1/ops/policy/jurisdiction-rules                        | operator `ops:policy:write`                | Publish an immutable rule set version; becomes active |
+| GET    | /v1/ops/policy/jurisdiction-rules                        | operator `ops:policy:read`                 | Published rule sets |
+| POST   | /v1/ops/policy/terms                                     | operator `ops:policy:write`                | Publish a terms document (https only); retires the active one for the capability |
+| POST   | /v1/ops/policy/eligibility/{decisionId}/revoke           | operator `ops:policy:write`                | Revoke a decision with a reason; 409 when already revoked |
+| GET    | /v1/ops/policy/users/{userId}/eligibility                | operator `ops:policy:read`                 | Decision history of a user |
+| GET/POST | /v1/ops/policy/participants, DELETE …/{userId}         | operator `ops:policy:read` / `ops:policy:write` | Beta participant allowlist (OD-12) |
+
+Policy decisions answer 201 with `outcome: deny` and a `denials` array
+(code, message, limit, observed, unit) rather than an error: a denial is a
+successful evaluation. `POLICY_DENIED` remains reserved for execution
+sessions that refuse to proceed on a denied decision. Version conflicts
+answer `IDEMPOTENCY_CONFLICT` (409). Details: `docs/markov/eligibility-and-policy.md`.
+
 ## Planned surface
 
-Identity, catalog, eligibility, research, strategies, discovery, portfolio,
+Research, strategies, discovery, portfolio,
 execution, receipts, maintenance, agents and operations routes are specified
-in the build document and arrive with sessions B02 to B18. Authentication,
+in the build document and arrive with sessions B06 to B18. Authentication,
 idempotency keys, cursor pagination and streaming are introduced with the
 first routes that need them (B02, B07, B10).

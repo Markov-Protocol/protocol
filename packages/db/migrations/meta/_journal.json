@@ -29,6 +29,13 @@
       "when": 1790278635623,
       "tag": "0003_listed_stocks",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790281549986,
+      "tag": "0004_policy",
+      "breakpoints": true
     }
   ]
 }

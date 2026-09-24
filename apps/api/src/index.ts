@@ -10,3 +10,4 @@ export * from './boot.js';
 export * from './catalog/service.js';
 export * from './errors.js';
 export * from './network-monitor.js';
+export * from './policy/service.js';

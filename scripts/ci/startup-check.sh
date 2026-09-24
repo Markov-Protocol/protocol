@@ -88,6 +88,29 @@ echo "multiplier after split: $SPLIT_MULT"; [ "$SPLIT_MULT" = "2" ]
 CONVERTED=$(node apps/cli/dist/main.js catalog convert "$XSA_ID" --raw 150000000 --as-of 2026-09-21T00:00:00Z --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.scaled+":"+j.multiplier+":"+j.rounded)})')
 echo "150000000 raw at 8 decimals after the split = $CONVERTED"; [ "$CONVERTED" = "3:2:false" ]
 
+echo "== policy journey: fixture rules and terms -> declaration -> acknowledgement -> evaluation with reservation -> denials"
+POLICY_TOKEN=$(node apps/cli/dist/main.js operators create --label startup-policy --scopes ops:policy:read,ops:policy:write --expires-days 1 | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const m=d.match(/mkv_op_[1-9A-HJ-NP-Za-km-z]+_[A-Za-z0-9_-]+/);if(!m){console.error(d);process.exit(1)}console.log(m[0])})')
+node apps/cli/dist/main.js policy rules publish --fixture --token "$POLICY_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log("rules published: "+j.policyVersion+" active="+j.active+" rules="+j.rules.length)})'
+node apps/cli/dist/main.js policy terms publish --fixture --token "$POLICY_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log("terms published: "+j.termsVersion+" hash="+j.contentHash.slice(0,12))})'
+BEFORE=$(node apps/cli/dist/main.js policy evaluate --instrument "$AERO_ID" --notional 100000000 --intent startup-0 --cash 1000000000 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.outcome+":"+j.denials.map(x=>x.code).join(","))})')
+echo "evaluation before declaring: $BEFORE"; [ "$BEFORE" = "deny:ELIGIBILITY_UNKNOWN,TERMS_NOT_ACKNOWLEDGED" ]
+DECLARED=$(node apps/cli/dist/main.js policy declare --jurisdiction ZZ --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.outcome+":"+j.policyVersion+":"+j.issuers.length)})')
+echo "declaration ZZ: $DECLARED"; [ "$DECLARED" = "eligible:2026-09-24:3" ]
+TERMS_HASH=$(node apps/cli/dist/main.js policy terms current --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).documents[0].contentHash))')
+node apps/cli/dist/main.js policy terms acknowledge --terms-version 2026-09-24 --content-hash "$TERMS_HASH" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log("acknowledged "+j.termsVersion+" via "+j.channel)})'
+STEPS=$(node apps/cli/dist/main.js policy eligibility --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.outcome+":"+j.terms.complete+":"+j.steps.join(","))})')
+echo "eligibility status: $STEPS"; [ "$STEPS" = "eligible:true:" ]
+AVAIL=$(node apps/cli/dist/main.js policy availability "$AERO_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.capabilities.discoverable+":"+j.capabilities.quoteable+":"+j.capabilities.buyable+":"+j.conditions.join(","))})')
+echo "capability states: $AVAIL"; [ "$AVAIL" = "true:false:false:venue_disabled,execution_disabled" ]
+ALLOWED=$(node apps/cli/dist/main.js policy evaluate --instrument "$AERO_ID" --notional 100000000 --intent startup-1 --cash 1000000000 --reserve --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.outcome+":"+(j.reservation?j.reservation.status:"none")+":"+j.budget.dailyUsedUsdcRaw)})')
+echo "quote-stage evaluation with reservation: $ALLOWED"; [ "$ALLOWED" = "allow:held:100000000" ]
+SUBMIT=$(node apps/cli/dist/main.js policy evaluate --instrument "$AERO_ID" --notional 100000000 --intent startup-1 --stage submit --cash 1000000000 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.outcome+":"+j.denials.map(x=>x.code).join(","))})')
+echo "submit-stage evaluation: $SUBMIT"; [ "$SUBMIT" = "deny:EXECUTION_DISABLED,VENUE_DISABLED" ]
+CAPPED=$(node apps/cli/dist/main.js policy evaluate --instrument "$AERO_ID" --notional 1500000000 --intent startup-2 --cash 100000000000 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);const x=j.denials[0];console.log(x.code+":"+x.limit+":"+x.observed)})')
+echo "order above the cap: $CAPPED"; [ "$CAPPED" = "ORDER_CAP_EXCEEDED:1000000000:1500000000" ]
+RELEASED=$(node apps/cli/dist/main.js policy reservations release startup-1 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).status))')
+echo "reservation released: $RELEASED"; [ "$RELEASED" = "released" ]
+
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""
 

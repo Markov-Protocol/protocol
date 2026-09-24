@@ -1,0 +1,85 @@
+import { readFileSync } from 'node:fs';
+import { encodeMintAccount, SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@markov/catalog';
+import { KNOWN_GENESIS_HASHES } from '@markov/config';
+import { decodeBase58 } from '@markov/contracts';
+
+export const GENESIS = KNOWN_GENESIS_HASHES.devnet;
+
+interface FixtureMint {
+  symbol: string;
+  mint: string;
+  decimals: number;
+  tokenProgram: 'spl-token' | 'token-2022';
+}
+
+const prestocksMints = (
+  JSON.parse(
+    readFileSync(
+      new URL('../../../../packages/issuer-prestocks/fixtures/fixture-mints.json', import.meta.url),
+      'utf8',
+    ),
+  ) as { mints: FixtureMint[] }
+).mints;
+
+/** JSON-RPC stand-in serving the PreStocks fixture mints as real-shaped accounts; FXGRID is deliberately absent. */
+export function prestocksFixtureRpcFetch(): typeof fetch {
+  const accounts = new Map<string, { owner: string; data: Uint8Array }>();
+  for (const item of prestocksMints) {
+    if (item.symbol === 'FXGRID') {
+      continue;
+    }
+    const authority = decodeBase58('11111111111111111111111111111111');
+    const extensions =
+      item.tokenProgram === 'token-2022' ? [{ type: 18, data: new Uint8Array(64) }] : [];
+    accounts.set(item.mint, {
+      owner: item.tokenProgram === 'token-2022' ? TOKEN_2022_PROGRAM_ID : SPL_TOKEN_PROGRAM_ID,
+      data: encodeMintAccount({
+        decimals: item.decimals,
+        supply: 1_000_000n,
+        mintAuthority: authority,
+        freezeAuthority: null,
+        extensions,
+      }),
+    });
+  }
+  return (async (_input: string | URL | Request, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as {
+      id: number;
+      method: string;
+      params: unknown[];
+    };
+    let result: unknown;
+    switch (body.method) {
+      case 'getGenesisHash':
+        result = GENESIS;
+        break;
+      case 'getHealth':
+        result = 'ok';
+        break;
+      case 'getVersion':
+        result = { 'solana-core': 'fixture' };
+        break;
+      case 'getAccountInfo': {
+        const account = accounts.get(String(body.params[0]));
+        result = {
+          context: { slot: 4242 },
+          value: account
+            ? {
+                data: [Buffer.from(account.data).toString('base64'), 'base64'],
+                executable: false,
+                lamports: 1,
+                owner: account.owner,
+                space: account.data.length,
+              }
+            : null,
+        };
+        break;
+      }
+      default:
+        result = null;
+    }
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }), {
+      headers: { 'content-type': 'application/json' },
+    });
+  }) as typeof fetch;
+}

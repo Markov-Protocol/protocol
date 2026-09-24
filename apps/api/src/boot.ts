@@ -18,6 +18,7 @@ import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
 import { createIdentityService } from './auth/service.js';
 import { createCatalogService } from './catalog/service.js';
 import { createNetworkIdentityMonitor } from './network-monitor.js';
+import { createPolicyService } from './policy/service.js';
 
 /** sysexits(3) codes so orchestrators can distinguish configuration from availability failures. */
 export const EXIT_CONFIG = 78;
@@ -275,6 +276,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
 
     rpcClients: clients,
   });
+  const policyService = createPolicyService({ config, db: dbClient.db, catalog: catalogService });
 
   const app = await buildApp({
     config,
@@ -285,6 +287,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     expectedGenesisHash,
     identity: identityService,
     catalog: catalogService,
+    policy: policyService,
     mintTestToken,
   });
 

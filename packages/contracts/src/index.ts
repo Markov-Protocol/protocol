@@ -16,4 +16,5 @@ export * from './errors.js';
 export * from './health.js';
 export * from './identity.js';
 export * from './platform.js';
+export * from './policy.js';
 export * from './price.js';

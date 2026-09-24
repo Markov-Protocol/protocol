@@ -32,8 +32,10 @@ import type { IdentityService } from './auth/service.js';
 import type { CatalogService } from './catalog/service.js';
 import { ApiError } from './errors.js';
 import type { NetworkIdentitySource } from './network-monitor.js';
+import type { PolicyService } from './policy/service.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { identityRoutes } from './routes/identity.js';
+import { policyRoutes } from './routes/policy.js';
 
 export interface ProbeOutcome {
   readonly ok: boolean;
@@ -65,6 +67,7 @@ export interface AppDependencies {
   readonly expectedGenesisHash: string | null;
   readonly identity: IdentityService;
   readonly catalog: CatalogService;
+  readonly policy: PolicyService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -203,7 +206,16 @@ export async function buildApp(deps: AppDependencies) {
           'Proposed Markov contracts. Schemas are generated from the runtime validators; see docs/markov/api.md.',
         version: `${CONTRACT_SCHEMA_VERSION}.0.0`,
       },
-      tags: [{ name: 'platform', description: 'Service health, readiness and platform identity' }],
+      tags: [
+        { name: 'platform', description: 'Service health, readiness and platform identity' },
+        { name: 'identity', description: 'Accounts, sessions, wallets, credentials and devices' },
+        { name: 'catalog', description: 'Instrument catalog, mint verification and lifecycle' },
+        {
+          name: 'policy',
+          description:
+            'Eligibility, terms, limits, capability states and deterministic trading policy',
+        },
+      ],
     },
     transform: jsonSchemaTransform,
   });
@@ -343,6 +355,7 @@ export async function buildApp(deps: AppDependencies) {
     mintTestToken: deps.mintTestToken,
   });
   await app.register(catalogRoutes, { catalog: deps.catalog });
+  await app.register(policyRoutes, { policy: deps.policy });
 
   return app;
 }

@@ -35,6 +35,9 @@
       "path": "../../packages/observability"
     },
     {
+      "path": "../../packages/policy"
+    },
+    {
       "path": "../../packages/solana-rpc"
     }
   ]

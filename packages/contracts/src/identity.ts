@@ -22,6 +22,8 @@ export const OPERATOR_SCOPES = [
   'ops:capabilities:write',
   'ops:catalog:read',
   'ops:catalog:write',
+  'ops:policy:read',
+  'ops:policy:write',
 ] as const;
 export const operatorScopeSchema = z.enum(OPERATOR_SCOPES);
 export type OperatorScope = z.infer<typeof operatorScopeSchema>;

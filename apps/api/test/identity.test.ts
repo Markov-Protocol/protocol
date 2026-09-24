@@ -21,6 +21,7 @@ import {
   createIdentityService,
   createProbes,
   type MarkovApi,
+  type PolicyService,
 } from '../src/index.js';
 
 const adminUrl = testDatabaseUrl();
@@ -87,6 +88,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         expectedGenesisHash: GENESIS,
         identity,
         catalog: unavailableCatalog,
+        policy: unavailablePolicy,
         mintTestToken: (input) =>
           issuer.mint(
             input.authTime
@@ -130,6 +132,11 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
   });
 }
 
+const unavailablePolicy = new Proxy({} as PolicyService, {
+  get: () => () => {
+    throw new Error('policy service is not part of this test');
+  },
+});
 const unavailableCatalog = new Proxy({} as CatalogService, {
   get: () => () => {
     throw new Error('catalog service is unavailable in this test');

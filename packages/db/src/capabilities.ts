@@ -81,6 +81,13 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
       evidence: { session: 'B02', openDecision: 'OD-05' },
     },
     {
+      capability: 'policy.eligibility.rules',
+      status: 'BLOCKED',
+      summary:
+        'Versioned eligibility, terms acknowledgements, tighten-only limits, capability states, deterministic policy decisions and race-safe reservations implemented and fixture-verified (B05). No counsel-approved rule set or terms exist (OD-06); declarations answer unknown until operators publish them.',
+      evidence: { session: 'B05', openDecision: 'OD-06' },
+    },
+    {
       capability: 'execution.jupiter.quote',
       status: 'DISABLED',
       summary: 'Not started; planned for session B09.',

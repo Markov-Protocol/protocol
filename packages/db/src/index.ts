@@ -11,4 +11,5 @@ export * from './client.js';
 export * from './identity.js';
 export * from './identity-store.js';
 export * from './migrate.js';
+export * from './policy-store.js';
 export * as schema from './schema.js';

@@ -8,11 +8,17 @@ import {
   type CatalogService,
   type IdentityService,
   type NetworkIdentitySnapshot,
+  type PolicyService,
 } from '../src/index.js';
 
 const unavailableIdentity = new Proxy({} as IdentityService, {
   get: () => () => {
     throw new Error('identity service is not part of this test');
+  },
+});
+const unavailablePolicy = new Proxy({} as PolicyService, {
+  get: () => () => {
+    throw new Error('policy service is not part of this test');
   },
 });
 const unavailableCatalog = new Proxy({} as CatalogService, {
@@ -79,6 +85,7 @@ async function makeApp(
     expectedGenesisHash: GENESIS,
     identity: unavailableIdentity,
     catalog: unavailableCatalog,
+    policy: unavailablePolicy,
     mintTestToken: null,
   });
   await app.ready();

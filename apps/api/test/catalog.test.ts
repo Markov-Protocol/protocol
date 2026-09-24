@@ -18,6 +18,7 @@ import {
   buildApp,
   createCatalogService,
   createIdentityService,
+  createPolicyService,
   createProbes,
   type MarkovApi,
 } from '../src/index.js';
@@ -185,6 +186,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         expectedGenesisHash: GENESIS,
         identity,
         catalog,
+        policy: createPolicyService({ config, db: client.db, catalog }),
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();

@@ -96,6 +96,28 @@ sunset keeps research available and blocks strategies; holders are
 notified through the notification sessions (B15). Never apply an event to
 "fix" a valuation; corrections are new evidence, not rewrites.
 
+## Eligibility, terms and policy
+
+```
+markov policy rules publish --file rules.json --token <op> --url …        # counsel-approved rule set (versions immutable)
+markov policy rules list --token <op> --url …
+markov policy terms publish --file terms.json --token <op> --url …        # https URL and SHA-256 of the shown text
+markov policy revoke <decisionId> --reason "counsel update" --token <op> --url …
+markov policy participants add <userId> --note "pilot cohort" --token <op> --url …
+markov policy eligibility --token <session> --url …                       # what a person still has to do
+markov policy evaluate --instrument <id> --notional 100000000 --intent <id> --cash 1000000000 --reserve --token <session> --url …
+```
+
+Operators hold `ops:policy:read` / `ops:policy:write`. `--fixture` publishes
+the user-assigned-code fixtures and works only in local and test. Publishing
+a new rule set does not extend anyone's eligibility: decisions made under
+another version are superseded and people declare again. Revocation is
+immediate and audited. Limits can only be tightened by owners; loosening
+the ceiling means changing policy defaults in code or the approved `BETA_*`
+caps (OD-12), never a per-user override. Beta caps apply to every account
+as soon as they are configured; the participant allowlist is enforced only
+when `BETA_PARTICIPANT_ALLOWLIST_ENABLED=true`.
+
 ## Readiness and monitoring
 
 - Liveness (`/healthz`) restarts a hung process; readiness (`/readyz`) removes
