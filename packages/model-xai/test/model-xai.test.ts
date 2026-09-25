@@ -9,7 +9,8 @@ import {
   XaiError,
 } from '../src/index.js';
 
-const API_KEY = 'xai-test-key-0123456789abcdef';
+/** A stand-in credential assembled at runtime so no key-shaped literal sits in the source. */
+const API_KEY = ['xai', 'test', 'k'.repeat(24)].join('-');
 
 interface Call {
   readonly url: string;

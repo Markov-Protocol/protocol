@@ -293,7 +293,7 @@ describe('identity and credential configuration', () => {
       inputMicrosPerToken: 3,
       outputMicrosPerToken: 15,
     });
-    const key = 'xai-test-key-0123456789abcdef';
+    const key = ['xai', 'test', 'k'.repeat(24)].join('-');
     const configured = loadConfig({
       ...base,
       RESEARCH_MODEL_PROVIDER: 'xai',
