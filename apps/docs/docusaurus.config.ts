@@ -1,28 +1,44 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type * as Preset from '@docusaurus/preset-classic';
 import type { Config } from '@docusaurus/types';
 import { themes as prismThemes } from 'prism-react-renderer';
+import { linksFor, readBuildSource } from './scripts/source-metadata.mjs';
 
 /**
  * markov.pet/docs. The site is generated from the repository at build time:
  * the API reference from docs/markov/openapi.json, the CLI reference from
- * the command tree, and the backend, app and session documents from docs/.
- * Every page carries an edit link to its source file.
+ * the command tree, and the repository documents the content manifest
+ * (content-manifest.json) lists. Where the build comes from is resolved once
+ * by scripts/sync-content.mjs (generated/source.json): edit links open the
+ * maintained branch, source links pin the built commit, and the footer says
+ * which revision this is, or that it is a local build without one.
  */
-const REPOSITORY = 'https://github.com/Markov-Protocol/protocol';
-const BRANCH = 'main';
+const root = resolve(__dirname, '..', '..');
+const source = readBuildSource(root);
+const links = linksFor(source);
+const manifest = JSON.parse(readFileSync(resolve(__dirname, 'content-manifest.json'), 'utf8')) as {
+  readonly sitePages: readonly { readonly id: string; readonly source: string }[];
+};
+const sitePages = new Map(manifest.sitePages.map((page) => [`${page.id}.md`, page.source]));
 
+/**
+ * Hand-written pages edit their file on the maintained branch; synced pages
+ * carry their own edit URL in front matter; generated pages (API, CLI) have
+ * none: their note links the input and the generator instead.
+ */
 function editUrl({ docPath }: { docPath: string }): string | undefined {
-  if (docPath.startsWith('reference/')) {
-    return `${REPOSITORY}/edit/${BRANCH}/docs/${docPath.slice('reference/'.length)}`;
-  }
-  if (docPath.startsWith('api/')) {
-    return `${REPOSITORY}/blob/${BRANCH}/docs/markov/openapi.json`;
-  }
-  if (docPath.startsWith('cli/')) {
-    return `${REPOSITORY}/blob/${BRANCH}/apps/cli/src/program.ts`;
-  }
-  return `${REPOSITORY}/edit/${BRANCH}/apps/docs/docs/${docPath}`;
+  const page = sitePages.get(docPath);
+  return page ? links.edit(page) : undefined;
 }
+
+const commitUrl = links.commit();
+const revision =
+  source.commit && commitUrl
+    ? `Built from commit <a href="${commitUrl}"><code>${source.commit.slice(0, 12)}</code></a>.`
+    : source.state === 'local-uncommitted'
+      ? 'Local build with uncommitted changes: no verified source revision.'
+      : 'Source revision unknown: this build carried no commit metadata.';
 
 const config: Config = {
   title: 'Markov documentation',
@@ -95,7 +111,7 @@ const config: Config = {
           position: 'left',
         },
         { href: 'https://markov.pet', label: 'App', position: 'right' },
-        { href: REPOSITORY, label: 'GitHub', position: 'right' },
+        { href: source.repository, label: 'GitHub', position: 'right' },
       ],
     },
     footer: {
@@ -124,12 +140,11 @@ const config: Config = {
             { label: 'Provider capabilities', to: '/reference/markov/provider-capabilities' },
             { label: 'Open decisions', to: '/reference/markov/open-decisions' },
             { label: 'Session logs', to: '/reference/sessions/b01' },
-            { label: 'Repository', href: REPOSITORY },
+            { label: 'Repository', href: source.repository },
           ],
         },
       ],
-      copyright:
-        'Generated from the Markov repository at build time. Nothing here is investment advice, a promise of liquidity, or a claim that anything is deployed: every capability carries its verification state.',
+      copyright: `<span class="markov-build-source" data-source-state="${source.state}">${revision}</span> Generated from the Markov repository at build time. Nothing here is investment advice, a promise of liquidity, or a claim that anything is deployed: every capability carries its verification state.`,
     },
     prism: {
       theme: prismThemes.github,

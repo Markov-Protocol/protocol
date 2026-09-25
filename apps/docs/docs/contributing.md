@@ -62,7 +62,7 @@ pnpm secrets:scan
 
 ## Session handoffs
 
-Each session log (`docs/sessions/Bxx.md`, `Fxx.md`, `Dxx.md`) records the
+Each session log (`docs/sessions/Bxx.md`, `Fxx.md`, `Dxx.md`, `Pxx.md`, `Exx.md`) records the
 working behaviour, the commands and their results, the commit hash, the
 provider verification status, unresolved risks and dependencies, and the
 exact next session. If a test or a commit cannot run, the log says so;
@@ -77,3 +77,18 @@ links treated as errors; `pnpm docs:e2e` runs the browser checks against
 the built site. Hand-written pages live under `apps/docs/docs/`; generated
 pages are not committed, so edit the source document, the OpenAPI route or
 the CLI command instead.
+
+Publishing is explicit: a repository document appears on the site only
+when `apps/docs/content-manifest.json` lists it, with its public id, its
+audience (`user`, `developer`, `operator` or `reviewer`) and its kind
+(`curated` or `generated`). A new session log or design note is therefore
+not published until someone adds it there; a listed file that disappears
+fails the build, and so does a page under `apps/docs/docs` the manifest
+does not list. The repository is public, so leaving a document out of the
+manifest keeps it off the site but is not a way to keep it confidential:
+confidential material does not belong in the repository at all.
+
+Every synced page says which file it came from and links it at the
+commit the site was built from (the footer names that commit); edit links
+open the maintained branch. A local build from uncommitted changes says
+that it has no verified source revision instead of pretending otherwise.

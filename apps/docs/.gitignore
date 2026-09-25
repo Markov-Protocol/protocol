@@ -6,3 +6,4 @@ docs/reference/
 docs/api/
 docs/cli/
 src/css/markov-tokens.generated.css
+generated/

@@ -445,6 +445,18 @@
       "title": "Reproducible release candidate and truthful status",
       "status": "complete",
       "log": "docs/sessions/P01.md",
+      "commits": [
+        {
+          "sha": "c52ecabd106d94a88bf443e8d23f4d2f6ddb6c2f",
+          "subject": "ci(release): retain verified candidate evidence"
+        }
+      ]
+    },
+    {
+      "id": "D02",
+      "title": "Accurate source links and public content inventory",
+      "status": "complete",
+      "log": "docs/sessions/D02.md",
       "commits": [],
       "bindsTo": "next-manifest-update"
     }
@@ -573,7 +585,7 @@
     {
       "id": "D02",
       "title": "Accurate source links and public content inventory",
-      "status": "not_started"
+      "status": "complete"
     },
     {
       "id": "D03",

@@ -47,6 +47,7 @@ export default defineConfig({
             'packages/solana-rpc/test/**/*.test.ts',
             'packages/testkit/test/**/*.test.ts',
             'tooling/**/*.test.mjs',
+            'apps/docs/test/**/*.test.mjs',
           ],
           exclude: ['**/node_modules/**', '**/dist/**'],
           pool: 'forks',

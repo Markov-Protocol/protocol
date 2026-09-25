@@ -10,12 +10,22 @@
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { linksFor, readBuildSource } from './source-metadata.mjs';
 
 const here = dirname(new URL(import.meta.url).pathname);
 const root = resolve(here, '..', '..', '..');
 const out = resolve(here, '..', 'docs', 'api');
 const document = JSON.parse(readFileSync(join(root, 'docs', 'markov', 'openapi.json'), 'utf8'));
-const REPOSITORY = 'https://github.com/Markov-Protocol/protocol';
+const source = readBuildSource(root);
+const links = linksFor(source);
+const GENERATOR = 'apps/docs/scripts/generate-api-reference.mjs';
+const INPUT = 'docs/markov/openapi.json';
+/** Where a generated page came from: the input and the generator, pinned to the build's commit when known. */
+const provenance = `[\`${INPUT}\`](${links.blob(INPUT)}) by [\`${GENERATOR}\`](${links.blob(GENERATOR)})${
+  source.commit
+    ? ` at commit [\`${source.commit.slice(0, 12)}\`](${links.commit()})`
+    : ' (this build has no verified source revision; the links open the maintained branch)'
+}`;
 const MAX_DEPTH = 3;
 const METHOD_ORDER = ['get', 'post', 'put', 'patch', 'delete'];
 
@@ -199,7 +209,7 @@ for (const tag of orderedTags) {
     `description: ${JSON.stringify(tagInfo.get(tag) || `Routes tagged ${tag}`)}`,
     '---',
     '',
-    `:::info Generated\nThis page is generated from [\`docs/markov/openapi.json\`](${REPOSITORY}/blob/main/docs/markov/openapi.json), the document the API exports (\`pnpm openapi:generate\`) and CI checks for drift. Authentication, principals, scopes and rate limits are described in [the API conventions](../guides/api.md).\n:::`,
+    `:::info Generated\nThis page is generated from ${provenance}. The OpenAPI document is what the API exports (\`pnpm openapi:generate\`) and CI checks for drift; change the route, not this page. Authentication, principals, scopes and rate limits are described in [the API conventions](../guides/api.md).\n:::`,
     '',
   ];
   if (tagInfo.get(tag)) {
@@ -273,7 +283,7 @@ const index = [
   `description: "Every route of the Markov API (${indexRows.length} operations), generated from the OpenAPI document the API exports."`,
   '---',
   '',
-  `:::info Generated\nGenerated from [\`docs/markov/openapi.json\`](${REPOSITORY}/blob/main/docs/markov/openapi.json) (OpenAPI ${document.openapi}, ${document.info?.title ?? 'Markov API'} ${document.info?.version ?? ''}). Run \`pnpm openapi:generate\` after changing a route; CI fails on drift.\n:::`,
+  `:::info Generated\nGenerated from ${provenance} (OpenAPI ${document.openapi}, ${document.info?.title ?? 'Markov API'} ${document.info?.version ?? ''}). Run \`pnpm openapi:generate\` after changing a route; CI fails on drift.\n:::`,
   '',
   'The API is a Fastify service with zod-validated routes. Read [the conventions](../guides/api.md) first: bearer principals (users, agents, devices, operators), scopes, the error envelope, idempotency and rate limits. Routes are grouped by tag below; each tag page lists every operation with its parameters, request body and responses.',
   '',

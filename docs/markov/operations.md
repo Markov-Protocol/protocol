@@ -512,10 +512,11 @@ Audit actions: `maintenance.*`, `notification.*`,
 (site `url` `https://markov.pet`, `baseUrl` `/docs/`); `markov.pet` is not
 routed to it yet, and it is served on Vercel (below). It contains no
 hand-copied documentation: `pnpm docs:build` first runs
-`apps/docs/scripts/sync-content.mjs` (every document under `docs/markov`,
-`docs/markov/adr`, `docs/frontend`, `docs/frontend/design-reference` and
-`docs/sessions`, with an edit link to the source file and links to
-evidence or code rewritten to the repository), then
+`apps/docs/scripts/sync-content.mjs` (the repository documents the content
+manifest `apps/docs/content-manifest.json` lists, each with its public id,
+audience and kind; a document the manifest does not list is not published,
+a listed source that is missing fails the build, and so does a page under
+`apps/docs/docs` that the manifest does not list), then
 `generate-api-reference.mjs` (one page per tag of `docs/markov/openapi.json`
 with parameters, bodies and responses) and `generate-cli-reference.mjs`
 (the command tree of the built `apps/cli`, so `pnpm build` runs first),
@@ -524,6 +525,25 @@ pages live under `apps/docs/docs/{reference,api,cli}` and are ignored by
 git; the hand-written guides live under `apps/docs/docs/{intro.md,
 getting-started,guides,contributing.md}`, and their commands are the ones
 `scripts/ci/startup-check.sh` runs.
+
+Source links (D02). The sync step resolves where the build comes from and
+writes it to `apps/docs/generated/source.json` (repository, edit branch,
+commit, state; nothing else from the environment). The commit is taken, in
+order, from `MARKOV_DOCS_SOURCE_COMMIT`, `VERCEL_GIT_COMMIT_SHA` or
+`GITHUB_SHA` (a full 40-character hash; anything else fails the build, and
+so does a hash that differs from the checked-out commit when git is
+available), or from a clean local checkout. Links to source evidence (the
+file a page was published from, session evidence, the inputs and the
+generator of the API and CLI references) pin that commit; the footer names
+it. A build from a checkout with uncommitted changes, or without any
+commit metadata, says so in the footer and in each source note, and its
+links open the maintained branch instead. Edit links open the manifest's
+`maintainedBranch` (`claude/affectionate-gauss-2ml7ll` until the owner
+merges into `main`), or `MARKOV_DOCS_EDIT_BRANCH` when set to a valid
+branch name; branch and path segments are URL-encoded one by one, so a
+branch with a slash stays one path. Generated pages have no edit link.
+Embedded repository images are copied next to the page and bundled; no
+page hot-links a branch. CI scans the built bundle with gitleaks.
 
 ```
 pnpm docs:start          # local preview, http://127.0.0.1:3200/docs/

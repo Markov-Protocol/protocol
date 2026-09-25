@@ -10,11 +10,21 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { linksFor, readBuildSource } from './source-metadata.mjs';
 
 const here = dirname(new URL(import.meta.url).pathname);
 const root = resolve(here, '..', '..', '..');
 const out = resolve(here, '..', 'docs', 'cli');
-const REPOSITORY = 'https://github.com/Markov-Protocol/protocol';
+const source = readBuildSource(root);
+const links = linksFor(source);
+const GENERATOR = 'apps/docs/scripts/generate-cli-reference.mjs';
+const INPUT = 'apps/cli/src/program.ts';
+/** Where a generated page came from: the input and the generator, pinned to the build's commit when known. */
+const provenance = `[\`${INPUT}\`](${links.blob(INPUT)}) by [\`${GENERATOR}\`](${links.blob(GENERATOR)})${
+  source.commit
+    ? ` at commit [\`${source.commit.slice(0, 12)}\`](${links.commit()})`
+    : ' (this build has no verified source revision; the links open the maintained branch)'
+}`;
 const dist = join(root, 'apps', 'cli', 'dist', 'index.js');
 if (!existsSync(dist)) {
   throw new Error('apps/cli/dist/index.js is missing; run `pnpm build` first');
@@ -99,7 +109,7 @@ groups.forEach((command, index) => {
     `description: ${JSON.stringify(command.description() ?? `The markov ${name} commands`)}`,
     '---',
     '',
-    `:::info Generated\nGenerated from the command tree in [\`apps/cli/src/program.ts\`](${REPOSITORY}/blob/main/apps/cli/src/program.ts) (\`pnpm build\` then \`node apps/docs/scripts/generate-cli-reference.mjs\`). Run commands with \`pnpm markov …\` or \`node apps/cli/dist/main.js …\`.\n:::`,
+    `:::info Generated\nGenerated from the command tree in ${provenance} (\`pnpm build\` then \`node apps/docs/scripts/generate-cli-reference.mjs\`). Run commands with \`pnpm markov …\` or \`node apps/cli/dist/main.js …\`.\n:::`,
     '',
   ];
   renderCommand(command, ['markov'], lines, 2);
@@ -117,7 +127,7 @@ const index = [
   `description: "The markov command line: ${groups.length} command groups generated from the program definition."`,
   '---',
   '',
-  `:::info Generated\nGenerated from [\`apps/cli/src/program.ts\`](${REPOSITORY}/blob/main/apps/cli/src/program.ts). The [CLI guide](../guides/cli.md) walks through the flows the startup check verifies.\n:::`,
+  `:::info Generated\nGenerated from ${provenance}. The [CLI guide](../guides/cli.md) walks through the flows the startup check verifies.\n:::`,
   '',
   '```bash',
   'pnpm build                      # builds apps/cli/dist',

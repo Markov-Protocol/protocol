@@ -1,14 +1,22 @@
 #!/usr/bin/env node
 /**
- * Copies the repository's documents into the site (docs/reference/**) with
- * front matter, a curated order and rewritten links, and extracts the
- * design tokens for the theme. Generated output is gitignored; the
- * repository files stay the source of truth and every page links back to
- * them for editing.
+ * Copies the repository documents the content manifest lists
+ * (apps/docs/content-manifest.json) into the site (docs/reference/**) with
+ * front matter, the manifest's order and rewritten links, and extracts the
+ * design tokens for the theme. Nothing the manifest does not list is
+ * published, and a listed source that is missing fails the build.
+ *
+ * It also resolves where this build comes from (scripts/source-metadata.mjs)
+ * and writes it to generated/source.json for the generators and the site
+ * config: links to source evidence pin that commit, edit links open the
+ * maintained branch, and a build without a verified revision says so.
+ * Generated output is gitignored; the repository files stay the source of
+ * truth.
  *
  *   node apps/docs/scripts/sync-content.mjs
  */
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -18,116 +26,61 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, posix, relative, resolve, sep } from 'node:path';
+import { loadManifest, ROOT, unlistedSitePages } from './content-manifest.mjs';
+import { rewriteLinks } from './rewrite-links.mjs';
+import { linksFor, resolveSource, writeBuildSource } from './source-metadata.mjs';
 
 const here = dirname(new URL(import.meta.url).pathname);
-const root = resolve(here, '..', '..', '..');
+const root = ROOT;
 const siteDocs = resolve(here, '..', 'docs');
 const out = join(siteDocs, 'reference');
-const REPOSITORY = 'https://github.com/Markov-Protocol/protocol';
-const BRANCH = 'main';
-const RAW = 'https://raw.githubusercontent.com/Markov-Protocol/protocol';
 /** HTML the documents use on purpose; every other `<word>` is a placeholder and is escaped. */
 const HTML_ALLOWED = new Set(['pre', 'br', 'details', 'summary', 'sub', 'sup', 'kbd', 'code']);
 
-/** Source folders (not recursive) and the order their pages appear in. */
-const SOURCES = [
-  {
-    dir: 'docs/markov',
-    target: 'markov',
-    label: 'Backend contract',
-    order: [
-      'product-scope',
-      'architecture',
-      'api',
-      'identity-and-principals',
-      'catalog',
-      'instrument-admission',
-      'eligibility-and-policy',
-      'research',
-      'strategies',
-      'strategy-registry',
-      'execution-planning',
-      'execution-state-machine',
-      'accounting-methodology',
-      'discovery',
-      'agents',
-      'agent-permissions',
-      'maintenance',
-      'provider-capabilities',
-      'source-register',
-      'threat-model',
-      'operations',
-      'release-readiness',
-      'open-decisions',
-    ],
-  },
-  { dir: 'docs/markov/adr', target: 'markov/adr', label: 'Architecture decisions', position: 30 },
-  {
-    dir: 'docs/frontend',
-    target: 'frontend',
-    label: 'App (markov.pet)',
-    order: [
-      'README',
-      'product-contract',
-      'routes-and-journeys',
-      'mark-i-shell',
-      'design-system',
-      'accessibility',
-      'api-contract-map',
-      'security-and-privacy',
-      'operations',
-      'verification',
-      'source-register',
-    ],
-  },
-  {
-    dir: 'docs/frontend/design-reference',
-    target: 'frontend/design-reference',
-    label: 'Design reference',
-    position: 20,
-  },
-  { dir: 'docs/sessions', target: 'sessions', label: 'Session evidence' },
-];
-
-function listMarkdown(dir) {
-  const absolute = join(root, dir);
-  if (!existsSync(absolute)) {
-    return [];
-  }
-  return readdirSync(absolute)
-    .filter((name) => name.endsWith('.md') && statSync(join(absolute, name)).isFile())
-    .sort();
+const manifest = loadManifest(root);
+const unlisted = unlistedSitePages(manifest, root);
+if (unlisted.length > 0) {
+  throw new Error(
+    `sync-content: these pages are not in ${'apps/docs/content-manifest.json'} (sitePages) and would be published unreviewed:\n- ${unlisted.join('\n- ')}`,
+  );
 }
+const source = resolveSource({
+  repository: manifest.repository,
+  maintainedBranch: manifest.maintainedBranch,
+  root,
+});
+const links = linksFor(source);
+writeBuildSource(root, source);
 
-/** Session ids sort by letter then number (B01 … B13, F01 … F10). */
-function sessionKey(name) {
-  const match = /^([A-Z])(\d+)$/.exec(name);
-  return match ? `${match[1]}${match[2].padStart(4, '0')}` : name;
-}
-
-const pages = new Map(); // repo-relative source path -> { destination (site-relative), slugId }
-for (const source of SOURCES) {
-  const names = listMarkdown(source.dir);
-  const ordered = source.order
-    ? [...names].sort((a, b) => {
-        const ia = source.order.indexOf(a.replace(/\.md$/, ''));
-        const ib = source.order.indexOf(b.replace(/\.md$/, ''));
-        return (ia === -1 ? 1000 : ia) - (ib === -1 ? 1000 : ib) || a.localeCompare(b);
-      })
-    : source.target === 'sessions'
-      ? [...names].sort((a, b) =>
-          sessionKey(a.replace(/\.md$/, '')).localeCompare(sessionKey(b.replace(/\.md$/, ''))),
-        )
-      : names;
-  ordered.forEach((name, index) => {
-    const sourcePath = posix.join(source.dir, name);
-    const id = name.replace(/\.md$/, '').toLowerCase();
-    pages.set(sourcePath, {
-      destination: posix.join('reference', source.target, `${id}.md`),
-      position: index + 1,
-      source,
-    });
+const pages = new Map(); // repo-relative source path -> { destination (site-relative), position, section }
+const positions = new Map();
+for (const entry of manifest.pages) {
+  const target = posix.dirname(entry.id).replace(/^reference\//, '');
+  const position = (positions.get(target) ?? 0) + 1;
+  positions.set(target, position);
+  pages.set(entry.source, {
+    destination: `${entry.id}.md`,
+    position,
+    section: manifest.sections.find((section) => section.target === target),
   });
+}
+
+/** Repository documents in the published folders that the manifest leaves out (reported, not published). */
+function notPublished() {
+  const dirs = new Set([...pages.keys()].map((path) => posix.dirname(path)));
+  const missing = [];
+  for (const dir of dirs) {
+    for (const name of readdirSync(join(root, ...dir.split('/')))) {
+      const path = posix.join(dir, name);
+      if (
+        name.endsWith('.md') &&
+        statSync(join(root, ...path.split('/'))).isFile() &&
+        !pages.has(path)
+      )
+        missing.push(path);
+    }
+  }
+  return missing.sort();
 }
 
 function titleOf(body, fallback) {
@@ -190,33 +143,38 @@ function escapePlaceholders(body) {
     .join('\n');
 }
 
-function rewriteLinks(body, sourcePath, destination) {
-  const sourceDir = posix.dirname(sourcePath);
-  return body.replace(
-    /(!?)\[([^\]]*)\]\(([^)\s]+)((?:\s+"[^"]*")?)\)/g,
-    (whole, bang, text, target, title) => {
-      if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith('#')) {
-        return whole;
-      }
-      const [pathPart, anchor] = target.split('#');
-      const repoRel = posix.normalize(posix.join(sourceDir, pathPart));
-      const page = pages.get(repoRel);
-      if (page) {
-        const relLink = posix.relative(posix.dirname(destination), page.destination);
-        return `${bang}[${text}](${relLink}${anchor ? `#${anchor}` : ''}${title})`;
-      }
-      const absolute = join(root, ...repoRel.split('/'));
-      if (!existsSync(absolute)) {
-        process.stderr.write(
-          `sync-content: ${sourcePath} links to a missing file ${repoRel}; left as a repository link\n`,
-        );
-      }
-      const url = bang
-        ? `${RAW}/${BRANCH}/${repoRel}`
-        : `${REPOSITORY}/blob/${BRANCH}/${repoRel}${anchor ? `#${anchor}` : ''}`;
-      return `${bang}[${text}](${url}${title})`;
-    },
-  );
+/** Copies a repository image next to the page so the site bundles the revision it was built from. */
+function bundleImage(repoRel, destination) {
+  const absolute = join(root, ...repoRel.split('/'));
+  if (!existsSync(absolute)) {
+    throw new Error(`sync-content: an image ${repoRel} is embedded but does not exist`);
+  }
+  const name = repoRel.replaceAll('/', '__');
+  const assets = join(siteDocs, ...posix.dirname(destination).split('/'), '_assets');
+  mkdirSync(assets, { recursive: true });
+  copyFileSync(absolute, join(assets, name));
+  return `./_assets/${name}`;
+}
+
+function rewrite(body, sourcePath, destination) {
+  return rewriteLinks(body, {
+    sourcePath,
+    destination,
+    pages,
+    links,
+    bundleImage,
+    exists: (repoRel) => existsSync(join(root, ...repoRel.split('/'))),
+    warn: (message) => process.stderr.write(`sync-content: ${message}\n`),
+  });
+}
+
+/** The provenance note at the top of every synced page. */
+function sourceNote(sourcePath) {
+  const link = `[\`${sourcePath}\`](${links.blob(sourcePath)})`;
+  if (source.commit) {
+    return `:::info Source\nPublished from ${link} at commit [\`${source.commit.slice(0, 12)}\`](${links.commit()}). Edit the repository file, not the site.\n:::\n\n`;
+  }
+  return `:::info Source\nPublished from ${link}. This build has no verified source revision (${source.state === 'local-uncommitted' ? 'a local build with uncommitted changes' : 'no commit metadata'}), so the link opens the maintained branch, which may differ from this page. Edit the repository file, not the site.\n:::\n\n`;
 }
 
 function frontMatter(fields) {
@@ -238,11 +196,11 @@ for (const [sourcePath, page] of pages) {
   const fallback = posix.basename(sourcePath, '.md');
   const title = titleOf(raw, fallback);
   const withoutTitle = raw.replace(/^#\s+.+\n+/m, '');
-  const body = escapePlaceholders(rewriteLinks(withoutTitle, sourcePath, page.destination));
-  const isSession = page.source.target === 'sessions';
+  const body = escapePlaceholders(rewrite(withoutTitle, sourcePath, page.destination));
+  const isSession = page.section.target === 'sessions';
   const label = isSession
     ? fallback
-    : page.source.target === 'frontend' && fallback === 'README'
+    : page.section.target === 'frontend' && fallback === 'README'
       ? 'Overview'
       : title;
   const destination = join(siteDocs, ...page.destination.split('/'));
@@ -254,22 +212,22 @@ for (const [sourcePath, page] of pages) {
       sidebar_label: label.length > 48 ? `${label.slice(0, 45)}…` : label,
       sidebar_position: page.position,
       description: firstParagraph(withoutTitle),
-      custom_edit_url: `${REPOSITORY}/edit/${BRANCH}/${sourcePath}`,
+      custom_edit_url: links.edit(sourcePath),
       source_path: sourcePath,
     }) +
-      `:::info Source\nThis page is generated from [\`${sourcePath}\`](${REPOSITORY}/blob/${BRANCH}/${sourcePath}) at build time. Edit the repository file, not the site.\n:::\n\n` +
+      sourceNote(sourcePath) +
       body,
   );
   written += 1;
 }
 
-for (const source of SOURCES) {
-  if (source.position !== undefined) {
-    const categoryDir = join(out, ...source.target.split('/'));
+for (const section of manifest.sections) {
+  if (section.position !== undefined) {
+    const categoryDir = join(out, ...section.target.split('/'));
     mkdirSync(categoryDir, { recursive: true });
     writeFileSync(
       join(categoryDir, '_category_.json'),
-      `${JSON.stringify({ label: source.label, position: source.position, collapsed: true }, null, 2)}\n`,
+      `${JSON.stringify({ label: section.label, position: section.position, collapsed: true }, null, 2)}\n`,
     );
   }
 }
@@ -285,6 +243,12 @@ writeFileSync(
   `/* GENERATED by apps/docs/scripts/sync-content.mjs from packages/ui/src/styles/tokens.css. Do not edit. */\n${rootBlock[0]}\n`,
 );
 
+const skipped = notPublished();
 process.stdout.write(
-  `sync-content: ${written} pages written under ${relative(root, out).split(sep).join('/')}\n`,
+  `sync-content: ${written} pages written under ${relative(root, out).split(sep).join('/')}; source ${source.commit ? `commit ${source.commit.slice(0, 12)} (${source.origin})` : source.state}; edit branch ${source.branch}\n`,
 );
+if (skipped.length > 0) {
+  process.stdout.write(
+    `sync-content: not published (not in the content manifest): ${skipped.join(', ')}\n`,
+  );
+}

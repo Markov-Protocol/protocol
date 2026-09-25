@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 
@@ -13,6 +13,21 @@ const SCREEN = 'rgb(7, 9, 9)';
 const FRAME_LIGHT = 'rgb(243, 236, 228)';
 const evidenceDir = join(process.cwd(), '..', '..', 'docs', 'frontend', 'evidence', 'D01');
 mkdirSync(evidenceDir, { recursive: true });
+
+/** Where the served build says it came from (written by scripts/sync-content.mjs). */
+const source = JSON.parse(
+  readFileSync(join(process.cwd(), 'generated', 'source.json'), 'utf8'),
+) as {
+  repository: string;
+  branch: string;
+  commit: string | null;
+  state: string;
+};
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const branchPath = source.branch.split('/').map(encodeURIComponent).join('/');
+/** Evidence links pin the commit; without a verified revision they open the maintained branch. */
+const blobPrefix = `${source.repository}/blob/${source.commit ?? branchPath}/`;
+const editPrefix = `${source.repository}/edit/${branchPath}/`;
 
 test.describe('markov.pet/docs', () => {
   test('home shows the Mark I frame, the four steps and the entry points', async ({
@@ -102,7 +117,7 @@ test.describe('markov.pet/docs', () => {
     await expect(page.getByText('Valuation and performance (B13)').first()).toBeVisible();
     await expect(page.getByRole('link', { name: /Edit this page/i })).toHaveAttribute(
       'href',
-      /github\.com\/Markov-Protocol\/protocol\/edit\/main\/docs\/markov\/accounting-methodology\.md$/,
+      `${editPrefix}docs/markov/accounting-methodology.md`,
     );
     await page.screenshot({
       path: join(evidenceDir, `docs-methodology-${width}.png`),
@@ -113,8 +128,95 @@ test.describe('markov.pet/docs', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('B13');
     await expect(page.getByRole('link', { name: /Edit this page/i })).toHaveAttribute(
       'href',
-      /github\.com\/Markov-Protocol\/protocol\/edit\/main\/docs\/sessions\/B13\.md$/,
+      `${editPrefix}docs/sessions/B13.md`,
     );
+  });
+
+  test('every page links to the source this build came from', async ({ page }) => {
+    // The footer names the revision, or says plainly that there is none.
+    await page.goto('/docs/intro');
+    const footer = page.locator('.markov-build-source');
+    await expect(footer).toHaveAttribute('data-source-state', source.state);
+    if (source.commit) {
+      await expect(footer.getByRole('link')).toHaveAttribute(
+        'href',
+        `${source.repository}/commit/${source.commit}`,
+      );
+    } else {
+      await expect(footer).toContainText(/no verified source revision|revision unknown/);
+    }
+    // Hand-written page: edits its own file on the maintained branch.
+    await expect(page.getByRole('link', { name: /Edit this page/i })).toHaveAttribute(
+      'href',
+      `${editPrefix}apps/docs/docs/intro.md`,
+    );
+
+    // Synced page: the source note pins the file; edits go to the maintained branch.
+    await page.goto('/docs/reference/markov/open-decisions');
+    const note = page.locator('.theme-doc-markdown .alert').first();
+    await expect(note.getByRole('link', { name: 'docs/markov/open-decisions.md' })).toHaveAttribute(
+      'href',
+      `${blobPrefix}docs/markov/open-decisions.md`,
+    );
+    await expect(page.getByRole('link', { name: /Edit this page/i })).toHaveAttribute(
+      'href',
+      `${editPrefix}docs/markov/open-decisions.md`,
+    );
+
+    // Session evidence: repository files outside the site (here the release manifest the log
+    // binds its commit in) open at the same revision.
+    await page.goto('/docs/reference/sessions/f01');
+    await expect(
+      page
+        .locator(`.theme-doc-markdown a[href="${blobPrefix}docs/markov/release-status.json"]`)
+        .first(),
+    ).toBeVisible();
+    const hrefs = await page
+      .locator('.theme-doc-markdown a[href*="github.com/Markov-Protocol/protocol/"]')
+      .evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute('href') ?? ''));
+    for (const href of hrefs) {
+      expect(href).toMatch(
+        new RegExp(
+          `^(${escapeRegExp(blobPrefix)}|${escapeRegExp(editPrefix)}|${escapeRegExp(source.repository)}/commit/)`,
+        ),
+      );
+    }
+
+    // Generated pages: no edit link; the note names the input and the generator at this revision.
+    for (const [path, input, generator] of [
+      [
+        '/docs/api/analytics',
+        'docs/markov/openapi.json',
+        'apps/docs/scripts/generate-api-reference.mjs',
+      ],
+      [
+        '/docs/cli/performance',
+        'apps/cli/src/program.ts',
+        'apps/docs/scripts/generate-cli-reference.mjs',
+      ],
+    ] as const) {
+      await page.goto(path);
+      await expect(page.getByRole('link', { name: /Edit this page/i })).toHaveCount(0);
+      await expect(page.getByRole('link', { name: input }).first()).toHaveAttribute(
+        'href',
+        `${blobPrefix}${input}`,
+      );
+      await expect(page.getByRole('link', { name: generator }).first()).toHaveAttribute(
+        'href',
+        `${blobPrefix}${generator}`,
+      );
+    }
+
+    // Images on a synced page are bundled with the site, never hot-linked from the repository.
+    await page.goto('/docs/reference/frontend/design-reference/readme');
+    const remote = await page
+      .locator('main img')
+      .evaluateAll((images) =>
+        images
+          .map((image) => image.getAttribute('src') ?? '')
+          .filter((src) => /^https?:/.test(src)),
+      );
+    expect(remote).toEqual([]);
   });
 
   test('search finds pages by a word in them', async ({ page }) => {

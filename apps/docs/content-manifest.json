@@ -1,0 +1,579 @@
+{
+  "$comment": "Everything markov.pet/docs publishes, and nothing else. A repository document is published only when it is listed here; a listed source that is missing fails the build. Read by apps/docs/scripts/sync-content.mjs, the generators and docusaurus.config.ts; checked by apps/docs/test.",
+  "schemaVersion": 1,
+  "repository": "https://github.com/Markov-Protocol/protocol",
+  "maintainedBranch": "claude/affectionate-gauss-2ml7ll",
+  "maintainedBranchNote": "Edit links open this branch: it carries every session until the owner merges it into main (which holds only the initial commit). Change it to main in the commit that follows the merge.",
+  "audiences": {
+    "user": "people using markov.pet",
+    "developer": "people building against or inside the repository",
+    "operator": "people running the services",
+    "reviewer": "people checking evidence, status and security"
+  },
+  "sections": [
+    {
+      "target": "markov",
+      "label": "Backend contract"
+    },
+    {
+      "target": "markov/adr",
+      "label": "Architecture decisions",
+      "position": 30
+    },
+    {
+      "target": "frontend",
+      "label": "App (markov.pet)"
+    },
+    {
+      "target": "frontend/design-reference",
+      "label": "Design reference",
+      "position": 20
+    },
+    {
+      "target": "sessions",
+      "label": "Session evidence"
+    }
+  ],
+  "sitePages": [
+    {
+      "id": "intro",
+      "source": "apps/docs/docs/intro.md",
+      "audience": "user",
+      "kind": "curated"
+    },
+    {
+      "id": "getting-started/run-locally",
+      "source": "apps/docs/docs/getting-started/run-locally.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "getting-started/startup-check",
+      "source": "apps/docs/docs/getting-started/startup-check.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "guides/app",
+      "source": "apps/docs/docs/guides/app.md",
+      "audience": "user",
+      "kind": "curated"
+    },
+    {
+      "id": "guides/cli",
+      "source": "apps/docs/docs/guides/cli.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "guides/api",
+      "source": "apps/docs/docs/guides/api.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "guides/performance",
+      "source": "apps/docs/docs/guides/performance.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "guides/security",
+      "source": "apps/docs/docs/guides/security.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "contributing",
+      "source": "apps/docs/docs/contributing.md",
+      "audience": "developer",
+      "kind": "curated"
+    }
+  ],
+  "pages": [
+    {
+      "id": "reference/markov/product-scope",
+      "source": "docs/markov/product-scope.md",
+      "audience": "user",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/architecture",
+      "source": "docs/markov/architecture.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/api",
+      "source": "docs/markov/api.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/identity-and-principals",
+      "source": "docs/markov/identity-and-principals.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/catalog",
+      "source": "docs/markov/catalog.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/instrument-admission",
+      "source": "docs/markov/instrument-admission.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/eligibility-and-policy",
+      "source": "docs/markov/eligibility-and-policy.md",
+      "audience": "user",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/research",
+      "source": "docs/markov/research.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/strategies",
+      "source": "docs/markov/strategies.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/strategy-registry",
+      "source": "docs/markov/strategy-registry.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/execution-planning",
+      "source": "docs/markov/execution-planning.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/execution-state-machine",
+      "source": "docs/markov/execution-state-machine.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/accounting-methodology",
+      "source": "docs/markov/accounting-methodology.md",
+      "audience": "user",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/discovery",
+      "source": "docs/markov/discovery.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/agents",
+      "source": "docs/markov/agents.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/agent-permissions",
+      "source": "docs/markov/agent-permissions.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/maintenance",
+      "source": "docs/markov/maintenance.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/provider-capabilities",
+      "source": "docs/markov/provider-capabilities.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/source-register",
+      "source": "docs/markov/source-register.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/threat-model",
+      "source": "docs/markov/threat-model.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/operations",
+      "source": "docs/markov/operations.md",
+      "audience": "operator",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/release-readiness",
+      "source": "docs/markov/release-readiness.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/open-decisions",
+      "source": "docs/markov/open-decisions.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/status-a-to-z",
+      "source": "docs/markov/status-a-to-z.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/adr/adr-0001-scope-and-repository",
+      "source": "docs/markov/adr/ADR-0001-scope-and-repository.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/adr/adr-0002-runtime-and-toolchain",
+      "source": "docs/markov/adr/ADR-0002-runtime-and-toolchain.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/adr/adr-0003-service-topology-and-identity-binding",
+      "source": "docs/markov/adr/ADR-0003-service-topology-and-identity-binding.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/adr/adr-0004-chain-access-in-b01",
+      "source": "docs/markov/adr/ADR-0004-chain-access-in-b01.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/adr/adr-0005-commit-policy",
+      "source": "docs/markov/adr/ADR-0005-commit-policy.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/adr/adr-0006-web-app-in-monorepo",
+      "source": "docs/markov/adr/ADR-0006-web-app-in-monorepo.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/adr/adr-0007-wallet-standard-adapter",
+      "source": "docs/markov/adr/ADR-0007-wallet-standard-adapter.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/adr/adr-0008-strategy-registry-program",
+      "source": "docs/markov/adr/ADR-0008-strategy-registry-program.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/adr/adr-0009-sdk-free-solana-codec",
+      "source": "docs/markov/adr/ADR-0009-sdk-free-solana-codec.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/markov/adr/adr-0010-ci-evidence-and-release-status",
+      "source": "docs/markov/adr/ADR-0010-ci-evidence-and-release-status.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/readme",
+      "source": "docs/frontend/README.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/product-contract",
+      "source": "docs/frontend/product-contract.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/routes-and-journeys",
+      "source": "docs/frontend/routes-and-journeys.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/mark-i-shell",
+      "source": "docs/frontend/mark-i-shell.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/design-system",
+      "source": "docs/frontend/design-system.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/accessibility",
+      "source": "docs/frontend/accessibility.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/api-contract-map",
+      "source": "docs/frontend/api-contract-map.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/security-and-privacy",
+      "source": "docs/frontend/security-and-privacy.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/operations",
+      "source": "docs/frontend/operations.md",
+      "audience": "operator",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/verification",
+      "source": "docs/frontend/verification.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/source-register",
+      "source": "docs/frontend/source-register.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/frontend/design-reference/readme",
+      "source": "docs/frontend/design-reference/README.md",
+      "audience": "developer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b01",
+      "source": "docs/sessions/B01.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b02",
+      "source": "docs/sessions/B02.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b03",
+      "source": "docs/sessions/B03.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b04",
+      "source": "docs/sessions/B04.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b05",
+      "source": "docs/sessions/B05.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b06",
+      "source": "docs/sessions/B06.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b07",
+      "source": "docs/sessions/B07.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b08",
+      "source": "docs/sessions/B08.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b09",
+      "source": "docs/sessions/B09.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b10",
+      "source": "docs/sessions/B10.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b11",
+      "source": "docs/sessions/B11.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b12",
+      "source": "docs/sessions/B12.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b13",
+      "source": "docs/sessions/B13.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b14",
+      "source": "docs/sessions/B14.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b15",
+      "source": "docs/sessions/B15.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b16",
+      "source": "docs/sessions/B16.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/b17",
+      "source": "docs/sessions/B17.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/d01",
+      "source": "docs/sessions/D01.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/d02",
+      "source": "docs/sessions/D02.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f01",
+      "source": "docs/sessions/F01.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f02",
+      "source": "docs/sessions/F02.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f03",
+      "source": "docs/sessions/F03.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f04",
+      "source": "docs/sessions/F04.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f05",
+      "source": "docs/sessions/F05.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f06",
+      "source": "docs/sessions/F06.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f07",
+      "source": "docs/sessions/F07.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f08",
+      "source": "docs/sessions/F08.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f09",
+      "source": "docs/sessions/F09.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f10",
+      "source": "docs/sessions/F10.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f11",
+      "source": "docs/sessions/F11.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/f12",
+      "source": "docs/sessions/F12.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    },
+    {
+      "id": "reference/sessions/p01",
+      "source": "docs/sessions/P01.md",
+      "audience": "reviewer",
+      "kind": "curated"
+    }
+  ],
+  "generated": [
+    {
+      "idPrefix": "api/",
+      "kind": "generated",
+      "audience": "developer",
+      "generator": "apps/docs/scripts/generate-api-reference.mjs",
+      "inputs": ["docs/markov/openapi.json"]
+    },
+    {
+      "idPrefix": "cli/",
+      "kind": "generated",
+      "audience": "developer",
+      "generator": "apps/docs/scripts/generate-cli-reference.mjs",
+      "inputs": ["apps/cli/src/program.ts"]
+    }
+  ]
+}
