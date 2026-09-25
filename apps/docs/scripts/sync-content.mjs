@@ -52,6 +52,7 @@ const SOURCES = [
       'discovery',
       'agents',
       'agent-permissions',
+      'maintenance',
       'provider-capabilities',
       'source-register',
       'threat-model',

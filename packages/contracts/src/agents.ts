@@ -9,6 +9,7 @@ import {
   issuerSchema,
 } from './catalog.js';
 import { agentScopeSchema, idSchema, principalClassSchema } from './identity.js';
+import { rebalanceLegSchema, rebalanceOpenResultSchema } from './maintenance.js';
 import {
   budgetModeSchema,
   executionPreferenceSchema,
@@ -310,7 +311,10 @@ const proposalBase = {
   ownerUserId: idSchema,
   /** The companion run that produced it, when one did. */
   runId: idSchema.nullable(),
-  /** `user:<id>` or `agent:<credential id>`. */
+  /** The schedule occurrence that produced it, when one did (B16). */
+  scheduleId: idSchema.nullable(),
+  occurrenceId: idSchema.nullable(),
+  /** `user:<id>`, `agent:<credential id>` or `schedule:<schedule id>`. */
   createdBy: z.string().max(120),
   status: proposalStatusSchema,
   summary: z.string().max(300),
@@ -371,8 +375,13 @@ export const rebalanceProposalSchema = z.object({
         driftBps: z.number().int(),
       }),
     ),
-    /** A rebalance proposal never carries an executable order in B15; B16 adds reviewed rebalance intents. */
-    executable: z.literal(false),
+    /**
+     * Sized legs the owner's open turns into ordinary sell and buy intents (B16); empty when the
+     * allocation is incomplete or nothing exceeds the dust floor.
+     */
+    legs: z.array(rebalanceLegSchema),
+    /** True when the legs above can be opened into reviewed intents; false for an incomplete or dust-only allocation. */
+    executable: z.boolean(),
   }),
 });
 
@@ -399,6 +408,8 @@ export const proposalOpenResponseSchema = z.object({
   proposal: agentProposalSchema,
   /** The intent the open created or found (investment proposals); null for the other kinds. */
   intent: intentSchema.nullable(),
+  /** The reviewed sell and buy intents the open created or found (rebalance proposals, B16); null for the other kinds. */
+  rebalance: rebalanceOpenResultSchema.nullable(),
 });
 export type ProposalOpenResponse = z.infer<typeof proposalOpenResponseSchema>;
 

@@ -13,7 +13,8 @@ code that enforces it.
 | agent (`mkv_ag_…`) | created by a person with a fresh sign-in (B02) | `research:read`, `research:write`, `portfolio:read`, `proposals:create` | sign, approve, spend, change security settings, publish a thesis, freeze, fork or archive a strategy, create a portfolio instance or move its pin, create credentials, read another account |
 | operator (`mkv_op_…`) | `markov operators create` with database access | `ops:*` scopes only | use owner routes or read private research |
 | device (`mkv_dv_…`) | pairing code | `preferences:sync`, `status:read`, `notifications:receive` | read accounts, research or holdings |
-| worker | process identity | Temporal activities only | act as a person |
+| worker (`mkv_wk_…`) | `markov workers create` with database access (B16) | `maintenance:run` | act as a person, open a proposal, sign or spend |
+| schedule (`schedule:<id>`, internal) | created by the owner as a schedule (B16); exists only inside a maintenance pass | `proposals:create`, `portfolio:read`, `research:read` for its owner | anything an agent cannot: it proposes on the owner's cadence and never opens, approves or executes |
 
 An agent acts *for* one person and only inside that person's resources:
 every store call is scoped by the verified owner. Nothing an agent does is

@@ -10,6 +10,7 @@ import {
   platformHealthReportSchema,
   preparedTransactionSchema,
   type ReadinessResponse,
+  WORKER_SCOPES,
 } from '@markov/contracts';
 import {
   bindPlatformIdentity,
@@ -515,6 +516,76 @@ export function buildProgram(io: CliIo = stdio): Command {
             actorClass: 'operator',
             actorId: options.createdBy,
             action: 'operator.credential.created',
+            targetType: 'api_credential',
+            targetId: row.id,
+            requestId: null,
+            details: { scopes, label: options.label },
+          });
+          io.out(
+            json({
+              credentialId: row.id,
+              prefix: row.prefix,
+              scopes,
+              expiresAt: row.expiresAt.toISOString(),
+              token: generated.token,
+            }),
+          );
+          io.err('store the token now; it cannot be shown again');
+        });
+      },
+    );
+
+  const workers = program
+    .command('workers')
+    .description(
+      'worker credentials (database access required): what a worker presents to the API to run maintenance passes (B16)',
+    );
+  workers
+    .command('create')
+    .description(
+      'create a worker credential; the token is printed once and only its hash is stored. Give it to the worker as MAINTENANCE_API_TOKEN.',
+    )
+    .requiredOption('--label <label>')
+    .option('--scopes <scopes>', 'comma-separated worker scopes', WORKER_SCOPES.join(','))
+    .option('--expires-days <n>', 'lifetime in days', '90')
+    .option('--created-by <actor>', 'who is creating it (audit)', 'markov-cli')
+    .action(
+      async (options: {
+        label: string;
+        scopes: string;
+        expiresDays: string;
+        createdBy: string;
+      }) => {
+        const loaded = loadConfigOrExit(io);
+        const scopes = options.scopes.split(',').map((scope) => scope.trim());
+        const invalid = scopes.filter(
+          (scope) => !(WORKER_SCOPES as readonly string[]).includes(scope),
+        );
+        if (invalid.length > 0) {
+          throw new CliExit(
+            `unknown worker scopes: ${invalid.join(', ')} (allowed: ${WORKER_SCOPES.join(', ')})`,
+            EXIT_USAGE,
+          );
+        }
+        const days = Number.parseInt(options.expiresDays, 10);
+        if (!Number.isInteger(days) || days < 1 || days > 365) {
+          throw new CliExit('--expires-days must be between 1 and 365', EXIT_USAGE);
+        }
+        await withDb(loaded, 'markov-cli-workers', async (client) => {
+          const generated = generateCredential('worker', loaded.auth.credentialPepper);
+          const row = await createApiCredential(client.db, {
+            userId: null,
+            principalClass: 'worker',
+            label: options.label,
+            prefix: generated.prefix,
+            secretHash: generated.secretHash,
+            scopes,
+            expiresAt: new Date(Date.now() + days * 86_400_000),
+          });
+          await recordAuditEvent(client.db, {
+            actorClass: 'operator',
+            actorId: options.createdBy,
+            action: 'worker.credential.created',
             targetType: 'api_credential',
             targetId: row.id,
             requestId: null,
@@ -3319,6 +3390,487 @@ export function buildProgram(io: CliIo = stdio): Command {
               'GET',
               `/v1/me/events?${query.toString()}`,
               undefined,
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+
+  // --- B16: schedules, notifications, mandate dry run and maintenance passes.
+  const jsonRequest = async (
+    options: { file?: string; input?: string },
+    what: string,
+  ): Promise<unknown> => {
+    if (options.file) {
+      const { readFile } = await import('node:fs/promises');
+      try {
+        return JSON.parse(await readFile(options.file, 'utf8')) as unknown;
+      } catch (error) {
+        throw new CliExit(
+          `${what}: could not read ${options.file} as JSON (${error instanceof Error ? error.message : String(error)})`,
+          EXIT_USAGE,
+        );
+      }
+    }
+    if (options.input) {
+      try {
+        return JSON.parse(options.input) as unknown;
+      } catch {
+        throw new CliExit(`${what} must be valid JSON`, EXIT_USAGE);
+      }
+    }
+    throw new CliExit(`provide --file <path> or --input <json> with ${what}`, EXIT_USAGE);
+  };
+  const ownerToken = ['--token <token>', 'user session'] as const;
+
+  const schedules = program
+    .command('schedules')
+    .description(
+      'recurring investment and drift-rebalance schedules: every occurrence prepares a proposal for the owner’s review and nothing is bought or sold unattended (B16)',
+    );
+  schedules
+    .command('create')
+    .description(
+      'create a schedule from a JSON request: kind recurring_investment or drift_rebalance, cadence with a time zone, target and review window; the mode is always prepare_for_approval',
+    )
+    .option('--file <path>', 'JSON request file')
+    .option('--input <json>', 'JSON request inline')
+    .requiredOption(...ownerToken)
+    .option(...apiUrlOption)
+    .action(async (options: { file?: string; input?: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/me/schedules',
+            await jsonRequest(options, 'the schedule request'),
+            options.token,
+          ),
+        ),
+      );
+    });
+  schedules
+    .command('preview')
+    .description(
+      'preview the next occurrences of a cadence (JSON: cadence, startAt, count) with their local wall-clock times and UTC offsets',
+    )
+    .option('--file <path>', 'JSON request file')
+    .option('--input <json>', 'JSON request inline')
+    .requiredOption(...ownerToken)
+    .option(...apiUrlOption)
+    .action(async (options: { file?: string; input?: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/me/schedules/preview',
+            await jsonRequest(options, 'the preview request'),
+            options.token,
+          ),
+        ),
+      );
+    });
+  schedules
+    .command('list')
+    .option('--status <status>', 'active | paused | cancelled | revoked')
+    .option('--limit <n>', 'at most this many, newest first', '50')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { status?: string; limit: string; token: string; url: string }) => {
+      const query = new URLSearchParams({ limit: options.limit });
+      if (options.status) {
+        query.set('status', options.status);
+      }
+      const suffix = `?${query.toString()}`;
+      io.out(
+        json(
+          await apiCall(options.url, 'GET', `/v1/me/schedules${suffix}`, undefined, options.token),
+        ),
+      );
+    });
+  schedules
+    .command('show <scheduleId>')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (scheduleId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/schedules/${encodeURIComponent(scheduleId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  schedules
+    .command('update <scheduleId>')
+    .description(
+      'change label, cadence, window, missed-run policy or target of an active or paused schedule',
+    )
+    .option('--file <path>', 'JSON request file')
+    .option('--input <json>', 'JSON request inline')
+    .requiredOption(...ownerToken)
+    .option(...apiUrlOption)
+    .action(
+      async (
+        scheduleId: string,
+        options: { file?: string; input?: string; token: string; url: string },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'PATCH',
+              `/v1/me/schedules/${encodeURIComponent(scheduleId)}`,
+              await jsonRequest(options, 'the update request'),
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  for (const transition of ['pause', 'resume', 'cancel'] as const) {
+    schedules
+      .command(`${transition} <scheduleId>`)
+      .description(
+        transition === 'pause'
+          ? 'pause: nothing is prepared until resumed; occurrences missed meanwhile follow the missed-run policy'
+          : transition === 'resume'
+            ? 'resume a paused schedule from its next occurrence'
+            : 'cancel for good; open proposals stay open for their review window',
+      )
+      .requiredOption(...ownerToken)
+      .option(...apiUrlOption)
+      .action(async (scheduleId: string, options: { token: string; url: string }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/schedules/${encodeURIComponent(scheduleId)}/${transition}`,
+              undefined,
+              options.token,
+            ),
+          ),
+        );
+      });
+  }
+  schedules
+    .command('occurrences <scheduleId>')
+    .description(
+      'what each occurrence did: proposed (with its proposal), skipped, failed, expired, opened or dismissed',
+    )
+    .option('--limit <n>', 'at most this many, newest first', '50')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (scheduleId: string, options: { limit: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/schedules/${encodeURIComponent(scheduleId)}/occurrences?limit=${encodeURIComponent(options.limit)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+
+  const notificationsCommand = program
+    .command('notifications')
+    .description(
+      'the owner’s durable in-app notifications, email preferences with verification, and operator dead-letter recovery (B16)',
+    );
+  notificationsCommand
+    .command('list')
+    .option('--after <seq>', 'notifications after this sequence', '0')
+    .option('--limit <n>', 'at most this many (100)', '50')
+    .option('--unread', 'unread only')
+    .option('--category <category>', 'proposals | execution | schedules | data | security')
+    .requiredOption('--token <token>', 'user session or paired device (notifications:receive)')
+    .option(...apiUrlOption)
+    .action(
+      async (options: {
+        after: string;
+        limit: string;
+        unread?: boolean;
+        category?: string;
+        token: string;
+        url: string;
+      }) => {
+        const query = new URLSearchParams({ after: options.after, limit: options.limit });
+        if (options.unread) {
+          query.set('unread', 'true');
+        }
+        if (options.category) {
+          query.set('category', options.category);
+        }
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'GET',
+              `/v1/me/notifications?${query.toString()}`,
+              undefined,
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  notificationsCommand
+    .command('read <notificationId>')
+    .requiredOption('--token <token>', 'user session or paired device (notifications:receive)')
+    .option(...apiUrlOption)
+    .action(async (notificationId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/me/notifications/${encodeURIComponent(notificationId)}/read`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  notificationsCommand
+    .command('read-all')
+    .requiredOption('--token <token>', 'user session or paired device (notifications:receive)')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/me/notifications/read-all',
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  notificationsCommand
+    .command('preferences')
+    .description(
+      'show the owner’s preferences, or replace category settings from JSON ({"categories":{"proposals":{"inApp":true,"email":true}}})',
+    )
+    .option('--file <path>', 'JSON update file')
+    .option('--input <json>', 'JSON update inline')
+    .requiredOption(...ownerToken)
+    .option(...apiUrlOption)
+    .action(async (options: { file?: string; input?: string; token: string; url: string }) => {
+      if (options.file || options.input) {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'PUT',
+              '/v1/me/notification-preferences',
+              await jsonRequest(options, 'the preferences update'),
+              options.token,
+            ),
+          ),
+        );
+        return;
+      }
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            '/v1/me/notification-preferences',
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  const emailCommand = notificationsCommand
+    .command('email')
+    .description('the address notifications may be emailed to, confirmed by a code sent to it');
+  emailCommand
+    .command('set <address>')
+    .description('set the address; a six-digit code goes to it when a provider is configured')
+    .requiredOption(...ownerToken)
+    .option(...apiUrlOption)
+    .action(async (address: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/me/notification-preferences/email',
+            { address },
+            options.token,
+          ),
+        ),
+      );
+    });
+  emailCommand
+    .command('verify <code>')
+    .requiredOption(...ownerToken)
+    .option(...apiUrlOption)
+    .action(async (code: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/me/notification-preferences/email/verify',
+            { code },
+            options.token,
+          ),
+        ),
+      );
+    });
+  emailCommand
+    .command('clear')
+    .description('remove the address; every email stops at once')
+    .requiredOption(...ownerToken)
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'DELETE',
+            '/v1/me/notification-preferences/email',
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  notificationsCommand
+    .command('dead-letter')
+    .description('deliveries that exhausted their retries (operator ops:read)')
+    .option('--limit <n>', 'at most this many', '50')
+    .requiredOption('--token <token>', 'operator credential (ops:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { limit: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/ops/notifications/dead-letter?limit=${encodeURIComponent(options.limit)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  notificationsCommand
+    .command('retry <notificationId>')
+    .description(
+      'requeue one dead or failed delivery after the cause is fixed (operator ops:maintenance:run)',
+    )
+    .option('--channel <channel>', 'email | in_app', 'email')
+    .requiredOption('--token <token>', 'operator credential (ops:maintenance:run)')
+    .option(...apiUrlOption)
+    .action(
+      async (notificationId: string, options: { channel: string; token: string; url: string }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/ops/notifications/${encodeURIComponent(notificationId)}/retry`,
+              { channel: options.channel },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  notificationsCommand
+    .command('fixture-outbox')
+    .description(
+      'what the fixture email provider would have sent (operator ops:read; local and test only, NOT_FOUND with any other provider)',
+    )
+    .requiredOption('--token <token>', 'operator credential (ops:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            '/v1/ops/notifications/fixture-outbox',
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+
+  const mandates = program
+    .command('mandates')
+    .description(
+      'mandate dry run: evaluates a bounded mandate envelope against one action deterministically; unattended execution stays DISABLED (B16)',
+    );
+  mandates
+    .command('dry-run')
+    .description(
+      'JSON: { mandate, action, usage? }; the answer lists every check and changes nothing',
+    )
+    .option('--file <path>', 'JSON request file')
+    .option('--input <json>', 'JSON request inline')
+    .requiredOption(...ownerToken)
+    .option(...apiUrlOption)
+    .action(async (options: { file?: string; input?: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/me/mandates/dry-run',
+            await jsonRequest(options, 'the dry-run request'),
+            options.token,
+          ),
+        ),
+      );
+    });
+
+  const maintenanceCommand = program
+    .command('maintenance')
+    .description(
+      'maintenance passes: the worker’s durable loop asks the API for one pass per tick; a worker or operator credential can ask for one by hand (B16)',
+    );
+  maintenanceCommand
+    .command('run')
+    .description(
+      'run one pass now: due occurrences become proposals or are skipped, review windows expire, notifications are projected and delivered; idempotent per occurrence',
+    )
+    .option('--batch-size <n>', 'schedules per pass (1..500)', '100')
+    .option('--requested-by <who>', 'recorded on the pass', 'markov-cli')
+    .requiredOption(
+      '--token <token>',
+      'worker credential (maintenance:run) or operator credential (ops:maintenance:run)',
+    )
+    .option(...apiUrlOption)
+    .action(
+      async (options: { batchSize: string; requestedBy: string; token: string; url: string }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              '/v1/ops/maintenance/run',
+              {
+                batchSize: Number.parseInt(options.batchSize, 10),
+                requestedBy: options.requestedBy,
+              },
               options.token,
             ),
           ),

@@ -204,7 +204,7 @@ export async function createApiCredential(
   db: Database,
   input: {
     userId: string | null;
-    principalClass: 'agent' | 'operator';
+    principalClass: 'agent' | 'operator' | 'worker';
     label: string;
     prefix: string;
     secretHash: string;

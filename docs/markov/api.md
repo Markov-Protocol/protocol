@@ -389,9 +389,37 @@ explorer exclude archived strategies. Contract:
 Errors since B15: `BUDGET_EXHAUSTED` (409) when an account's rolling daily
 companion cost is spent. Contract: `docs/markov/agents.md`.
 
+## Endpoints (B16)
+
+| Method | Path | Principal | Purpose |
+| ------ | ---- | --------- | ------- |
+| POST   | /v1/me/schedules | user | Create a `recurring_investment` or `drift_rebalance` schedule (cadence with time zone, start and end, review window, missed-run policy, target); `mode` is the literal `prepare_for_approval` (30/min) |
+| POST   | /v1/me/schedules/preview | user | The next occurrences of a cadence with local wall-clock time and UTC offset; unknown time zones refused |
+| GET    | /v1/me/schedules?status=&limit= | user, agent `portfolio:read` | The owner's schedules, newest first |
+| GET    | /v1/me/schedules/{scheduleId} | user, agent `portfolio:read` | One schedule with its next due time, last occurrence and counts |
+| PATCH  | /v1/me/schedules/{scheduleId} | user | Change label, cadence, window, policy or target of an active or paused schedule; `nextDueAt` is recomputed |
+| POST   | /v1/me/schedules/{scheduleId}/pause, /resume, /cancel | user | Guarded transitions; cancelled and revoked schedules are final (`VALIDATION_FAILED` otherwise) |
+| GET    | /v1/me/schedules/{scheduleId}/occurrences?limit= | user, agent `portfolio:read` | Occurrences newest first with status (`proposed`, `skipped`, `failed`, `expired`, `opened`, `dismissed`), reason, window and proposal |
+| POST   | /v1/me/mandates/dry-run | user | Evaluate a mandate envelope against one action deterministically (17 checks); answers the `automation.unattended` capability status (`DISABLED`); stores nothing |
+| POST   | /v1/ops/maintenance/run | worker `maintenance:run`, operator `ops:maintenance:run` | One maintenance pass: due occurrences proposed or skipped, review windows expired, events projected into notifications, due deliveries attempted; idempotent per occurrence (20/min) |
+| GET    | /v1/me/notifications?after=&limit=&unread=&category= | user, device `notifications:receive` | The owner's notifications in sequence with deliveries per channel, `unread`, `nextAfter` and `latestSeq` |
+| POST   | /v1/me/notifications/read-all, /v1/me/notifications/{notificationId}/read | user, device `notifications:receive` | Mark read; nothing else happens because a notification was read |
+| GET, PUT | /v1/me/notification-preferences | user | Category preferences (in-app and email per category) and the email address state; email defaults on for `security` only |
+| POST   | /v1/me/notification-preferences/email | user | Set an address and send a six-digit code through the configured adapter (`sent`, `unavailable` without an adapter, `failed`) (5/hour) |
+| POST   | /v1/me/notification-preferences/email/verify | user | Confirm the code (15-minute validity, five attempts) |
+| DELETE | /v1/me/notification-preferences/email | user | Remove the address; every email stops at once |
+| GET    | /v1/ops/notifications/dead-letter?limit= | operator `ops:read` | Deliveries that exhausted their retries |
+| POST   | /v1/ops/notifications/{notificationId}/retry | operator `ops:maintenance:run` | Requeue one dead or failed delivery (`{channel}`) |
+| GET    | /v1/ops/notifications/fixture-outbox | operator `ops:read` | What the fixture email provider would have sent (local and test only; `NOT_FOUND` with any other provider) |
+
+Rebalance proposals now carry sized `legs` and `executable`, and opening
+one as the owner answers `rebalance.intents`: one reviewed `single_sell`
+or `single_buy` intent per leg. Contract: `docs/markov/maintenance.md`.
+
 ## Planned surface
 
-Maintenance and operations routes are specified in the build document and
-arrive with sessions B16 to B18. Authentication,
-idempotency keys, cursor pagination and streaming are introduced with the
-first routes that need them (B02, B07, B10).
+Provider readiness and Meteora research tools (B17) and the operational
+control and release-candidate routes (B18) are specified in the build
+document and arrive with those sessions. Authentication, idempotency keys,
+cursor pagination and streaming were introduced with the first routes that
+needed them (B02, B07, B10).

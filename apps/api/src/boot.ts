@@ -15,6 +15,7 @@ import {
   listCapabilityReadiness,
   readPlatformIdentity,
 } from '@markov/db';
+import { createConfiguredEmailAdapter, createFixtureEmailAdapter } from '@markov/notifications';
 import { createLogger, type Logger } from '@markov/observability';
 import { createFixtureModelAdapter } from '@markov/research';
 import { signerFromPrivateKey } from '@markov/solana-codec';
@@ -30,7 +31,9 @@ import { createDiscoveryService } from './discovery/service.js';
 import { createExecutionService } from './execution/service.js';
 import { createFollowService } from './follows/service.js';
 import { createFundingService } from './funding/service.js';
+import { createMaintenanceService } from './maintenance/service.js';
 import { createNetworkIdentityMonitor } from './network-monitor.js';
+import { createNotificationService } from './notifications/service.js';
 import { createPlanningService } from './planning/service.js';
 import { createPolicyService } from './policy/service.js';
 import { createRegistryService } from './registry/service.js';
@@ -389,6 +392,47 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
   if (config.companion.modelProvider === null) {
     logger.info('no companion model provider is configured; companion runs answer 503');
   }
+  const agentService = createAgentService({
+    config,
+    db: dbClient.db,
+    catalog: catalogService,
+    research: researchService,
+    strategies: strategyService,
+    planning: planningService,
+    policy: policyService,
+    funding: fundingService,
+    accounting: accountingService,
+    analytics: analyticsService,
+    model: config.companion.modelProvider === 'fixture' ? createFixtureCompanionAdapter() : null,
+  });
+  // Notifications (B16): in-app always; email only through a configured adapter.
+  const emailAdapter =
+    config.notifications.emailProvider === 'fixture'
+      ? createFixtureEmailAdapter()
+      : config.notifications.emailProvider === 'configured'
+        ? createConfiguredEmailAdapter({
+            url: config.notifications.emailUrl as string,
+            apiKey: config.notifications.emailApiKey as string,
+            from: config.notifications.emailFrom as string,
+          })
+        : null;
+  if (emailAdapter === null) {
+    logger.info('no email provider is configured; notifications are in-app only');
+  }
+  const notificationService = createNotificationService({
+    config,
+    db: dbClient.db,
+    email: emailAdapter,
+  });
+  const maintenanceService = createMaintenanceService({
+    config,
+    db: dbClient.db,
+    agents: agentService,
+    analytics: analyticsService,
+    catalog: catalogService,
+    strategies: strategyService,
+    notifications: notificationService,
+  });
   const app = await buildApp({
     config,
     logger,
@@ -422,19 +466,9 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     accounting: accountingService,
     analytics: analyticsService,
     discovery: createDiscoveryService({ db: dbClient.db, analytics: analyticsService }),
-    agents: createAgentService({
-      config,
-      db: dbClient.db,
-      catalog: catalogService,
-      research: researchService,
-      strategies: strategyService,
-      planning: planningService,
-      policy: policyService,
-      funding: fundingService,
-      accounting: accountingService,
-      analytics: analyticsService,
-      model: config.companion.modelProvider === 'fixture' ? createFixtureCompanionAdapter() : null,
-    }),
+    agents: agentService,
+    maintenance: maintenanceService,
+    notifications: notificationService,
     mintTestToken,
   });
 

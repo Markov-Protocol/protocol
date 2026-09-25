@@ -16,6 +16,8 @@ import type { DiscoveryService } from '../discovery/service.js';
 import type { ExecutionService } from '../execution/service.js';
 import type { FollowService } from '../follows/service.js';
 import type { FundingService } from '../funding/service.js';
+import type { MaintenanceService } from '../maintenance/service.js';
+import type { NotificationService } from '../notifications/service.js';
 import type { PlanningService } from '../planning/service.js';
 import type { PolicyService } from '../policy/service.js';
 import type { RegistryService } from '../registry/service.js';
@@ -94,6 +96,16 @@ const unavailableAgents = new Proxy({} as AgentService, {
     throw new Error('agent service is unavailable in export mode');
   },
 });
+const unavailableMaintenance = new Proxy({} as MaintenanceService, {
+  get() {
+    throw new Error('agent service is unavailable in export mode');
+  },
+});
+const unavailableNotifications = new Proxy({} as NotificationService, {
+  get() {
+    throw new Error('agent service is unavailable in export mode');
+  },
+});
 const unavailableDiscovery = new Proxy({} as DiscoveryService, {
   get: () => () => {
     throw new Error('discovery service is unavailable in export mode');
@@ -144,6 +156,8 @@ async function generate(): Promise<string> {
     analytics: unavailableAnalytics,
     discovery: unavailableDiscovery,
     agents: unavailableAgents,
+    maintenance: unavailableMaintenance,
+    notifications: unavailableNotifications,
     mintTestToken: null,
   });
   await app.ready();

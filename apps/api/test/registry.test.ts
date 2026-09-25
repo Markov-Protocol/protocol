@@ -61,6 +61,8 @@ import {
   type ResearchService,
   type WatchlistService,
 } from '../src/index.js';
+import type { MaintenanceService } from '../src/maintenance/service.js';
+import type { NotificationService } from '../src/notifications/service.js';
 import { GENESIS, prestocksFixtureRpcFetch } from './support/fixture-rpc.js';
 import { unavailable } from './support/unavailable.js';
 
@@ -173,6 +175,8 @@ async function withHarness(
         analytics: unavailable<AnalyticsService>('analytics'),
         discovery: unavailable<DiscoveryService>('discovery'),
         agents: unavailable<AgentService>('agents'),
+        maintenance: unavailable<MaintenanceService>('maintenance'),
+        notifications: unavailable<NotificationService>('notifications'),
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();

@@ -46,6 +46,7 @@ export const CAPABILITY_IDS = [
   'research.model.generate',
   'companion.model.run',
   'notifications.email',
+  'maintenance.scheduler',
   'liquidity.meteora.read',
   'liquidity.meteora.dbc-simulate',
   'automation.unattended',

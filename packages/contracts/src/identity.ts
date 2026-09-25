@@ -31,9 +31,19 @@ export const OPERATOR_SCOPES = [
   'ops:policy:write',
   'ops:discovery:read',
   'ops:discovery:write',
+  'ops:maintenance:run',
 ] as const;
 export const operatorScopeSchema = z.enum(OPERATOR_SCOPES);
 export type OperatorScope = z.infer<typeof operatorScopeSchema>;
+
+/**
+ * Scopes a worker credential may hold (B16). A worker drives maintenance
+ * passes over the API with its own credential; it holds no user resource,
+ * spends nothing and cannot open a proposal.
+ */
+export const WORKER_SCOPES = ['maintenance:run'] as const;
+export const workerScopeSchema = z.enum(WORKER_SCOPES);
+export type WorkerScope = z.infer<typeof workerScopeSchema>;
 
 /** Capabilities a paired device may be granted. None includes spending authority. */
 export const DEVICE_CAPABILITIES = [

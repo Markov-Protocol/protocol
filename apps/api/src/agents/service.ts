@@ -76,6 +76,7 @@ import {
   findCompanionRun,
   findInstance,
   findProposal,
+  findProposalByDedupKey,
   findStrategy,
   findThesis,
   findVersionById,
@@ -88,11 +89,13 @@ import {
   listWallets,
   type MarkEventRow,
   openProposal as openProposalRow,
+  pgErrorCode,
   readDraft,
   recordAuditEvent,
   recordMarkEvent,
   startCompanionRun,
 } from '@markov/db';
+import { sizeRebalanceLegs } from '@markov/maintenance';
 import type { AccountingService } from '../accounting/service.js';
 import type { AnalyticsService } from '../analytics/service.js';
 import type { CatalogService } from '../catalog/service.js';
@@ -116,16 +119,19 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const TOOL_CATALOG_NOTE =
   'Each tool is a typed façade over one domain method and runs with the caller’s own authority: the same scope checks, owner scoping and policy as the ordinary routes. None can sign, approve, spend, change a limit or act for another account; the most a tool produces is a proposal the owner opens through the same review as a manual action.';
 export const PROPOSAL_NOTE =
-  'A proposal is a request for the owner’s review. Only the owner opens it: an investment proposal then becomes an ordinary intent that still needs a plan, an acknowledgement and a wallet signature; a basket proposal is a draft in the builder; a rebalance proposal is a drift report. Agents and models cannot open, approve or execute a proposal.';
+  'A proposal is a request for the owner’s review. Only the owner opens it: an investment proposal then becomes an ordinary intent that still needs a plan, an acknowledgement and a wallet signature; a basket proposal is a draft in the builder; a rebalance proposal opens into one reviewed sell or buy intent per sized leg. Agents, models and schedules cannot open, approve or execute a proposal.';
 export const EVENTS_NOTE =
   'Facts about the owner’s own resources, in sequence, for the software and physical Mark I. An event never carries authority: nothing proceeds because an event was read, and financial state stays on the intent, the plan and the attempt it names.';
+export const REBALANCE_OPEN_NOTE =
+  'Each leg is an ordinary intent in your name: plan it, acknowledge the plan and sign with your wallet, one at a time, sells first. Nothing was quoted or submitted by opening.';
+
 export const REVIEW_NOTES: Record<ProposalKind, string> = {
   strategy_draft:
     'Open the draft in the builder to review, edit, freeze or discard it; nothing is published or invested by this proposal.',
   investment:
     'Opening creates an intent in your name; a plan is then built, reviewed and acknowledged by you and signed by your wallet. Nothing is bought until then.',
   rebalance:
-    'A drift report. Review the allocation and decide what, if anything, to trade through the ordinary review; this proposal places no order.',
+    'A drift report with sized legs. Opening creates one ordinary sell or buy intent per leg in your name, each planned, acknowledged and signed by you; this proposal itself places no order.',
 };
 
 export interface AgentServiceDeps {
@@ -150,6 +156,18 @@ export interface ToolInvocation {
   readonly output: unknown;
 }
 
+/**
+ * Where a proposal comes from when a schedule occurrence makes it (B16): the
+ * dedup key lets a restarted maintenance pass find the proposal it already
+ * made, and the expiry follows the occurrence's review window.
+ */
+export interface ProposalSource {
+  readonly scheduleId: string;
+  readonly occurrenceId: string;
+  readonly dedupKey: string;
+  readonly expiresAt: Date;
+}
+
 export interface AgentService {
   catalog(principal: Principal): AgentToolCatalog;
   /** Validates, authorises and runs one tool with the principal's own authority. */
@@ -159,6 +177,7 @@ export interface AgentService {
     input: unknown,
     requestId: string,
     runId?: string | null,
+    source?: ProposalSource | null,
   ): Promise<ToolInvocation>;
   createRun(
     principal: Principal,
@@ -291,6 +310,8 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
       proposalId: row.id,
       ownerUserId: row.ownerUserId,
       runId: row.runId,
+      scheduleId: row.scheduleId,
+      occurrenceId: row.occurrenceId,
       createdBy: row.createdBy,
       status,
       summary: row.summary,
@@ -327,6 +348,7 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
   const propose = async (input: {
     principal: Principal;
     runId: string | null;
+    source: ProposalSource | null;
     kind: ProposalKind;
     summary: string;
     payload: Record<string, unknown>;
@@ -334,17 +356,34 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
   }): Promise<AgentProposal> => {
     const ownerUserId = ownerOf(input.principal);
     const at = now();
-    const row = await createProposal(db, {
-      ownerUserId,
-      runId: input.runId,
-      createdBy: labelOf(input.principal),
-      kind: input.kind,
-      summary: input.summary.slice(0, 300),
-      payload: input.payload,
-      reviewNote: REVIEW_NOTES[input.kind],
-      expiresAt: new Date(at.getTime() + PROPOSAL_TTL_DAYS[input.kind] * DAY_MS),
-      now: at,
-    });
+    let row: AgentProposalRow;
+    try {
+      row = await createProposal(db, {
+        ownerUserId,
+        runId: input.runId,
+        scheduleId: input.source?.scheduleId ?? null,
+        occurrenceId: input.source?.occurrenceId ?? null,
+        dedupKey: input.source?.dedupKey ?? null,
+        createdBy: labelOf(input.principal),
+        kind: input.kind,
+        summary: input.summary.slice(0, 300),
+        payload: input.payload,
+        reviewNote: REVIEW_NOTES[input.kind],
+        expiresAt:
+          input.source?.expiresAt ??
+          new Date(at.getTime() + PROPOSAL_TTL_DAYS[input.kind] * DAY_MS),
+        now: at,
+      });
+    } catch (error) {
+      // A restarted maintenance pass proposing the same occurrence again finds the proposal it made.
+      if (input.source !== null && pgErrorCode(error) === '23505') {
+        const existing = await findProposalByDedupKey(db, input.source.dedupKey);
+        if (existing !== null && existing.ownerUserId === ownerUserId) {
+          return proposalOf(existing, at);
+        }
+      }
+      throw error;
+    }
     const payload = {
       proposalId: row.id,
       kind: input.kind,
@@ -380,6 +419,49 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
     return proposalOf(row, at);
   };
 
+  /**
+   * The reviewed intents behind a rebalance proposal (B16): one ordinary sell or buy per sized leg,
+   * created as the owner under an idempotent key, so opening twice answers the same intents. Each
+   * still needs its own plan, acknowledgement and signature; nothing here quotes or submits.
+   */
+  const rebalanceIntentsOf = async (
+    principal: Principal,
+    proposal: Extract<AgentProposal, { kind: 'rebalance' }>,
+    requestId: string,
+  ): Promise<NonNullable<ProposalOpenResponse['rebalance']>> => {
+    const intents: NonNullable<ProposalOpenResponse['rebalance']>['intents'] = [];
+    for (const leg of proposal.payload.legs) {
+      const kind = leg.side === 'sell' ? ('single_sell' as const) : ('single_buy' as const);
+      const created = await planning.createIntent(
+        principal,
+        {
+          schemaVersion: PLANNING_SCHEMA_VERSION,
+          kind,
+          strategyVersionId: null,
+          instrumentId: leg.instrumentId,
+          walletId: proposal.payload.walletId,
+          budget: { rawAmount: leg.rawAmount },
+          budgetMode: 'all_in_stablecoin',
+          executionPreference: 'atomic_or_explicit_staged_review',
+          approvalMode: 'owner_each_plan',
+          slippageBps: null,
+          continuationOfIntentId: null,
+          idempotencyKey: `proposal:${proposal.proposalId}:${leg.instrumentId}:${leg.side}`,
+        },
+        requestId,
+      );
+      intents.push({
+        intentId: created.intent.intentId,
+        kind,
+        instrumentId: leg.instrumentId,
+        symbol: leg.symbol,
+        rawAmount: leg.rawAmount,
+        created: created.created,
+      });
+    }
+    return { intents, note: REBALANCE_OPEN_NOTE };
+  };
+
   const requireWallet = async (userId: string, walletId: string) => {
     const wallet = (await listWallets(db, userId)).find((row) => row.id === walletId);
     if (!wallet) {
@@ -393,7 +475,7 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
     principal: Principal,
     tool: AnyToolDefinition,
     input: unknown,
-    context: { requestId: string; runId: string | null },
+    context: { requestId: string; runId: string | null; source: ProposalSource | null },
   ): Promise<unknown> => {
     const at = now();
     switch (tool.name) {
@@ -525,6 +607,7 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
         return propose({
           principal,
           runId: context.runId,
+          source: context.source,
           kind: 'strategy_draft',
           summary:
             request.summary ??
@@ -641,6 +724,7 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
         return propose({
           principal,
           runId: context.runId,
+          source: context.source,
           kind: 'investment',
           summary:
             request.summary ??
@@ -685,9 +769,14 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
         const summary = allocation.complete
           ? `Rebalance review: largest drift ${((allocation.largestDriftBps ?? 0) / 100).toFixed(2)}% against version ${allocation.versionNumber}${allocation.exceedsThreshold ? ' (above the creator’s threshold)' : ''}`
           : `Rebalance review: drift unknown, ${allocation.rows.filter((row) => row.issues.length > 0).length} leg(s) unpriced or stale`;
+        // Reviewed rebalance legs (B16): sells of the excess, buys of the shortfall, each an ordinary intent once opened.
+        const legs = sizeRebalanceLegs(allocation, {
+          stablecoinDecimals: config.funding.stablecoin?.decimals ?? 6,
+        });
         return propose({
           principal,
           runId: context.runId,
+          source: context.source,
           kind: 'rebalance',
           summary,
           payload: {
@@ -698,7 +787,8 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
             versionNumber: allocation.versionNumber,
             allocation,
             suggestions,
-            executable: false,
+            legs,
+            executable: legs.length > 0,
           },
           requestId: context.requestId,
         });
@@ -722,6 +812,7 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
     input,
     requestId,
     runId = null,
+    source = null,
   ) => {
     const tool = findTool(toolName);
     if (tool === null) {
@@ -739,7 +830,7 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
         ...parsed.issues,
       ]);
     }
-    const output = await execute(principal, tool, parsed.value, { requestId, runId });
+    const output = await execute(principal, tool, parsed.value, { requestId, runId, source });
     if (tool.mutation) {
       await audit(principal, 'agent.tool.invoke', 'agent_tool', tool.name, requestId, {
         inputDigest: digestOf(parsed.value),
@@ -1165,7 +1256,11 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
       if (current.status === 'opened') {
         const intent: Intent | null =
           row.intentId === null ? null : await planning.getIntent(principal, row.intentId);
-        return { proposal: current, intent };
+        const rebalance =
+          current.kind === 'rebalance'
+            ? await rebalanceIntentsOf(principal, current, requestId)
+            : null;
+        return { proposal: current, intent, rebalance };
       }
       if (current.status === 'dismissed') {
         throw new ApiError('VALIDATION_FAILED', 'the proposal was dismissed; ask for a new one');
@@ -1174,6 +1269,10 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
         throw new ApiError('VALIDATION_FAILED', 'the proposal expired; ask for a new one');
       }
       let intent: Intent | null = null;
+      let rebalance: ProposalOpenResponse['rebalance'] = null;
+      if (current.kind === 'rebalance') {
+        rebalance = await rebalanceIntentsOf(principal, current, requestId);
+      }
       if (current.kind === 'investment') {
         const request = current.payload.request;
         // The same route as a manual intent, as the owner: plan, acknowledgement and signature follow.
@@ -1210,6 +1309,7 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
       return {
         proposal: proposalOf(opened ?? (await requireProposal(principal, proposalId)), at),
         intent,
+        rebalance,
       };
     },
 

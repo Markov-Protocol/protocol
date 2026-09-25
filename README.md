@@ -39,7 +39,13 @@ returns, completeness and model-only rankings),
 **B14** (public strategy explorer with chain provenance and the model
 ranking's honest entries, creator pages, follower instances that move
 only by explicit acceptance, recorded platform moderation separate from
-the chain) and
+the chain),
+**B15** (typed agent tools with the caller's own authority, a bounded
+companion loop with redacted provenance, proposals only the owner opens,
+the Mark I event log),
+**B16** (recurring and drift-based rebalance proposals on durable
+schedules with deduplicated occurrences, review expiry, missed-run
+policies and a notification outbox; nothing unattended) and
 frontend sessions **F01** (shared design system), **F02** (Mark I shell) and
 **F03** (app sessions and account recovery) are complete. Backend sessions B02 to B18 and
 frontend sessions F02 to F20 follow in dependency order; see
@@ -131,7 +137,7 @@ pnpm docs:build && pnpm docs:e2e   # the documentation site (markov.pet/docs): g
 | Performance analytics: recorded reference observations (issuer feeds on ingestion, operator entries with evidence), valuation with historical multipliers, actual series per wallet and instance with deposits, withdrawals, purchases and sales as flows, model series per version held from its start without costs, time-weighted and Modified Dietz returns, drawdown, turnover, realized and unrealized P&L, fees, completeness with reasons, model-only rankings with the 30-day rule, methodology route, exports | implemented, tested (B13) against independently derived fixture vectors and the fixture chain; no live price source (OD-23), so production series stay incomplete rather than invented |
 | Discovery: public explorer over active strategies with registered, unwithheld versions (title, thesis excerpt, lineage, publishing wallet, constituents, follower count, the model ranking entry for a period with every ineligibility reason and no return when unranked), text, issuer, instrument and creator filters, stable cursor pages, creator pages from chain records, follower instances on public versions offered a new version only at registration and moved only by explicit acceptance, operator moderation with recorded reasons that never touches the chain record or a pin | implemented, tested (B14) against the fixture ledger and PostgreSQL: a 31-day recipe ranks next to a young one listed unranked; the startup check runs the follow, propose, accept, hide and restore journey |
 | Agent tools and companion: twelve typed tools over the domain services with the caller's own authority (search, facts, comparison, thesis draft, weight validation, indicative plan, checked quote, policy explanation, basket, investment and rebalance proposals, receipts), strict inputs, a bounded companion loop with redacted provenance and per-run and daily cost budgets, proposals only the owner opens into the ordinary review, and the Mark I event log | implemented, tested (B15) with a malicious retrieved document and a model asking for escalation refused at the tool layer; fixture adapter only, no hosted provider (OD-19) |
-| Maintenance: schedules, drift-driven rebalance proposals as reviewed intents, notification outbox | not started (B16) |
+| Maintenance: recurring investment and drift-rebalance schedules with time-zone-aware cadences, occurrences unique per sequence with a proposal dedup key (restart recovery), review windows that expire, skip-by-default missed-run policy, pause, cancel and revocation when a target disappears, rebalance proposals with sized legs that the owner opens into reviewed intents, the durable worker loop driving passes with a scoped worker credential, the in-app notification outbox with email to a verified address, retries, dead letters and operator requeue, and the mandate dry-run interface with unattended execution `DISABLED` | implemented, tested (B16) against PostgreSQL, the Temporal dev server, the fixture chain and the fixture email provider; no live email provider (OD-25), no mandate storage or enforcement (OD-26) |
 | Web design system, exact formatters, internal component reference, production guards | implemented, tested (F01) |
 | Mark I shell, companion home, navigation with honest placeholder routes | implemented, tested (F02) |
 | App sessions: server-verified HttpOnly cookie, sign-in, expiry recovery, sign-out, account switch isolation, generated API client | implemented, tested against the local API (F03); hosted identity provider adapter BLOCKED (OD-05) |

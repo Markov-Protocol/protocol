@@ -110,7 +110,7 @@ A proposal is a request for the owner's review, never an order.
 | ---- | ---------- | ------- | ---------------------------- |
 | `strategy_draft` | `basket.propose` | the draft's strategy id, title, legs with symbols, cash and its validation | marks it opened; the draft is edited in the builder, freezing and publishing stay interactive |
 | `investment` | `investment.propose` | the intent request (kind, version or instrument, the owner's wallet, budget, mode, `approvalMode: owner_each_plan`, slippage), the indicative allocation, the pre-quote policy decision | creates the intent as the owner under the idempotency key `proposal:<id>`, so opening twice answers the same intent; the plan, its acknowledgement and the wallet signature follow through the ordinary execution routes |
-| `rebalance` | `rebalance.propose` | the instance allocation (rows with target, invested target, attributed quantity, price, value, actual and drift), the creator's drift threshold and whether it is exceeded, suggestions per leg, `executable: false` | marks it opened; it places nothing (reviewed rebalance intents arrive with B16) |
+| `rebalance` | `rebalance.propose` | the instance allocation (rows with target, invested target, attributed quantity, price, value, actual and drift), the creator's drift threshold and whether it is exceeded, suggestions per leg, sized `legs` (sells of the excess, buys of the shortfall in stablecoin raw units, dust ignored) and `executable` (B16) | creates one reviewed `single_sell` or `single_buy` intent per leg under the key `proposal:<id>:<instrument>:<side>` (idempotent) and answers them as `rebalance.intents`; each is planned, acknowledged and signed like any other, sells first; no legs, no intents |
 
 Statuses: `proposed`, `opened`, `dismissed`, and `expired` (derived from
 `expiresAt`: 30 days for a draft, 1 day for an investment, 7 days for a
@@ -143,8 +143,9 @@ attempt it names.
 Sequence numbers are strictly increasing per deployment; a reader keeps
 the last `seq` it saw and asks for `after=<seq>`. `nextAfter` is set when
 a page is full and newer events exist; `latestSeq` is the owner's newest
-event whatever the filter. The in-app notification outbox and delivery
-preferences arrive with B16; B15 records the facts.
+event whatever the filter. The maintenance pass projects these events
+into the in-app notification outbox with per-category delivery
+preferences (`docs/markov/maintenance.md`); B15 records the facts.
 
 ## Configuration
 
@@ -192,8 +193,8 @@ CLI (`markov agent`, `markov companion`, `markov proposals`,
 
 No hosted model provider (OD-19): the adapter contract and the fixture
 exist; the terms, retention and exact data sent to a provider must be
-recorded before one is configured. No notification delivery: events are
-recorded, not pushed (B16). No device gateway or firmware: paired devices
+recorded before one is configured. Notification delivery is B16's outbox
+(in-app always, email to a verified address). No device gateway or firmware: paired devices
 read the same event log the app reads. No unattended execution of any
 kind: `approvalMode` is `owner_each_plan` in every proposal and the
 schema accepts nothing else.

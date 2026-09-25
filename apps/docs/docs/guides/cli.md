@@ -207,6 +207,31 @@ its outcome in redacted provenance; a proposal waits for the owner's own
 session and opens into the same review as a manual action
 ([agents](../reference/markov/agents.md)).
 
+## Schedules, notifications and maintenance passes
+
+```bash
+markov workers create --label worker-1 --expires-days 90               # database access; prints the worker token once
+markov schedules create --input '{"kind":"recurring_investment","label":"Monthly","cadence":{"unit":"month","dayOfMonth":1,"timeOfDay":"09:00","timeZone":"Europe/Berlin"},"target":{"strategyVersionId":"<versionId>","walletId":"<walletId>","budget":{"rawAmount":"1000000000"}}}' --token "$SESSION" --url $URL
+markov schedules preview --input '{"cadence":{"unit":"day","timeOfDay":"09:00","timeZone":"America/New_York"},"count":5}' --token "$SESSION" --url $URL
+markov maintenance run --token "$WORKER" --url $URL                    # one pass; a repeated pass prepares nothing twice
+markov schedules occurrences <scheduleId> --token "$SESSION" --url $URL
+markov proposals open <proposalId> --token "$SESSION" --url $URL      # the owner opens the scheduled proposal into an intent
+markov schedules pause|resume|cancel <scheduleId> --token "$SESSION" --url $URL
+markov notifications list --category proposals --token "$SESSION" --url $URL
+markov notifications email set alice@example.com --token "$SESSION" --url $URL
+markov notifications email verify <code> --token "$SESSION" --url $URL
+markov notifications preferences --input '{"categories":{"proposals":{"inApp":true,"email":true}}}' --token "$SESSION" --url $URL
+markov mandates dry-run --input '{"mandate":{…},"action":{…}}' --token "$SESSION" --url $URL
+```
+
+A schedule prepares a proposal on its cadence and nothing more: the mode
+is always `prepare_for_approval`, missed occurrences are skipped rather
+than accumulated, and only the owner's session opens what was prepared.
+Notifications are delivered in-app always and by email only to an address
+the owner verified, for categories they turned on. The mandate dry run
+evaluates an envelope and reports that unattended execution is `DISABLED`
+([maintenance](../reference/markov/maintenance.md)).
+
 ## Database and operations
 
 ```bash

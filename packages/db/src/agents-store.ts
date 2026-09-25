@@ -170,6 +170,10 @@ export async function createProposal(
   input: {
     ownerUserId: string;
     runId: string | null;
+    /** Schedule provenance and the dedup key that makes a restarted pass find its proposal (B16). */
+    scheduleId?: string | null;
+    occurrenceId?: string | null;
+    dedupKey?: string | null;
     createdBy: string;
     kind: ProposalKind;
     summary: string;
@@ -185,6 +189,9 @@ export async function createProposal(
       .values({
         ownerUserId: input.ownerUserId,
         runId: input.runId,
+        scheduleId: input.scheduleId ?? null,
+        occurrenceId: input.occurrenceId ?? null,
+        dedupKey: input.dedupKey ?? null,
         createdBy: input.createdBy,
         kind: input.kind,
         status: 'proposed',
@@ -198,6 +205,42 @@ export async function createProposal(
       .returning(),
     'proposal insert',
   );
+}
+
+/** The proposal a dedup key already produced, if any (restart recovery of a maintenance pass). */
+export async function findProposalByDedupKey(
+  db: Database,
+  dedupKey: string,
+): Promise<AgentProposalRow | null> {
+  const rows = await db
+    .select()
+    .from(agentProposals)
+    .where(eq(agentProposals.dedupKey, dedupKey))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** An unopened, unexpired rebalance proposal for the instance, if any (drift schedules never stack them). */
+export async function findOpenRebalanceProposal(
+  db: Database,
+  ownerUserId: string,
+  instanceId: string,
+  now: Date,
+): Promise<AgentProposalRow | null> {
+  const rows = await db
+    .select()
+    .from(agentProposals)
+    .where(
+      and(
+        eq(agentProposals.ownerUserId, ownerUserId),
+        eq(agentProposals.kind, 'rebalance'),
+        eq(agentProposals.status, 'proposed'),
+        gt(agentProposals.expiresAt, now),
+        sql`${agentProposals.payload}->>'instanceId' = ${instanceId}`,
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 export async function findProposal(
@@ -308,6 +351,20 @@ export async function listMarkEvents(
     .where(and(...conditions))
     .orderBy(asc(markEvents.seq))
     .limit(query.limit);
+}
+
+/** Every owner's events after a sequence, oldest first: the notification projection's feed (B16). */
+export async function listMarkEventsAfter(
+  db: Database,
+  afterSeq: number,
+  limit: number,
+): Promise<MarkEventRow[]> {
+  return db
+    .select()
+    .from(markEvents)
+    .where(gt(markEvents.seq, afterSeq))
+    .orderBy(asc(markEvents.seq))
+    .limit(limit);
 }
 
 export async function latestMarkEventSeq(db: Database, ownerUserId: string): Promise<number> {

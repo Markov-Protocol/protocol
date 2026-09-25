@@ -152,10 +152,21 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
       evidence: { session: 'B15', config: 'COMPANION_MODEL_PROVIDER', openDecision: 'OD-19' },
     },
     {
+      capability: 'maintenance.scheduler',
+      status: 'IMPLEMENTED',
+      summary:
+        'Schedules prepare proposals for the owner’s review on a durable loop; occurrences are deduplicated, missed ones skipped, review windows expire and nothing spends (B16).',
+      evidence: {
+        tests: ['apps/api/test/maintenance.test.ts', 'apps/worker/test/worker.test.ts'],
+        journey: 'scripts/ci/startup-check.sh',
+      },
+    },
+    {
       capability: 'notifications.email',
-      status: 'DISABLED',
-      summary: 'Not started; planned for session B16.',
-      evidence: {},
+      status: 'BLOCKED',
+      summary:
+        'In-app outbox, preferences, address verification, retries and dead letters implemented (B16); the email adapter is fixture-verified and no provider is integrated (OD-25).',
+      evidence: { tests: ['packages/notifications/test', 'apps/api/test/maintenance.test.ts'] },
     },
     {
       capability: 'liquidity.meteora.read',

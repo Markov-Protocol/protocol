@@ -2,6 +2,7 @@ import { describeConfig, type EnvSource, type MarkovConfig, tryLoadConfig } from
 import type { BoundPlatformIdentity } from '@markov/contracts';
 import { createDbClient, type DbClient, getMigrationState, readPlatformIdentity } from '@markov/db';
 import { createLogger, type Logger } from '@markov/observability';
+import { ensureMaintenanceWorkflow } from './maintenance.js';
 import { ensureReconciliationWorkflow } from './reconciliation.js';
 import { createPlatformWorker, type PlatformWorker } from './worker.js';
 
@@ -25,6 +26,8 @@ export interface WorkerBootOptions {
   readonly taskQueue?: string;
   /** Start (or find) the durable execution reconciliation workflow for the queue; on by default. */
   readonly reconciliation?: boolean;
+  /** Start (or find) the durable maintenance loop when MAINTENANCE_API_URL/TOKEN are set; on by default. */
+  readonly maintenance?: boolean;
 }
 
 export interface BootedWorker {
@@ -125,6 +128,20 @@ export async function bootWorker(options: WorkerBootOptions = {}): Promise<Boote
         taskQueue: worker.taskQueue,
         identity: worker.identity,
       });
+    }
+    if (options.maintenance !== false) {
+      if (config.maintenance.apiUrl !== null && config.maintenance.apiToken !== null) {
+        await ensureMaintenanceWorkflow({
+          config,
+          logger,
+          taskQueue: worker.taskQueue,
+          identity: worker.identity,
+        });
+      } else {
+        logger.info(
+          'maintenance driver not configured (MAINTENANCE_API_URL and MAINTENANCE_API_TOKEN unset); schedules are not driven by this worker',
+        );
+      }
     }
     return {
       config,

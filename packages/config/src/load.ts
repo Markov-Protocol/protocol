@@ -123,6 +123,19 @@ function structure(raw: RawEnv): MarkovConfig {
         raw.COMPANION_MODEL_PROVIDER === 'disabled' ? null : raw.COMPANION_MODEL_PROVIDER,
       dailyCostLimitMicros: raw.COMPANION_DAILY_COST_LIMIT_MICROS,
     },
+    notifications: {
+      emailProvider:
+        raw.NOTIFICATIONS_EMAIL_PROVIDER === 'disabled' ? null : raw.NOTIFICATIONS_EMAIL_PROVIDER,
+      emailUrl: raw.NOTIFICATIONS_EMAIL_URL ?? null,
+      emailApiKey: raw.NOTIFICATIONS_EMAIL_API_KEY ?? null,
+      emailFrom: raw.NOTIFICATIONS_EMAIL_FROM ?? null,
+      appOrigin: raw.NOTIFICATIONS_APP_ORIGIN ?? null,
+    },
+    maintenance: {
+      apiUrl: raw.MAINTENANCE_API_URL ?? null,
+      apiToken: raw.MAINTENANCE_API_TOKEN ?? null,
+      tickSeconds: raw.MAINTENANCE_TICK_SECONDS,
+    },
     receipts: {
       provider: raw.RECEIPT_SIGNING_PROVIDER === 'local_key' ? 'local_key' : null,
       signingKey:
@@ -398,6 +411,40 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
       message: `the fixture companion model is not allowed when MARKOV_ENV=${env}`,
     });
   }
+  if (config.notifications.emailProvider === 'fixture' && !isDev) {
+    issues.push({
+      path: 'NOTIFICATIONS_EMAIL_PROVIDER',
+      message: `the fixture email adapter is not allowed when MARKOV_ENV=${env}`,
+    });
+  }
+  if (config.notifications.emailProvider === 'configured') {
+    for (const [path, value] of [
+      ['NOTIFICATIONS_EMAIL_URL', config.notifications.emailUrl],
+      ['NOTIFICATIONS_EMAIL_API_KEY', config.notifications.emailApiKey],
+      ['NOTIFICATIONS_EMAIL_FROM', config.notifications.emailFrom],
+    ] as const) {
+      if (value === null) {
+        issues.push({
+          path,
+          message: 'is required when NOTIFICATIONS_EMAIL_PROVIDER=configured',
+        });
+      }
+    }
+  } else {
+    if (config.notifications.emailUrl !== null || config.notifications.emailApiKey !== null) {
+      issues.push({
+        path: 'NOTIFICATIONS_EMAIL_URL',
+        message:
+          'is set but NOTIFICATIONS_EMAIL_PROVIDER is not configured; remove it or enable the provider',
+      });
+    }
+  }
+  if ((config.maintenance.apiUrl === null) !== (config.maintenance.apiToken === null)) {
+    issues.push({
+      path: 'MAINTENANCE_API_URL',
+      message: 'MAINTENANCE_API_URL and MAINTENANCE_API_TOKEN are set together or not at all',
+    });
+  }
   if (config.execution.venue.provider === 'fixture' && !isDev) {
     issues.push({
       path: 'EXECUTION_VENUE_PROVIDER',
@@ -579,6 +626,19 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
     funding: config.funding,
     research: config.research,
     companion: config.companion,
+    notifications: {
+      emailProvider: config.notifications.emailProvider,
+      emailUrl:
+        config.notifications.emailUrl === null ? null : redactUrl(config.notifications.emailUrl),
+      emailFrom: config.notifications.emailFrom,
+      appOrigin: config.notifications.appOrigin,
+      emailApiKeyConfigured: config.notifications.emailApiKey !== null,
+    },
+    maintenance: {
+      apiUrl: config.maintenance.apiUrl === null ? null : redactUrl(config.maintenance.apiUrl),
+      apiTokenConfigured: config.maintenance.apiToken !== null,
+      tickSeconds: config.maintenance.tickSeconds,
+    },
     receipts: { provider: config.receipts.provider, keyId: config.receipts.keyId },
     strategies: config.strategies,
     registry: config.registry,

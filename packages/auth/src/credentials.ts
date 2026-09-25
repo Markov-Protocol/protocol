@@ -1,13 +1,14 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { encodeBase58 } from '@markov/contracts';
 
-export type CredentialKind = 'session' | 'agent' | 'operator' | 'device';
+export type CredentialKind = 'session' | 'agent' | 'operator' | 'device' | 'worker';
 
 const KIND_PREFIX: Record<CredentialKind, string> = {
   session: 'mkv_ss',
   agent: 'mkv_ag',
   operator: 'mkv_op',
   device: 'mkv_dv',
+  worker: 'mkv_wk',
 };
 const PREFIX_KIND = new Map(
   Object.entries(KIND_PREFIX).map(([kind, prefix]) => [prefix, kind as CredentialKind]),

@@ -94,6 +94,25 @@ export const rawEnvSchema = z.object({
   /** Companion runs an account may spend per rolling day, in cost micros; runs beyond it answer BUDGET_EXHAUSTED. */
   COMPANION_DAILY_COST_LIMIT_MICROS: intFromEnv(1000, 1_000_000_000).default(5_000_000),
   /**
+   * Notification email adapter (B16): `disabled` sends nothing (in-app notifications still work);
+   * `fixture` records messages (local/test only); `configured` posts the Markov email contract to
+   * NOTIFICATIONS_EMAIL_URL with NOTIFICATIONS_EMAIL_API_KEY.
+   */
+  NOTIFICATIONS_EMAIL_PROVIDER: z.enum(['disabled', 'fixture', 'configured']).default('disabled'),
+  NOTIFICATIONS_EMAIL_URL: z.url().optional(),
+  NOTIFICATIONS_EMAIL_API_KEY: z.string().min(1).max(4000).optional(),
+  NOTIFICATIONS_EMAIL_FROM: z.string().email().max(254).optional(),
+  /** Origin the app is served from, used in notification links; defaults to the API's own origin in local/test. */
+  NOTIFICATIONS_APP_ORIGIN: z.url().optional(),
+  /**
+   * Maintenance driver (B16, worker only): the API the worker runs maintenance passes against and
+   * the worker credential (mkv_wk_…, scope maintenance:run) it presents. Unset: the worker starts no
+   * maintenance workflow.
+   */
+  MAINTENANCE_API_URL: z.url().optional(),
+  MAINTENANCE_API_TOKEN: z.string().min(20).max(400).optional(),
+  MAINTENANCE_TICK_SECONDS: intFromEnv(5, 3600).default(60),
+  /**
    * Execution venue adapter (B09): `disabled` refuses every plan; `fixture` (local/test only) answers
    * synthetic quotes; `configured_url` posts the Markov quote contract to EXECUTION_VENUE_QUOTE_URL.
    */
@@ -219,6 +238,23 @@ export interface MarkovConfig {
     readonly modelProvider: 'fixture' | null;
     /** Cost micros an account may spend on companion runs per rolling day. */
     readonly dailyCostLimitMicros: number;
+  };
+  readonly notifications: {
+    /** Null when no email provider is configured; in-app notifications work without one. */
+    readonly emailProvider: 'fixture' | 'configured' | null;
+    readonly emailUrl: string | null;
+    /** Never logged or described. */
+    readonly emailApiKey: string | null;
+    readonly emailFrom: string | null;
+    /** Origin of the app links point at; null keeps links as paths only. */
+    readonly appOrigin: string | null;
+  };
+  readonly maintenance: {
+    /** Null when the worker is not configured to drive maintenance passes. */
+    readonly apiUrl: string | null;
+    /** Never logged or described. */
+    readonly apiToken: string | null;
+    readonly tickSeconds: number;
   };
   readonly receipts: {
     /** Null when receipts are disabled; issuing then answers PROVIDER_UNAVAILABLE. */

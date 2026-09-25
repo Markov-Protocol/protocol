@@ -3,7 +3,9 @@ import {
   ATTEMPT_STATES,
   BUDGET_MODES,
   CAPABILITY_STATUSES,
+  type Cadence,
   type CatalogPrice,
+  type CategoryPreferences,
   CORPORATE_ACTION_STATUSES,
   CORPORATE_ACTION_TYPES,
   type CompanionBudget,
@@ -12,8 +14,10 @@ import {
   type CompanionProvenance,
   type CompanionUsage,
   type CorporateActionDetails,
+  DELIVERY_STATUSES,
   type DecodedInstruction,
   type Disclosures,
+  type DriftTarget,
   ELIGIBILITY_CAPABILITIES,
   ELIGIBILITY_OUTCOMES,
   EXECUTION_EVENT_KINDS,
@@ -28,6 +32,7 @@ import {
   INTENT_KINDS,
   INTENT_STATES,
   type InstrumentReference,
+  type InvestmentTarget,
   ISSUERS,
   JOURNAL_ACCOUNTS,
   JOURNAL_ATTRIBUTIONS,
@@ -40,9 +45,14 @@ import {
   MARK_EVENT_SUBJECT_TYPES,
   type Maintenance,
   MINT_VERIFICATION_RESULTS,
+  MISSED_RUN_POLICIES,
   MODERATION_STATUSES,
   MULTIPLIER_SOURCES,
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_CHANNELS,
+  NOTIFICATION_LINK_TYPES,
   OBSERVABLE_PRICE_KINDS,
+  OCCURRENCE_REASONS,
   type OnChainMint,
   type OwnerLimits,
   PLAN_MODES,
@@ -65,6 +75,9 @@ import {
   type RegistryRecord,
   type ResearchSubject,
   RUN_STATUSES,
+  SCHEDULE_KINDS,
+  SCHEDULE_MODES,
+  SCHEDULE_STATUSES,
   type SimulationEvidence,
   SNAPSHOT_KINDS,
   SNAPSHOT_STATUSES,
@@ -250,7 +263,7 @@ export const apiCredentials = pgTable(
     index('api_credentials_user_idx').on(table.userId),
     check(
       'api_credentials_class_check',
-      sql.raw(`"${table.principalClass.name}" IN ('agent', 'operator')`),
+      sql.raw(`"${table.principalClass.name}" IN ('agent', 'operator', 'worker')`),
     ),
   ],
 );
@@ -1710,6 +1723,11 @@ export const agentProposals = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     runId: uuid('run_id').references(() => companionRuns.id, { onDelete: 'set null' }),
+    /** The schedule occurrence that produced it (B16); the occurrence row points back once written. */
+    scheduleId: uuid('schedule_id'),
+    occurrenceId: uuid('occurrence_id'),
+    /** One proposal per key: a restarted maintenance pass finds the proposal it already made. */
+    dedupKey: text('dedup_key'),
     createdBy: text('created_by').notNull(),
     kind: text('kind').notNull(),
     status: text('status').notNull().default('proposed'),
@@ -1727,6 +1745,7 @@ export const agentProposals = pgTable(
   (table) => [
     index('agent_proposals_owner_idx').on(table.ownerUserId, table.createdAt),
     index('agent_proposals_owner_status_idx').on(table.ownerUserId, table.status),
+    uniqueIndex('agent_proposals_dedup_key_unique').on(table.dedupKey),
     enumCheck('agent_proposals_kind_check', table.kind, PROPOSAL_KINDS),
     enumCheck('agent_proposals_status_check', table.status, STORED_PROPOSAL_STATUSES),
   ],
@@ -1756,3 +1775,177 @@ export const markEvents = pgTable(
     enumCheck('mark_events_subject_check', table.subjectType, MARK_EVENT_SUBJECT_TYPES),
   ],
 );
+
+/* -------------------------------------------------------------------------
+ * Maintenance and notifications (B16): durable schedules whose occurrences
+ * prepare proposals for the owner's approval, the in-app notification outbox
+ * projected from the owner's events with per-channel deliveries, the owner's
+ * preferences and the projection cursor. Nothing here holds spending
+ * authority: a schedule ends in a proposal, a notification in a link.
+ * ---------------------------------------------------------------------- */
+
+/** Stored occurrence statuses; `opened` and `dismissed` are read from the proposal. */
+export const STORED_OCCURRENCE_STATUSES = ['proposed', 'skipped', 'failed', 'expired'] as const;
+
+export const schedules = pgTable(
+  'schedules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    status: text('status').notNull().default('active'),
+    mode: text('mode').notNull().default('prepare_for_approval'),
+    label: text('label').notNull(),
+    cadence: jsonb('cadence').$type<Cadence>().notNull(),
+    target: jsonb('target').$type<InvestmentTarget | DriftTarget>().notNull(),
+    /** Denormalised from the target for revocation when the resource goes away. */
+    walletId: uuid('wallet_id').references(() => walletLinks.id),
+    instanceId: uuid('instance_id').references(() => portfolioInstances.id),
+    strategyVersionId: uuid('strategy_version_id').references(() => strategyVersions.id),
+    instrumentId: uuid('instrument_id').references(() => instruments.id),
+    startAt: timestamp('start_at', { withTimezone: true, mode: 'date' }).notNull(),
+    endAt: timestamp('end_at', { withTimezone: true, mode: 'date' }),
+    reviewWindowHours: integer('review_window_hours').notNull(),
+    missedRunPolicy: text('missed_run_policy').notNull().default('skip'),
+    /** Next instant an active schedule considers; the tick selects on it. */
+    nextDueAt: timestamp('next_due_at', { withTimezone: true, mode: 'date' }),
+    lastSequence: integer('last_sequence').notNull().default(0),
+    /** Drift schedules: when the last rebalance proposal was made. */
+    lastProposalAt: timestamp('last_proposal_at', { withTimezone: true, mode: 'date' }),
+    proposedCount: integer('proposed_count').notNull().default(0),
+    skippedCount: integer('skipped_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    statusReason: text('status_reason'),
+    pausedAt: timestamp('paused_at', { withTimezone: true, mode: 'date' }),
+    endedAt: timestamp('ended_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('schedules_owner_idx').on(table.ownerUserId, table.createdAt),
+    index('schedules_due_idx').on(table.status, table.nextDueAt),
+    enumCheck('schedules_kind_check', table.kind, SCHEDULE_KINDS),
+    enumCheck('schedules_status_check', table.status, SCHEDULE_STATUSES),
+    enumCheck('schedules_mode_check', table.mode, SCHEDULE_MODES),
+    enumCheck('schedules_missed_check', table.missedRunPolicy, MISSED_RUN_POLICIES),
+  ],
+);
+
+export const scheduleOccurrences = pgTable(
+  'schedule_occurrences',
+  {
+    id: uuid('id').primaryKey(),
+    scheduleId: uuid('schedule_id')
+      .notNull()
+      .references(() => schedules.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull(),
+    dueAt: timestamp('due_at', { withTimezone: true, mode: 'date' }).notNull(),
+    windowEndsAt: timestamp('window_ends_at', { withTimezone: true, mode: 'date' }).notNull(),
+    status: text('status').notNull(),
+    reason: text('reason'),
+    detail: text('detail'),
+    proposalId: uuid('proposal_id').references(() => agentProposals.id),
+    dedupKey: text('dedup_key').notNull(),
+    decidedAt: timestamp('decided_at', { withTimezone: true, mode: 'date' }).notNull(),
+    /** Set once the owner was told the proposal expired unopened. */
+    expiryNotifiedAt: timestamp('expiry_notified_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    uniqueIndex('schedule_occurrences_sequence_unique').on(table.scheduleId, table.sequence),
+    uniqueIndex('schedule_occurrences_dedup_unique').on(table.dedupKey),
+    index('schedule_occurrences_owner_idx').on(table.ownerUserId, table.decidedAt),
+    index('schedule_occurrences_status_idx').on(table.status, table.windowEndsAt),
+    enumCheck('schedule_occurrences_status_check', table.status, STORED_OCCURRENCE_STATUSES),
+    enumCheck('schedule_occurrences_reason_check', table.reason, OCCURRENCE_REASONS),
+  ],
+);
+
+export const notifications = pgTable(
+  'notifications',
+  {
+    seq: bigserial('seq', { mode: 'number' }).primaryKey(),
+    /** A unique constraint rather than an index, so deliveries can reference it. */
+    id: uuid('id').notNull().defaultRandom().unique('notifications_id_unique'),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    category: text('category').notNull(),
+    kind: text('kind').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    linkType: text('link_type'),
+    linkId: text('link_id'),
+    /** The Mark I event this was projected from; unique so a rerun projects nothing twice. */
+    sourceEventSeq: bigint('source_event_seq', { mode: 'number' }),
+    /** Other sources (schedule outcomes) carry their own unique key. */
+    sourceKey: text('source_key'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    readAt: timestamp('read_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    uniqueIndex('notifications_source_event_unique').on(table.sourceEventSeq),
+    uniqueIndex('notifications_source_key_unique').on(table.sourceKey),
+    index('notifications_owner_seq_idx').on(table.ownerUserId, table.seq),
+    index('notifications_owner_unread_idx').on(table.ownerUserId, table.readAt),
+    enumCheck('notifications_category_check', table.category, NOTIFICATION_CATEGORIES),
+    enumCheck('notifications_link_type_check', table.linkType, NOTIFICATION_LINK_TYPES),
+  ],
+);
+
+export const notificationDeliveries = pgTable(
+  'notification_deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    notificationId: uuid('notification_id')
+      .notNull()
+      .references(() => notifications.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    channel: text('channel').notNull(),
+    status: text('status').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true, mode: 'date' }),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true, mode: 'date' }),
+    /** Provider receipt or the last error; never the message body, never a secret. */
+    detail: text('detail'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('notification_deliveries_channel_unique').on(table.notificationId, table.channel),
+    index('notification_deliveries_due_idx').on(table.status, table.nextAttemptAt),
+    enumCheck('notification_deliveries_channel_check', table.channel, NOTIFICATION_CHANNELS),
+    enumCheck('notification_deliveries_status_check', table.status, DELIVERY_STATUSES),
+  ],
+);
+
+export const notificationPreferences = pgTable('notification_preferences', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  emailAddress: text('email_address'),
+  emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true, mode: 'date' }),
+  /** Pending verification: HMAC of the code under the server pepper and a per-attempt salt. */
+  emailPendingHash: text('email_pending_hash'),
+  emailPendingSalt: text('email_pending_salt'),
+  emailPendingExpiresAt: timestamp('email_pending_expires_at', {
+    withTimezone: true,
+    mode: 'date',
+  }),
+  emailPendingAttempts: integer('email_pending_attempts').notNull().default(0),
+  categories: jsonb('categories').$type<CategoryPreferences>().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+});
+
+/** One row per deployment: the last Mark I event projected into notifications. */
+export const notificationProjectionCursor = pgTable('notification_projection_cursor', {
+  id: text('id').primaryKey(),
+  lastEventSeq: bigint('last_event_seq', { mode: 'number' }).notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+});

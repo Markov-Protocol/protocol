@@ -33,6 +33,11 @@ the check asks for.
   verified owner.
 - Secrets are stored only as peppered hashes; URLs and keys are redacted
   from logs; configuration issues never echo values.
+- Schedules act through an internal principal that can only propose;
+  the worker's credential can only ask for maintenance passes; a
+  scheduled proposal needs the owner's session, a plan, an
+  acknowledgement and a wallet signature like any other, and unattended
+  execution stays a disabled capability.
 
 ## Execution
 

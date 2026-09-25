@@ -1,0 +1,26 @@
+{
+  "name": "@markov/notifications",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@markov/contracts": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {},
+  "description": "Notification rules and adapters: routing of owner events to categories and channels under the owner's preferences, plain-text rendering without credentials, the email adapter contract with a recording fixture and a configured HTTP provider, and retry classification"
+}

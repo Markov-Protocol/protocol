@@ -38,7 +38,9 @@ import { ApiError } from './errors.js';
 import type { ExecutionService } from './execution/service.js';
 import type { FollowService } from './follows/service.js';
 import type { FundingService } from './funding/service.js';
+import type { MaintenanceService } from './maintenance/service.js';
 import type { NetworkIdentitySource } from './network-monitor.js';
+import type { NotificationService } from './notifications/service.js';
 import type { PlanningService } from './planning/service.js';
 import type { PolicyService } from './policy/service.js';
 import type { RegistryService } from './registry/service.js';
@@ -52,6 +54,8 @@ import { executionRoutes } from './routes/execution.js';
 import { followRoutes } from './routes/follows.js';
 import { fundingRoutes } from './routes/funding.js';
 import { identityRoutes } from './routes/identity.js';
+import { maintenanceRoutes } from './routes/maintenance.js';
+import { notificationRoutes } from './routes/notifications.js';
 import { planningRoutes } from './routes/planning.js';
 import { policyRoutes } from './routes/policy.js';
 import { registryRoutes } from './routes/registry.js';
@@ -104,6 +108,8 @@ export interface AppDependencies {
   readonly analytics: AnalyticsService;
   readonly discovery: DiscoveryService;
   readonly agents: AgentService;
+  readonly maintenance: MaintenanceService;
+  readonly notifications: NotificationService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -291,6 +297,16 @@ export async function buildApp(deps: AppDependencies) {
           description:
             'Typed agent tools over the domain services with the caller’s own authority, bounded companion runs with redacted provenance, proposals the owner alone opens, and the Mark I event log',
         },
+        {
+          name: 'maintenance',
+          description:
+            'Schedules that prepare recurring investment and drift-driven rebalance proposals for the owner’s approval, their occurrences, the maintenance pass and the mandate dry run; nothing here executes',
+        },
+        {
+          name: 'notifications',
+          description:
+            'The owner’s in-app notification outbox projected from their events, channel preferences, the verified email address and operator recovery of dead deliveries',
+        },
       ],
     },
     transform: jsonSchemaTransform,
@@ -444,6 +460,8 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(analyticsRoutes, { analytics: deps.analytics });
   await app.register(discoveryRoutes, { discovery: deps.discovery });
   await app.register(agentRoutes, { agents: deps.agents });
+  await app.register(maintenanceRoutes, { maintenance: deps.maintenance });
+  await app.register(notificationRoutes, { notifications: deps.notifications });
 
   return app;
 }

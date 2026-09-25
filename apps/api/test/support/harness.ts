@@ -14,11 +14,13 @@ import {
   bindPlatformIdentity,
   createApiCredential,
   createDbClient,
+  type Database,
   runMigrations,
   seedCapabilityReadiness,
 } from '@markov/db';
 import { createPrestocksFixtureSource } from '@markov/issuer-prestocks';
 import { createXstocksFixtureSource } from '@markov/issuer-xstocks';
+import { createFixtureEmailAdapter, type FixtureEmailAdapter } from '@markov/notifications';
 import { createLogger, createSilentLogger } from '@markov/observability';
 import type { VenueAdapter } from '@markov/planning';
 import { FIXTURE_JURISDICTION_RULE_SET, FIXTURE_TERMS_DOCUMENT } from '@markov/policy';
@@ -45,6 +47,8 @@ import {
   createFollowService,
   createFundingService,
   createIdentityService,
+  createMaintenanceService,
+  createNotificationService,
   createPlanningService,
   createPolicyService,
   createProbes,
@@ -85,6 +89,10 @@ export interface TestClock {
 export interface Harness {
   app: MarkovApi;
   config: MarkovConfig;
+  /** The harness database, for store-level checks the API does not expose (B16 restart recovery). */
+  db: Database;
+  /** Every email the fixture adapter accepted or refused (B16). */
+  email: FixtureEmailAdapter;
   /** The fixture chain every RPC read and write goes to: balances, mints, the fixture route program. */
   chain: FixtureLedger;
   clock: TestClock;
@@ -137,6 +145,8 @@ export interface HarnessOptions {
     readonly adapter?: CompanionModelAdapter;
     readonly dailyCostLimitMicros?: number;
   };
+  /** A fixture email adapter with test controls (B16); a plain recording fixture by default. */
+  readonly email?: FixtureEmailAdapter;
 }
 
 export async function withHarness(
@@ -154,6 +164,7 @@ export async function withHarness(
         ...(options.venue === 'fixture' ? { EXECUTION_VENUE_PROVIDER: 'fixture' } : {}),
         ...(options.writes ? { EXECUTION_WRITES_ENABLED: 'true' } : {}),
         ...(options.registry ? { REGISTRY_PROGRAM_ID: FIXTURE_REGISTRY_PROGRAM_ID } : {}),
+        NOTIFICATIONS_EMAIL_PROVIDER: 'fixture',
         ...(options.companion
           ? {
               COMPANION_MODEL_PROVIDER: 'fixture',
@@ -293,6 +304,24 @@ export async function withHarness(
         genesisHash: GENESIS,
         now,
       });
+      const agents = createAgentService({
+        config,
+        db: client.db,
+        catalog,
+        research,
+        strategies,
+        planning,
+        policy,
+        funding,
+        accounting,
+        analytics,
+        model: options.companion
+          ? (options.companion.adapter ?? createFixtureCompanionAdapter())
+          : null,
+        now,
+      });
+      const email = options.email ?? createFixtureEmailAdapter();
+      const notifications = createNotificationService({ config, db: client.db, email, now });
       const app = await buildApp({
         config,
         // Silent by default; MARKOV_TEST_LOG_ERRORS=1 prints unhandled errors while debugging a 500.
@@ -349,22 +378,18 @@ export async function withHarness(
         accounting,
         analytics,
         discovery: createDiscoveryService({ db: client.db, analytics, now }),
-        agents: createAgentService({
+        agents,
+        maintenance: createMaintenanceService({
           config,
           db: client.db,
-          catalog,
-          research,
-          strategies,
-          planning,
-          policy,
-          funding,
-          accounting,
+          agents,
           analytics,
-          model: options.companion
-            ? (options.companion.adapter ?? createFixtureCompanionAdapter())
-            : null,
+          catalog,
+          strategies,
+          notifications,
           now,
         }),
+        notifications,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await accounting.registerSigningKey();
@@ -561,6 +586,8 @@ export async function withHarness(
       try {
         await fn({
           app,
+          db: client.db,
+          email,
           config,
           chain,
           clock,

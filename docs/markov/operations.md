@@ -425,9 +425,60 @@ asked for with its outcome; a burst of `refused` steps naming tools that
 do not exist or arguments outside the schema is a model being steered by
 something it read, and is exactly what the boundary is for. Proposals
 expire on their own (30 days for a draft, one day for an investment, seven
-for a rebalance); nothing opens them but the owner. Events are facts, not
-deliveries: the notification outbox and channels arrive with B16. Audit
-actions: `agent.*`, `companion.*`.
+for a rebalance); nothing opens them but the owner. Events are facts;
+the maintenance pass projects them into the notification outbox (below).
+Audit actions: `agent.*`, `companion.*`.
+
+## Maintenance and notifications
+
+```
+markov workers create --label <worker> --expires-days 90            # database access; the token becomes MAINTENANCE_API_TOKEN
+markov schedules create --input '{"kind":"recurring_investment","label":"…","cadence":{"unit":"month","dayOfMonth":1,"timeOfDay":"09:00","timeZone":"Europe/Berlin"},"target":{"strategyVersionId":"…","walletId":"…","budget":{"rawAmount":"1000000000"}}}' --token <session> --url …
+markov schedules preview --input '{"cadence":{…},"count":5}' --token <session> --url …
+markov schedules list|show <id>|occurrences <id> --token <session|agent>; markov schedules update|pause|resume|cancel <id> --token <session> --url …
+markov maintenance run --token <worker|operator ops:maintenance:run> --url …
+markov notifications list [--unread] [--category proposals] --token <session|device> --url …
+markov notifications preferences [--input '{"categories":{"proposals":{"inApp":true,"email":true}}}'] --token <session> --url …
+markov notifications email set <address>|verify <code>|clear --token <session> --url …
+markov notifications dead-letter|retry <notificationId> --channel email|fixture-outbox --token <operator> --url …
+markov mandates dry-run --input '{"mandate":{…},"action":{…}}' --token <session> --url …
+```
+
+Migration `0017_maintenance` adds `schedules`, `schedule_occurrences`,
+`notifications`, `notification_deliveries`, `notification_preferences`
+and `notification_projection_cursor`, and the proposal columns
+`schedule_id`, `occurrence_id` and the unique `dedup_key`. The worker
+drives passes when `MAINTENANCE_API_URL` and `MAINTENANCE_API_TOKEN` are
+set (a `markov workers create` credential holding `maintenance:run`; the
+API resolves the `mkv_wk_…` prefix like any credential and audits every
+pass as `maintenance.run`); `MAINTENANCE_TICK_SECONDS` (default 60) is
+the tick. Without them the worker logs that it is not driving schedules
+and an operator with `ops:maintenance:run` can run passes by hand. Each
+pass claims one due schedule per transaction, so several workers or an
+operator running alongside never double-process a schedule, and a pass
+repeated after a crash answers the existing proposal.
+
+`NOTIFICATIONS_EMAIL_PROVIDER` is `disabled` by default: in-app
+notifications work, email deliveries are `skipped` and setting an address
+answers `unavailable`. `fixture` is a recording adapter for local and test
+only (configuration refuses it elsewhere; operators read what it would have
+sent through `notifications fixture-outbox`). `configured` needs
+`NOTIFICATIONS_EMAIL_URL`, `NOTIFICATIONS_EMAIL_API_KEY` and
+`NOTIFICATIONS_EMAIL_FROM` and posts each message as JSON with the
+idempotency key as a header; no live provider is integrated (OD-25).
+`NOTIFICATIONS_APP_ORIGIN` prefixes the app paths in emails.
+
+Operating: `schedules occurrences` explains every occurrence; a run of
+`skipped` with `missed_window` means the worker was down or the review
+window is shorter than the tick, and nothing was spent either way; a
+`revoked` schedule names what disappeared (its wallet, version or
+instance) and must be recreated by the owner. `notifications dead-letter`
+lists deliveries that exhausted their retries with the provider's last
+answer; fix the cause, then `notifications retry`. Nothing is resent on
+its own. The mandate dry run stores nothing and `automation.unattended`
+stays `DISABLED`; no configuration flag enables unattended execution.
+Audit actions: `maintenance.*`, `notification.*`,
+`worker.credential.created`.
 
 ## Documentation site
 

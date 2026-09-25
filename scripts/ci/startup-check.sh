@@ -23,7 +23,7 @@ RPC_PORT=$((20000 + RANDOM % 20000))
 node scripts/dev/fixture-rpc.mjs "$RPC_PORT" &
 RPC_PID=$!
 
-export MARKOV_ENV=test SERVICE_VERSION=startup-check LOG_LEVEL=warn LOG_FORMAT=json RESEARCH_MODEL_PROVIDER=fixture COMPANION_MODEL_PROVIDER=fixture
+export MARKOV_ENV=test SERVICE_VERSION=startup-check LOG_LEVEL=warn LOG_FORMAT=json RESEARCH_MODEL_PROVIDER=fixture COMPANION_MODEL_PROVIDER=fixture NOTIFICATIONS_EMAIL_PROVIDER=fixture
 export DATABASE_URL="$DB_URL" SOLANA_CLUSTER=devnet SOLANA_RPC_PRIMARY_URL="http://127.0.0.1:$RPC_PORT"
 # Strategy registry (B08): the development placeholder program id served by the fixture ledger.
 export REGISTRY_PROGRAM_ID="${MARKOV_FIXTURE_REGISTRY_PROGRAM_ID:-6SAPG2iavaEAv628NpuZuSwgKxGhqU23C769w7FfGpuZ}"
@@ -490,6 +490,83 @@ for KIND in proposal.created review.required execution.pending execution.finaliz
 done
 AGENT_EVENTS=$(node apps/cli/dist/main.js events --token "$AGENT_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "FORBIDDEN" || true)
 echo "agent reading the event log refused: $AGENT_EVENTS"; [ "$AGENT_EVENTS" = "1" ]
+
+echo "== maintenance journey (B16): worker credential -> schedule due now -> a pass prepares one proposal -> rerun prepares nothing -> pause -> notifications -> verified email through the fixture -> mandate dry run"
+WORKER_TOKEN=$(node apps/cli/dist/main.js workers create --label startup-check --expires-days 1 | J 'j.token')
+MAINT_OPERATOR=$(node apps/cli/dist/main.js operators create --label startup-maintenance --scopes ops:read,ops:maintenance:run --expires-days 1 | J 'j.token')
+ALICE_ID=$(curl -fsS -H "Authorization: Bearer $SESSION_TOKEN" "http://127.0.0.1:$API_PORT/v1/me" | J 'j.user.id')
+# A daily cadence whose occurrence fell twenty minutes ago (UTC), inside its 24-hour review window.
+SCHEDULE_REQUEST=$(node -e '
+const now = Date.now(); const due = new Date(now - 20 * 60000); const pad = (n) => String(n).padStart(2, "0");
+console.log(JSON.stringify({ kind: "recurring_investment", label: "startup monthly", cadence: { unit: "day", timeOfDay: pad(due.getUTCHours()) + ":" + pad(due.getUTCMinutes()), timeZone: "UTC" }, startAt: new Date(now - 50 * 60000).toISOString(), target: { strategyVersionId: process.argv[1], walletId: process.argv[2], budget: { rawAmount: "100000000" } } }));
+' "$V1_ID" "$EXEC_WALLET_ID")
+SCHEDULE=$(node apps/cli/dist/main.js schedules create --input "$SCHEDULE_REQUEST" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.scheduleId+":"+j.status+":"+j.mode+":"+j.missedRunPolicy+":"+(new Date(j.nextDueAt).getTime()<Date.now())')
+echo "schedule id:status:mode:missed-run:due = $SCHEDULE"; case "$SCHEDULE" in *:active:prepare_for_approval:skip:true) ;; *) exit 1;; esac
+SCHEDULE_ID=${SCHEDULE%%:*}
+UNATTENDED=$(node apps/cli/dist/main.js schedules create --input "$(echo "$SCHEDULE_REQUEST" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);j.mode="unattended";console.log(JSON.stringify(j))})')" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "VALIDATION_FAILED" || true)
+echo "an unattended mode is refused at the contract: $UNATTENDED"; [ "$UNATTENDED" = "1" ]
+for TOKEN_NAME in SESSION_TOKEN AGENT_TOKEN OPERATOR_TOKEN; do
+  REFUSED=$(node apps/cli/dist/main.js maintenance run --token "${!TOKEN_NAME}" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "FORBIDDEN" || true)
+  echo "maintenance pass with $TOKEN_NAME refused: $REFUSED"; [ "$REFUSED" = "1" ]
+done
+PASS1=$(node apps/cli/dist/main.js maintenance run --token "$WORKER_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.schedules.considered+":"+j.schedules.proposed+":"+j.schedules.skipped+":"+j.schedules.failed+":"+(j.notifications.projected>=1)')
+echo "pass 1 considered:proposed:skipped:failed:projected = $PASS1"; [ "$PASS1" = "1:1:0:0:true" ]
+PASS2=$(node apps/cli/dist/main.js maintenance run --token "$MAINT_OPERATOR" --url "http://127.0.0.1:$API_PORT" | J 'j.schedules.considered+":"+j.schedules.proposed')
+echo "pass 2 (same occurrence, operator) considered:proposed = $PASS2"; [ "$PASS2" = "0:0" ]
+OCCURRENCES=$(node apps/cli/dist/main.js schedules occurrences "$SCHEDULE_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.occurrences.length+":"+j.occurrences[0].sequence+":"+j.occurrences[0].status+":"+j.occurrences[0].dedupKey+":"+j.occurrences[0].proposalId')
+echo "occurrences count:sequence:status:dedup:proposal = ${OCCURRENCES%:*}"; case "$OCCURRENCES" in "1:1:proposed:schedule:$SCHEDULE_ID:1:"*) ;; *) exit 1;; esac
+SCHEDULED_PROPOSAL=${OCCURRENCES##*:}
+PROVENANCE=$(node apps/cli/dist/main.js proposals show "$SCHEDULED_PROPOSAL" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.kind+":"+j.status+":"+j.createdBy+":"+j.scheduleId+":"+j.payload.request.approvalMode+":"+j.intentId')
+echo "scheduled proposal kind:status:createdBy:schedule:approval:intent = $PROVENANCE"; [ "$PROVENANCE" = "investment:proposed:agent:schedule:$SCHEDULE_ID:$SCHEDULE_ID:owner_each_plan:null" ]
+SCHEDULE_AFTER=$(node apps/cli/dist/main.js schedules show "$SCHEDULE_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.lastSequence+":"+j.counts.proposed+":"+j.lastOccurrence.status')
+echo "schedule lastSequence:proposed:last = $SCHEDULE_AFTER"; [ "$SCHEDULE_AFTER" = "1:1:proposed" ]
+AGENT_SCHEDULES=$(node apps/cli/dist/main.js schedules list --token "$AGENT_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.schedules.length')
+echo "agent credential lists the owner's schedules: $AGENT_SCHEDULES"; [ "$AGENT_SCHEDULES" = "1" ]
+AGENT_PAUSE=$(node apps/cli/dist/main.js schedules pause "$SCHEDULE_ID" --token "$AGENT_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "FORBIDDEN" || true)
+echo "agent credential pausing a schedule refused: $AGENT_PAUSE"; [ "$AGENT_PAUSE" = "1" ]
+PAUSED=$(node apps/cli/dist/main.js schedules pause "$SCHEDULE_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.status+":"+j.nextDueAt')
+echo "paused status:nextDueAt = $PAUSED"; [ "$PAUSED" = "paused:null" ]
+NOTIFIED=$(node apps/cli/dist/main.js notifications list --category proposals --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.notifications.filter(n=>n.kind==="proposal.created"&&n.deliveries.some(d=>d.channel==="in_app"&&d.status==="delivered")).length+":"+(j.unread>=1)+":"+j.notifications.every(n=>!/mkv_/.test(n.body))')
+echo "proposal notifications delivered in-app:unread:no-credential = $NOTIFIED"; [ "${NOTIFIED#*:}" = "true:true" ] && [ "${NOTIFIED%%:*}" -ge 1 ]
+DEVICE_NOTIFICATIONS=$(node apps/cli/dist/main.js notifications list --token "$AGENT_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "FORBIDDEN" || true)
+echo "agent credential reading notifications refused: $DEVICE_NOTIFICATIONS"; [ "$DEVICE_NOTIFICATIONS" = "1" ]
+PREFS=$(node apps/cli/dist/main.js notifications preferences --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.email.provider+":"+j.email.address+":"+j.categories.proposals.email+":"+j.categories.security.email')
+echo "default preferences provider:address:proposals-email:security-email = $PREFS"; [ "$PREFS" = "fixture:null:false:true" ]
+EMAIL_SET=$(node apps/cli/dist/main.js notifications email set alice@example.com --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.verification.status+":"+j.verification.provider+":"+j.preferences.email.pendingVerification')
+echo "email set verification:provider:pending = $EMAIL_SET"; [ "$EMAIL_SET" = "sent:fixture:true" ]
+WRONG_CODE=$(node apps/cli/dist/main.js notifications email verify 000000 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "VALIDATION_FAILED" || true)
+echo "a wrong code is refused: $WRONG_CODE"; [ "$WRONG_CODE" = "1" ]
+# The fixture provider's outbox is an operator view that exists only with the fixture; a configured provider has none.
+CODE=$(node apps/cli/dist/main.js notifications fixture-outbox --token "$MAINT_OPERATOR" --url "http://127.0.0.1:$API_PORT" | J 'j.messages.filter(m=>m.idempotencyKey.startsWith("verification:")).at(-1).text.match(/notifications: (\d{6})/)[1]')
+VERIFIED=$(node apps/cli/dist/main.js notifications email verify "$CODE" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J '(j.email.verifiedAt!==null)+":"+j.email.address+":"+j.email.pendingVerification')
+echo "verified with the fixture's code verified:address:pending = $VERIFIED"; [ "$VERIFIED" = "true:alice@example.com:false" ]
+TURNED_ON=$(node apps/cli/dist/main.js notifications preferences --input '{"categories":{"proposals":{"inApp":true,"email":true}}}' --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.categories.proposals.email')
+echo "proposals by email turned on: $TURNED_ON"; [ "$TURNED_ON" = "true" ]
+# A fresh proposal by the owner's agent is projected with an email delivery, which the fixture accepts.
+EMAILED_PROPOSAL=$(node apps/cli/dist/main.js agent call investment.propose --input "{\"instrumentId\":\"$AERO_ID\",\"walletId\":\"$EXEC_WALLET_ID\",\"budget\":{\"rawAmount\":\"50000000\"}}" --token "$AGENT_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.output.proposalId')
+PASS3=$(node apps/cli/dist/main.js maintenance run --token "$WORKER_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.notifications.projected+":"+j.notifications.delivered+":"+j.notifications.dead')
+echo "pass 3 projected:delivered:dead = $PASS3"; [ "$PASS3" = "1:1:0" ]
+DELIVERIES=$(node apps/cli/dist/main.js notifications list --category proposals --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'const n=j.notifications.at(-1); n.link.type+":"+n.link.id+":"+n.deliveries.map(d=>d.channel+"="+d.status).join(",")')
+echo "latest proposal notification link:deliveries = $DELIVERIES"; [ "$DELIVERIES" = "proposal:$EMAILED_PROPOSAL:email=delivered,in_app=delivered" ]
+OUTBOX=$(node apps/cli/dist/main.js notifications fixture-outbox --token "$MAINT_OPERATOR" --url "http://127.0.0.1:$API_PORT" | J 'const m=j.messages.at(-1); m.to+":"+m.idempotencyKey.startsWith("notification:")+":"+/\/proposals\/[0-9a-f-]{36}/.test(m.text)+":"+/mkv_/.test(m.text)+":"+j.refused.length')
+echo "fixture outbox to:notification:app-link:credential:refused = $OUTBOX"; [ "$OUTBOX" = "alice@example.com:true:true:false:0" ]
+DEAD=$(node apps/cli/dist/main.js notifications dead-letter --token "$MAINT_OPERATOR" --url "http://127.0.0.1:$API_PORT" | J 'j.deliveries.length')
+echo "dead-letter queue length: $DEAD"; [ "$DEAD" = "0" ]
+CLEARED=$(node apps/cli/dist/main.js notifications email clear --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.email.address+":"+j.email.verifiedAt')
+echo "email cleared address:verifiedAt = $CLEARED"; [ "$CLEARED" = "null:null" ]
+# Mandate dry run: a bounded envelope evaluated deterministically; the unattended gate stays DISABLED.
+MANDATE_REQUEST=$(node -e '
+const [owner, wallet, instrument] = process.argv.slice(1); const chain = { cluster: "devnet", genesisHash: "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG" };
+const mandate = { mandateId: "00000000-0000-4000-8000-000000000010", ownerUserId: owner, walletId: wallet, strategyVersionId: "00000000-0000-4000-8000-000000000013", chain, allowedInstrumentIds: [instrument], allowedVenues: ["jupiter"], actions: ["buy", "sell"], destinations: { inputWalletId: wallet, outputWalletId: wallet }, perOrderBudgetRaw: "100000000", periodBudget: { windowDays: 30, rawAmount: "300000000" }, cumulativeTurnoverRaw: "1000000000", maxFeeBps: 50, maintenance: { allowBuys: true, allowSells: true, reduceOnly: false, maxSlippageBps: 100 }, expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(), nonce: 1 };
+const action = { kind: "buy", ownerUserId: owner, walletId: wallet, strategyVersionId: mandate.strategyVersionId, chain, venue: "jupiter", instrumentIds: [instrument], sides: ["buy"], notionalRaw: "50000000", feeBps: 25, slippageBps: 50, destinations: mandate.destinations, nonce: 1, at: new Date().toISOString() };
+console.log(JSON.stringify({ mandate, action }));
+' "$ALICE_ID" "$EXEC_WALLET_ID" "$AERO_ID")
+DRY_RUN=$(node apps/cli/dist/main.js mandates dry-run --input "$MANDATE_REQUEST" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.outcome+":"+j.unattended.capability+":"+j.unattended.status+":"+j.checks.length+":"+j.checks.every(c=>c.ok)')
+echo "mandate dry run outcome:capability:status:checks:all-ok = $DRY_RUN"; [ "$DRY_RUN" = "allow:automation.unattended:DISABLED:17:true" ]
+REDUCE_ONLY=$(node apps/cli/dist/main.js mandates dry-run --input "$(echo "$MANDATE_REQUEST" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);j.mandate.maintenance.reduceOnly=true;console.log(JSON.stringify(j))})')" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.outcome+":"+j.checks.filter(c=>!c.ok).map(c=>c.code).join(",")')
+echo "reduce-only mandate against a buy outcome:failed-checks = $REDUCE_ONLY"; [ "$REDUCE_ONLY" = "deny:SIDES_PERMITTED" ]
+CANCELLED_SCHEDULE=$(node apps/cli/dist/main.js schedules cancel "$SCHEDULE_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.status')
+echo "schedule cancelled: $CANCELLED_SCHEDULE"; [ "$CANCELLED_SCHEDULE" = "cancelled" ]
 
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""

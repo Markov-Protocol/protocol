@@ -6,6 +6,10 @@ import {
   type ExecutionReconciliationRound,
   executionReconciliationInputSchema,
   executionReconciliationRoundSchema,
+  type MaintenanceTickInput,
+  type MaintenanceTickResult,
+  maintenanceRunReportSchema,
+  maintenanceTickInputSchema,
   type PlatformHealthInput,
   type PlatformHealthReport,
   platformHealthInputSchema,
@@ -26,6 +30,10 @@ export type {
   ExecutionReconciliationInput,
   ExecutionReconciliationReport,
   ExecutionReconciliationRound,
+  MaintenanceTickInput,
+  MaintenanceTickResult,
+  MaintenanceWorkflowInput,
+  MaintenanceWorkflowReport,
   PlatformHealthInput,
   PlatformHealthReport,
 } from '@markov/contracts';
@@ -42,6 +50,12 @@ export interface PlatformActivities {
     readonly entriesAppended: number;
     readonly entriesExisting: number;
   }>;
+  /**
+   * One maintenance pass asked of the API with the worker credential (B16).
+   * The API decides everything; a refusal is reported, not retried, and a
+   * network failure throws so Temporal retries it.
+   */
+  runMaintenanceTick(input: Partial<MaintenanceTickInput>): Promise<MaintenanceTickResult>;
 }
 
 export interface ActivityDependencies {
@@ -51,6 +65,20 @@ export interface ActivityDependencies {
   readonly rpc: SolanaRpcClient;
   readonly logger: Logger;
   readonly now?: () => Date;
+  /** Test seam for the maintenance tick; production uses the global fetch. */
+  readonly fetchImpl?: typeof fetch;
+}
+
+function errorCodeOf(text: string): string {
+  try {
+    const parsed = JSON.parse(text) as { error?: { code?: unknown; message?: unknown } };
+    if (typeof parsed.error?.code === 'string') {
+      return `${parsed.error.code}${typeof parsed.error.message === 'string' ? `: ${parsed.error.message}` : ''}`;
+    }
+  } catch {
+    // not JSON: fall through to the raw text
+  }
+  return text.length > 0 ? text : 'empty response';
 }
 
 /**
@@ -99,6 +127,41 @@ export function createPlatformActivities(deps: ActivityDependencies): PlatformAc
         entriesAppended: report.entriesAppended,
         entriesExisting: report.entriesExisting,
       };
+    },
+
+    async runMaintenanceTick(rawInput) {
+      const input = maintenanceTickInputSchema.parse(rawInput ?? {});
+      const { apiUrl, apiToken } = deps.config.maintenance;
+      if (apiUrl === null || apiToken === null) {
+        return {
+          status: 'not_configured',
+          detail: 'MAINTENANCE_API_URL and MAINTENANCE_API_TOKEN are unset; no pass was asked for',
+        };
+      }
+      const fetchImpl = deps.fetchImpl ?? fetch;
+      const response = await fetchImpl(`${apiUrl.replace(/\/+$/, '')}/v1/ops/maintenance/run`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${apiToken}` },
+        body: JSON.stringify({ batchSize: input.batchSize, requestedBy: input.requestedBy }),
+        signal: AbortSignal.timeout(input.timeoutMs),
+      });
+      const text = await response.text();
+      if (!response.ok) {
+        const detail = errorCodeOf(text).slice(0, 300);
+        deps.logger.warn(
+          { httpStatus: response.status, detail },
+          'the API refused the maintenance pass; check the worker credential and its scope',
+        );
+        return { status: 'refused', httpStatus: response.status, detail };
+      }
+      const report = maintenanceRunReportSchema.parse(JSON.parse(text));
+      if (report.schedules.proposed + report.schedules.failed + report.notifications.dead > 0) {
+        deps.logger.info(
+          { schedules: report.schedules, notifications: report.notifications },
+          'maintenance pass prepared work for owners',
+        );
+      }
+      return { status: 'ran', report };
     },
 
     async reconcileLiveAttempts(rawInput) {

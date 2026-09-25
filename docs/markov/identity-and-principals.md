@@ -9,9 +9,9 @@ unverified (OD-05); the adapter is provider-neutral.
 | --------- | -------------------------------------------- | -------------------------------------------------------- | --- |
 | user      | opaque session (`mkv_ss_…`)                  | exchanging a verified identity-provider token             | every owner operation on its own resources (`owner:*`) |
 | agent     | scoped API credential (`mkv_ag_…`)           | a user with a fresh sign-in creates it                    | only its scopes: `research:read`, `research:write`, `portfolio:read`, `proposals:create`, through the ordinary routes or the typed tool catalog of B15 (`docs/markov/agents.md`); it proposes, never opens a proposal; never signing, approval, publishing or security changes |
-| operator  | scoped credential (`mkv_op_…`)               | `markov operators create` with database access            | `ops:read`, `ops:credentials:revoke`, `ops:capabilities:write`; no user resources |
+| operator  | scoped credential (`mkv_op_…`)               | `markov operators create` with database access            | `ops:read`, `ops:credentials:revoke`, `ops:capabilities:write` and the later `ops:*` scopes (catalog, policy, discovery, `ops:maintenance:run` for passes and delivery requeues); no user resources |
 | device    | device credential (`mkv_dv_…`)               | presenting a single-use pairing code                      | its capabilities (`preferences:sync`, `status:read`, `notifications:receive`); no account reads, no spending |
-| worker    | process identity (no bearer token)           | running the worker binary                                 | internal activities only |
+| worker    | worker credential (`mkv_wk_…`, B16)          | `markov workers create` with database access; the worker presents it as `MAINTENANCE_API_TOKEN` | `maintenance:run`: ask the API for maintenance passes; no user resources, never opens, signs or spends. Schedules themselves act inside the API through an agent-class principal `schedule:<id>` holding `proposals:create` and read scopes for the owner |
 
 Identity and role come only from the credential the server verifies. No
 header, query parameter or body field can name a user, wallet, tenant or

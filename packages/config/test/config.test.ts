@@ -284,6 +284,64 @@ describe('identity and credential configuration', () => {
     expect(() => loadConfig({ ...base, COMPANION_DAILY_COST_LIMIT_MICROS: '1' })).toThrow();
   });
 
+  it('configures notification email and the maintenance driver fail-closed (B16)', () => {
+    expect(loadConfig(base).notifications).toEqual({
+      emailProvider: null,
+      emailUrl: null,
+      emailApiKey: null,
+      emailFrom: null,
+      appOrigin: null,
+    });
+    expect(loadConfig(base).maintenance).toEqual({ apiUrl: null, apiToken: null, tickSeconds: 60 });
+    expect(
+      loadConfig({ ...base, NOTIFICATIONS_EMAIL_PROVIDER: 'fixture' }).notifications.emailProvider,
+    ).toBe('fixture');
+    const staging = tryLoadConfig({
+      ...base,
+      MARKOV_ENV: 'staging',
+      NOTIFICATIONS_EMAIL_PROVIDER: 'fixture',
+    });
+    expect(staging.ok).toBe(false);
+    if (!staging.ok) {
+      expect(staging.issues.map((issue) => issue.path)).toContain('NOTIFICATIONS_EMAIL_PROVIDER');
+    }
+    const configured = tryLoadConfig({ ...base, NOTIFICATIONS_EMAIL_PROVIDER: 'configured' });
+    expect(configured.ok).toBe(false);
+    if (!configured.ok) {
+      expect(configured.issues.map((issue) => issue.path).sort()).toEqual([
+        'NOTIFICATIONS_EMAIL_API_KEY',
+        'NOTIFICATIONS_EMAIL_FROM',
+        'NOTIFICATIONS_EMAIL_URL',
+      ]);
+    }
+    const complete = loadConfig({
+      ...base,
+      NOTIFICATIONS_EMAIL_PROVIDER: 'configured',
+      NOTIFICATIONS_EMAIL_URL: 'https://mail.example.invalid/send',
+      NOTIFICATIONS_EMAIL_API_KEY: 'mail-key',
+      NOTIFICATIONS_EMAIL_FROM: 'notifications@markov.pet',
+      NOTIFICATIONS_APP_ORIGIN: 'https://markov.pet',
+    });
+    expect(complete.notifications.emailProvider).toBe('configured');
+    expect(JSON.stringify(describeConfig(complete))).not.toContain('mail-key');
+    expect(
+      tryLoadConfig({ ...base, NOTIFICATIONS_EMAIL_URL: 'https://mail.example.invalid/send' }).ok,
+    ).toBe(false);
+    expect(tryLoadConfig({ ...base, MAINTENANCE_API_URL: 'http://127.0.0.1:3000' }).ok).toBe(false);
+    const driver = loadConfig({
+      ...base,
+      MAINTENANCE_API_URL: 'http://127.0.0.1:3000',
+      MAINTENANCE_API_TOKEN: 'mkv_wk_prefix_secretsecretsecret',
+      MAINTENANCE_TICK_SECONDS: '15',
+    });
+    expect(driver.maintenance).toEqual({
+      apiUrl: 'http://127.0.0.1:3000',
+      apiToken: 'mkv_wk_prefix_secretsecretsecret',
+      tickSeconds: 15,
+    });
+    expect(JSON.stringify(describeConfig(driver))).not.toContain('secretsecretsecret');
+  });
+
   it('configures the execution venue fail-closed and keeps its key out of the description', () => {
     expect(loadConfig(base).execution.venue).toEqual({
       provider: null,

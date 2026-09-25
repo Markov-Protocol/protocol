@@ -23,6 +23,8 @@ export * from './follow.js';
 export * from './funding.js';
 export * from './health.js';
 export * from './identity.js';
+export * from './maintenance.js';
+export * from './notifications.js';
 export * from './planning.js';
 export * from './platform.js';
 export * from './policy.js';

@@ -38,6 +38,12 @@
       "path": "packages/agent-tools"
     },
     {
+      "path": "packages/maintenance"
+    },
+    {
+      "path": "packages/notifications"
+    },
+    {
       "path": "packages/strategy"
     },
     {

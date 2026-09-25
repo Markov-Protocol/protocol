@@ -80,6 +80,12 @@ importers:
       '@markov/issuer-xstocks':
         specifier: workspace:*
         version: link:../../packages/issuer-xstocks
+      '@markov/maintenance':
+        specifier: workspace:*
+        version: link:../../packages/maintenance
+      '@markov/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
       '@markov/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -523,6 +529,15 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/maintenance:
+    dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+
   packages/markov-shell:
     dependencies:
       '@markov/ui':
@@ -556,6 +571,15 @@ importers:
       react-dom:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
+
+  packages/notifications:
+    dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   packages/observability:
     dependencies:

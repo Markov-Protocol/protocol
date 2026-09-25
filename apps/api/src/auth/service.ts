@@ -223,7 +223,7 @@ export function createIdentityService(options: IdentityServiceOptions) {
           credentialId: null,
         };
       }
-      if (parsed.kind === 'agent' || parsed.kind === 'operator') {
+      if (parsed.kind === 'agent' || parsed.kind === 'operator' || parsed.kind === 'worker') {
         const credential = await findApiCredentialByPrefix(db, parsed.prefix);
         if (
           !credential ||
