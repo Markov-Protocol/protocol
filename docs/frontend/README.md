@@ -17,6 +17,14 @@ delivered the one review screen for basket investments and single buys
 over the B09 execution plans (every term, bound to the plan hash, approved
 before any wallet is asked to sign). Nothing in this app is deployed.
 
+## Design reference
+
+`docs/frontend/design-reference/` holds the three reference screens the
+product owner supplied as the exact visual target (Explore with the
+Strategies tab, the builder's Set Rules stage, and a perpetual-strategy
+concept that is a future preview only) with notes on what each fixes and
+how the current screens are realigned to them from F10 on.
+
 ## Install, run, build
 
 ```sh
