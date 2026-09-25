@@ -21,7 +21,7 @@ export function AddToBasketButton({ instrument }: { readonly instrument: Instrum
       <span className="flex flex-wrap items-center gap-2 text-caption">
         <span role="status">Basket draft saved (revision {created.draft.revision}).</span>
         <Link
-          href={`/strategies/new?strategyId=${created.strategy.strategyId}`}
+          href={`/strategies/${created.strategy.strategyId}/edit`}
           className="underline underline-offset-2"
         >
           Open in Build

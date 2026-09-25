@@ -55123,7 +55123,7 @@
                             },
                             "weightBps": {
                               "type": "integer",
-                              "minimum": 1,
+                              "minimum": 0,
                               "maximum": 10000
                             },
                             "note": {
@@ -55438,7 +55438,7 @@
                                   },
                                   "weightBps": {
                                     "type": "integer",
-                                    "minimum": 1,
+                                    "minimum": 0,
                                     "maximum": 10000
                                   },
                                   "note": {
@@ -55558,6 +55558,7 @@
                                     "enum": [
                                       "NO_LEGS",
                                       "TOO_MANY_LEGS",
+                                      "ZERO_WEIGHT",
                                       "WEIGHTS_TOTAL",
                                       "DUPLICATE_INSTRUMENT",
                                       "DUPLICATE_MINT",
@@ -57404,7 +57405,7 @@
                                   },
                                   "weightBps": {
                                     "type": "integer",
-                                    "minimum": 1,
+                                    "minimum": 0,
                                     "maximum": 10000
                                   },
                                   "note": {
@@ -57524,6 +57525,7 @@
                                     "enum": [
                                       "NO_LEGS",
                                       "TOO_MANY_LEGS",
+                                      "ZERO_WEIGHT",
                                       "WEIGHTS_TOTAL",
                                       "DUPLICATE_INSTRUMENT",
                                       "DUPLICATE_MINT",
@@ -59214,7 +59216,7 @@
                             },
                             "weightBps": {
                               "type": "integer",
-                              "minimum": 1,
+                              "minimum": 0,
                               "maximum": 10000
                             },
                             "note": {
@@ -59393,7 +59395,7 @@
                               },
                               "weightBps": {
                                 "type": "integer",
-                                "minimum": 1,
+                                "minimum": 0,
                                 "maximum": 10000
                               },
                               "note": {
@@ -59513,6 +59515,7 @@
                                 "enum": [
                                   "NO_LEGS",
                                   "TOO_MANY_LEGS",
+                                  "ZERO_WEIGHT",
                                   "WEIGHTS_TOTAL",
                                   "DUPLICATE_INSTRUMENT",
                                   "DUPLICATE_MINT",
@@ -64966,7 +64969,7 @@
                                   },
                                   "weightBps": {
                                     "type": "integer",
-                                    "minimum": 1,
+                                    "minimum": 0,
                                     "maximum": 10000
                                   },
                                   "note": {
@@ -65086,6 +65089,7 @@
                                     "enum": [
                                       "NO_LEGS",
                                       "TOO_MANY_LEGS",
+                                      "ZERO_WEIGHT",
                                       "WEIGHTS_TOTAL",
                                       "DUPLICATE_INSTRUMENT",
                                       "DUPLICATE_MINT",

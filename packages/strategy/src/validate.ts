@@ -103,6 +103,18 @@ export function validateDraft(
       );
     }
     seenInstruments.add(leg.instrumentId);
+    if (leg.weightBps <= 0) {
+      issues.push(
+        issue(
+          'ZERO_WEIGHT',
+          'error',
+          path,
+          'a constituent needs a weight above zero; give it one or remove it',
+          1,
+          leg.weightBps,
+        ),
+      );
+    }
     const instrument = context.instruments.get(leg.instrumentId);
     if (!instrument) {
       issues.push(

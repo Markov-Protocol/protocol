@@ -14929,7 +14929,7 @@ export type paths = {
                                     readonly valid: boolean;
                                     readonly issues: readonly {
                                         /** @enum {string} */
-                                        readonly code: "NO_LEGS" | "TOO_MANY_LEGS" | "WEIGHTS_TOTAL" | "DUPLICATE_INSTRUMENT" | "DUPLICATE_MINT" | "UNKNOWN_INSTRUMENT" | "INSTRUMENT_NOT_ADMITTED" | "ISSUER_CONCENTRATION" | "COMPANY_CONCENTRATION";
+                                        readonly code: "NO_LEGS" | "TOO_MANY_LEGS" | "ZERO_WEIGHT" | "WEIGHTS_TOTAL" | "DUPLICATE_INSTRUMENT" | "DUPLICATE_MINT" | "UNKNOWN_INSTRUMENT" | "INSTRUMENT_NOT_ADMITTED" | "ISSUER_CONCENTRATION" | "COMPANY_CONCENTRATION";
                                         /** @enum {string} */
                                         readonly severity: "error" | "warning";
                                         readonly path: string;
@@ -15237,7 +15237,7 @@ export type paths = {
                                     readonly valid: boolean;
                                     readonly issues: readonly {
                                         /** @enum {string} */
-                                        readonly code: "NO_LEGS" | "TOO_MANY_LEGS" | "WEIGHTS_TOTAL" | "DUPLICATE_INSTRUMENT" | "DUPLICATE_MINT" | "UNKNOWN_INSTRUMENT" | "INSTRUMENT_NOT_ADMITTED" | "ISSUER_CONCENTRATION" | "COMPANY_CONCENTRATION";
+                                        readonly code: "NO_LEGS" | "TOO_MANY_LEGS" | "ZERO_WEIGHT" | "WEIGHTS_TOTAL" | "DUPLICATE_INSTRUMENT" | "DUPLICATE_MINT" | "UNKNOWN_INSTRUMENT" | "INSTRUMENT_NOT_ADMITTED" | "ISSUER_CONCENTRATION" | "COMPANY_CONCENTRATION";
                                         /** @enum {string} */
                                         readonly severity: "error" | "warning";
                                         readonly path: string;
@@ -15768,7 +15768,7 @@ export type paths = {
                                 readonly valid: boolean;
                                 readonly issues: readonly {
                                     /** @enum {string} */
-                                    readonly code: "NO_LEGS" | "TOO_MANY_LEGS" | "WEIGHTS_TOTAL" | "DUPLICATE_INSTRUMENT" | "DUPLICATE_MINT" | "UNKNOWN_INSTRUMENT" | "INSTRUMENT_NOT_ADMITTED" | "ISSUER_CONCENTRATION" | "COMPANY_CONCENTRATION";
+                                    readonly code: "NO_LEGS" | "TOO_MANY_LEGS" | "ZERO_WEIGHT" | "WEIGHTS_TOTAL" | "DUPLICATE_INSTRUMENT" | "DUPLICATE_MINT" | "UNKNOWN_INSTRUMENT" | "INSTRUMENT_NOT_ADMITTED" | "ISSUER_CONCENTRATION" | "COMPANY_CONCENTRATION";
                                     /** @enum {string} */
                                     readonly severity: "error" | "warning";
                                     readonly path: string;
@@ -17145,7 +17145,7 @@ export type paths = {
                                     readonly valid: boolean;
                                     readonly issues: readonly {
                                         /** @enum {string} */
-                                        readonly code: "NO_LEGS" | "TOO_MANY_LEGS" | "WEIGHTS_TOTAL" | "DUPLICATE_INSTRUMENT" | "DUPLICATE_MINT" | "UNKNOWN_INSTRUMENT" | "INSTRUMENT_NOT_ADMITTED" | "ISSUER_CONCENTRATION" | "COMPANY_CONCENTRATION";
+                                        readonly code: "NO_LEGS" | "TOO_MANY_LEGS" | "ZERO_WEIGHT" | "WEIGHTS_TOTAL" | "DUPLICATE_INSTRUMENT" | "DUPLICATE_MINT" | "UNKNOWN_INSTRUMENT" | "INSTRUMENT_NOT_ADMITTED" | "ISSUER_CONCENTRATION" | "COMPANY_CONCENTRATION";
                                         /** @enum {string} */
                                         readonly severity: "error" | "warning";
                                         readonly path: string;

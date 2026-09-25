@@ -132,9 +132,20 @@ describe('proxy allowlist', () => {
     expect(matchRoute('POST', '/v1/me/strategies')).not.toBeNull();
     // Nothing that freezes, forks, pins or reaches operator routes.
     expect(matchRoute('POST', `/v1/me/strategies/${WALLET}/versions`)).toBeNull();
-    expect(matchRoute('PUT', `/v1/me/strategies/${WALLET}/draft`)).toBeNull();
     expect(matchRoute('POST', '/v1/me/instances')).toBeNull();
     expect(matchRoute('GET', '/v1/ops/research')).toBeNull();
+  });
+
+  it('allows the basket builder operations added in F07 and nothing that freezes or pins', () => {
+    expect(matchRoute('GET', `/v1/me/strategies/${WALLET}`)).not.toBeNull();
+    expect(matchRoute('PATCH', `/v1/me/strategies/${WALLET}`)).not.toBeNull();
+    expect(matchRoute('PUT', `/v1/me/strategies/${WALLET}/draft`)).not.toBeNull();
+    expect(matchRoute('DELETE', `/v1/me/strategies/${WALLET}`)).toBeNull();
+    expect(matchRoute('POST', `/v1/me/strategies/${WALLET}/versions`)).toBeNull();
+    expect(matchRoute('POST', `/v1/me/strategies/${WALLET}/forks`)).toBeNull();
+    expect(matchRoute('GET', `/v1/me/strategies/${WALLET}/versions`)).toBeNull();
+    expect(matchRoute('GET', '/v1/me/limits')).not.toBeNull();
+    expect(matchRoute('PUT', '/v1/me/limits')).toBeNull();
   });
 
   it('re-encodes a bounded query string and refuses the rest', () => {

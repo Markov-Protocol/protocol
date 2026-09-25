@@ -72,9 +72,7 @@ export function BasketFromShortlist({
         title={validation.valid ? 'Basket draft saved' : 'Basket draft saved with problems to fix'}
         actions={
           <Button asChild size="sm" variant="secondary">
-            <Link href={`/strategies/new?strategyId=${created.strategy.strategyId}`}>
-              Open in Build
-            </Link>
+            <Link href={`/strategies/${created.strategy.strategyId}/edit`}>Open in Build</Link>
           </Button>
         }
       >

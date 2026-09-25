@@ -65,7 +65,8 @@ combination at build time (`next.config.ts`) and at server start
 | Market detail `/markets/[instrumentId]`: Overview (sanitised issuer description with source, what the token is, reference price basis, what you can do now with public and personal capability states, lifecycle notices and corporate actions, "History unavailable"), Research and Liquidity placeholders naming their sessions, Instrument (mint with copy and explorer link, program, decimals, verification evidence, extension policy, multiplier evidence) | F05 | IMPLEMENTED, FIXTURE_VERIFIED, e2e |
 | Watchlists: versioned owner-scoped contract (`GET /v1/me/watchlist`, `PUT`/`DELETE …/items/{instrumentId}`), save from rows and detail, Watchlist tab with current statuses (delisted stays visible), conflict detection across devices, sign-in prompt for anonymous browsing | F05 | IMPLEMENTED, FIXTURE_VERIFIED (API, proxy, jsdom), e2e |
 | Research workspace `/research` and thesis editor `/research/[thesisId]`: typed statements (sourced fact, issuer assertion, opinion, labelled model interpretation) with citations, counterarguments, shortlist by canonical id with a catalog picker, research subjects with deterministic mapping, source records with fetched/refused/failed states and dates, bounded research runs with progress, cancel and adoption, private notes kept out of the hash and the public page, publish with "what becomes public", archive, saved revisions with two-tab notice, shortlist to a B07 basket draft; market Research tab (theses per instrument, start one), rights and evidence, honest route observations, "Add to a new basket draft"; Build page listing basket drafts | F06 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e against the local API with the fixture issuer source and fixture model adapter; no hosted model provider (OD-19); the basket editor arrives with F07 |
-| Builder, publishing, review, execution, portfolio, rankings, maintenance, companion, other settings | F07 onward | not started; each needs its backend session |
+| Basket builder `/strategies/new` and `/strategies/[strategyId]/edit`: four stages on one server draft identity (Research with linked thesis and shortlist import; Assemble with constituents by canonical id, exact basis-point weights, ±1% keyboard steps, move and remove buttons, explicit equal weights, cash remainder, notes; Set Rules with title, thesis, maintenance suggestion, references, effective limits and approval preference; Activate with wallet and budget apart from the recipe, exact split estimates, availability and readiness), revision-checked autosave with Saving / Saved / Offline changes / Conflict (compare and restore), archive and restore, persistent summary and phone sticky total | F07 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e against the local API with fixture instruments and the fixture wallet; review and execution arrive with F09/F10 |
+| Publishing, review, execution, portfolio, rankings, maintenance, companion, other settings | F08 onward | not started; each needs its backend session |
 
 ## Backend prerequisites
 
@@ -80,6 +81,8 @@ the watchlist contract added in F05 (`/v1/me/watchlist`); F06 uses the B06
 research routes (`/v1/me/theses`, revisions, sources, mappings, runs, the
 public `/v1/research/theses/{thesisId}`) with the `instrumentId` filter
 added in F06, and the B07 draft routes (`/v1/strategies/limits`,
-`/v1/me/strategies`); later sessions require later backend sessions. The app never reads provider
+`/v1/me/strategies`); F07 uses the B07 draft identity routes
+(`/v1/me/strategies/{strategyId}`, `…/draft`) and the B05 limits
+(`/v1/me/limits`); later sessions require later backend sessions. The app never reads provider
 endpoints directly and the browser never calls the API: private calls go
 through the app's own `/api/markov/*` allowlist.

@@ -22,7 +22,7 @@ and B10; nothing here places an order.
 | `thesis` | plain text, ≤ 4,000 characters |
 | `thesisId` | optional link to one of the owner's theses (B06); the thesis itself is not copied |
 | `kind` | `stock_spot_basket` (the only V1 kind) |
-| `legs[]` | `instrumentId` (catalog id), `weightBps` ≥ 1, optional `note` (≤ 200); the schema accepts up to 20 entries so that validation can report every problem, the leg cap is enforced by validation |
+| `legs[]` | `instrumentId` (catalog id), `weightBps` (0 allowed while drafting; validation refuses it), optional `note` (≤ 200); the schema accepts up to 20 entries so that validation can report every problem, the leg cap is enforced by validation |
 | `cashWeightBps` | integer basis points held as the stablecoin, 0 allowed |
 | `maintenance` | `suggestion` ∈ `hold`, `rebalance_on_drift`, `review_periodically`; optional `driftThresholdBps`, `reviewEveryDays` (1–365). A suggestion, never an instruction: no rebalance is ever automatic |
 | `references[]` | ≤ 10 https URLs the author cites; stored as text, never fetched |
@@ -42,6 +42,7 @@ and the numeric `limit` and `observed` values where they apply.
 | ---- | -------- | ------- |
 | `NO_LEGS` | error | cash alone is not a strategy |
 | `TOO_MANY_LEGS` | error | more constituents than `maxLegs` (`STRATEGY_MAX_LEGS`, default and maximum 10; a deployment may only lower it) |
+| `ZERO_WEIGHT` | error | a constituent with 0 bps: allowed in a draft (added, not yet weighted), never in a version |
 | `WEIGHTS_TOTAL` | error | legs plus cash ≠ 10,000 basis points; `observed` is the actual total |
 | `DUPLICATE_INSTRUMENT` | error | the same instrument id appears twice |
 | `DUPLICATE_MINT` | error | two instruments share a token-program and mint identity |

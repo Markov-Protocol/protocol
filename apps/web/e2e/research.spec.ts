@@ -138,11 +138,10 @@ test.describe('instrument evidence and strategy theses', () => {
     await expect(page.getByText('Basket draft saved')).toBeVisible();
     await expect(page.getByTestId('basket-validation')).toContainText('total 100.00%');
     await page.getByRole('link', { name: 'Open in Build' }).click();
-    await expect(page).toHaveURL(/\/strategies\/new\?strategyId=/);
-    await expect(
-      page.getByTestId('basket-draft-row').filter({ hasText: 'Just created' }),
-    ).toHaveCount(1);
-    await page.screenshot({ path: `${evidenceDir}basket-drafts-${width}.png`, fullPage: true });
+    await expect(page).toHaveURL(/\/strategies\/[0-9a-f-]{36}\/edit/);
+    await expect(page.getByTestId('draft-summary')).toBeVisible();
+    await expect(page.getByTestId('leg-row')).toHaveCount(1);
+    await page.screenshot({ path: `${evidenceDir}basket-editor-${width}.png`, fullPage: true });
 
     // The workspace lists it and the instrument page links back.
     await page.goto('/research');

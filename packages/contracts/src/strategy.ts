@@ -45,7 +45,8 @@ export type Maintenance = z.infer<typeof maintenanceSchema>;
 export const strategyLegInputSchema = z.object({
   instrumentId: idSchema,
   /** Integer basis points; zero-weight legs are not legs. */
-  weightBps: basisPointsSchema.min(1),
+  /** Zero is allowed in a draft (added, not yet weighted); validation refuses it and a version never carries it. */
+  weightBps: basisPointsSchema,
   note: plainTextSchema(200).nullable().default(null),
 });
 export type StrategyLegInput = z.infer<typeof strategyLegInputSchema>;
@@ -78,6 +79,7 @@ export type StrategyDraftContent = z.infer<typeof strategyDraftContentSchema>;
 export const DRAFT_ISSUE_CODES = [
   'NO_LEGS',
   'TOO_MANY_LEGS',
+  'ZERO_WEIGHT',
   'WEIGHTS_TOTAL',
   'DUPLICATE_INSTRUMENT',
   'DUPLICATE_MINT',

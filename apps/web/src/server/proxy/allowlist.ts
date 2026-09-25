@@ -64,6 +64,10 @@ export const PROXY_ROUTES: readonly ProxyRoute[] = [
   { method: 'GET', pattern: /^\/v1\/strategies\/limits$/, public: true },
   { method: 'GET', pattern: /^\/v1\/me\/strategies$/ },
   { method: 'POST', pattern: /^\/v1\/me\/strategies$/ },
+  // Basket builder (F07): one draft identity, revision-checked saves, archive; versions are F08.
+  { method: 'GET', pattern: new RegExp(`^/v1/me/strategies/${UUID}$`) },
+  { method: 'PATCH', pattern: new RegExp(`^/v1/me/strategies/${UUID}$`) },
+  { method: 'PUT', pattern: new RegExp(`^/v1/me/strategies/${UUID}/draft$`) },
 ];
 
 const SEGMENT = /^[A-Za-z0-9_-]{1,64}$/;

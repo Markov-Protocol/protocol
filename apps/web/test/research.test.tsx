@@ -844,7 +844,7 @@ describe('Thesis editor', () => {
     expect(screen.getByTestId('basket-validation')).toHaveTextContent('total 100.00%');
     expect(screen.getByRole('link', { name: 'Open in Build' })).toHaveAttribute(
       'href',
-      `/strategies/new?strategyId=${S1}`,
+      `/strategies/${S1}/edit`,
     );
   });
 });

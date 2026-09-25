@@ -126,6 +126,20 @@ describe('draft validation', () => {
     }
   });
 
+  it('refuses a zero-weight constituent while letting a draft hold it', () => {
+    const result = validateDraft(
+      {
+        ...draft(),
+        legs: [{ instrumentId: AERO, weightBps: 0, note: null }],
+        cashWeightBps: 10_000,
+      },
+      { instruments, limits },
+    );
+    expect(result.valid).toBe(false);
+    expect(result.issues.map((issue) => issue.code)).toEqual(['ZERO_WEIGHT']);
+    expect(result.issues[0]).toMatchObject({ path: 'legs/0', limit: 1, observed: 0 });
+  });
+
   it('refuses duplicates, unknown, unadmitted, shared mints, cash-only and too many legs', () => {
     expect(
       codes(

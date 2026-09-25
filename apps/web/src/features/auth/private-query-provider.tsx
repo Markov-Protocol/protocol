@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
+import { purgeLocalBasketCopies } from '../builder/local-copy';
 import { useSession } from './session-context';
 
 function createClient(): QueryClient {
@@ -34,6 +35,7 @@ export function PrivateQueryProvider({ children }: { readonly children: ReactNod
     clients.set(scope, client);
   }
   useEffect(() => {
+    purgeLocalBasketCopies(principalKey);
     for (const [otherScope, other] of clients) {
       if (otherScope !== scope) {
         void other.cancelQueries();
@@ -43,7 +45,7 @@ export function PrivateQueryProvider({ children }: { readonly children: ReactNod
       }
     }
     return undefined;
-  }, [scope, clients]);
+  }, [scope, clients, principalKey]);
   return (
     <QueryClientProvider key={scope} client={client}>
       {children}

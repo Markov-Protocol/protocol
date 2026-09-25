@@ -149,6 +149,27 @@ and its own server-side exchange.
   draft with stated integer weights; the app normalises nothing, holds
   nothing and places no order.
 
+## Basket builder (F07)
+
+- The draft is a server resource with one identity; every save carries
+  the revision it started from and the API refuses a stale one, so two
+  tabs can never overwrite each other silently. The conflict panel shows
+  both revisions' differences and the person chooses; nothing merges on
+  its own.
+- Offline edits are kept in `sessionStorage` only while Markov cannot be
+  reached: the key is scoped to the verified principal and the draft,
+  the copy is versioned by its base revision and expires after a day,
+  and every copy of another principal (or all of them when signed out)
+  is purged when the session changes. It holds recipe content only:
+  never a wallet, a budget, a signed message or a credential.
+- Weights are integer basis points end to end; the app never rounds,
+  renormalises or replaces a constituent. The backend re-validates every
+  save and its issues are what the summary shows.
+- The wallet and the budget chosen in Activate stay in memory, apart from
+  the recipe and never written to the draft; the split shown is an
+  estimate in exact base units, and the review button is unavailable
+  with its reason until the execution sessions exist.
+
 ## Planned (with the sessions that own them)
 
 Full CSP with exact identity/wallet allowances and report-only rollout,

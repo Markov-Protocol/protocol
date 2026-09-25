@@ -186,7 +186,7 @@ no live cluster were involved.
 | Full unit and integration run | `pnpm test` (inside `pnpm verify`) | 54 files, 325 tests passed |
 | Production build | `pnpm web:build` | 22 routes, all server-rendered on demand, including `/research`, `/research/[thesisId]` and the draft list on `/strategies/new` |
 | Browser evidence | `MARKOV_TEST_DATABASE_URL=… pnpm web:e2e` | 58 passed on desktop and phone profiles: 2 research journeys (below) plus the F01 to F05 suites; each profile uses its own accounts |
-| Screenshots | `docs/frontend/evidence/F06/` | `market-liquidity-*.png`, `thesis-new-*.png`, `thesis-sources-*.png`, `thesis-run-*.png`, `thesis-published-*.png`, `thesis-public-*.png`, `basket-drafts-*.png` |
+| Screenshots | `docs/frontend/evidence/F06/` | `market-liquidity-*.png`, `thesis-new-*.png`, `thesis-sources-*.png`, `thesis-run-*.png`, `thesis-published-*.png`, `thesis-public-*.png`, `basket-editor-*.png` |
 
 Research journeys (desktop 1280×800 and the Pixel 7 profile):
 
@@ -202,8 +202,9 @@ Research journeys (desktop 1280×800 and the Pixel 7 profile):
    revision 3 → "Publish…" lists what becomes public (notes excluded) and
    publishes → an anonymous context reads the projection without the
    notes → "Start a basket draft" creates a B07 draft (total 100.00%) and
-   "Open in Build" lists it as just created → the workspace lists the
-   thesis as public and the instrument page links to it.
+   "Open in Build" opens it in the basket builder (F07) with its one
+   constituent → the workspace lists the thesis as public and the
+   instrument page links to it.
 2. Another person's private thesis answers "not found or private" to an
    anonymous reader and to a different signed-in account; a malformed id
    answers the app's not-found page.
@@ -219,6 +220,53 @@ Readiness: IMPLEMENTED and FIXTURE_VERIFIED; LIVE_READ/WRITE_VERIFIED only
 against the local B06/B07 API in test mode with the fixture source and
 adapter, which is not production evidence.
 
+## F07 — complete stock basket builder (2026-09-25)
+
+Environment as for F06 (real API in test mode with admitted fixture
+instruments, the fixture RPC and the fixture wallet injected through the
+Wallet Standard). No live cluster, issuer feed or real wallet was involved.
+
+| Check | Command | Result |
+| ----- | ------- | ------ |
+| Backend draft rule | `pnpm exec vitest run --project node packages/strategy` | 9 tests: a zero-weight constituent is allowed in a draft and refused by validation (`ZERO_WEIGHT`, never in a version); everything from B07 unchanged |
+| App-owned API proxy | `pnpm exec vitest run --project node apps/web/test/server/proxy.test.ts` | 13 tests: draft read, revision-checked save and archive allowlisted; freezing, forking, pinning, versions and limit changes are not |
+| Basket arithmetic and local copies | `pnpm exec vitest run --project web apps/web/test/builder-state.test.ts` | 6 tests: exact totals (9,999 / 10,000 / 10,001), removal without redistribution, duplicate refusal, explicit equal weights with the remainder as cash, remainder to cash, move buttons, local issues (empty, cash-only, duplicate, over cap), conflict diff, exact budget split in raw units, account-scoped versioned short-lived local copies purged for other principals |
+| Builder client | `pnpm exec vitest run --project web apps/web/test/builder.test.tsx` | 9 tests: one draft identity with symbols and a long name, 59.99 / 60.01 edits autosaved with `ifRevision` and the backend's `WEIGHTS_TOTAL` shown, three decimals refused; ±1% buttons, removal keeps the other weights, picker refuses a duplicate, equal weights 3 × 33.33% + 0.01% cash saved, remainder to cash; cash-only draft reported by the backend's rule; two-tab conflict compared (changed, added, removed, title) and kept as the next revision; offline edits kept on the device and saved on retry with the copy cleared; an earlier device copy restored only on request; Activate: no wallet → verify link, exact split estimates, budget above the per-order limit and too small to buy, availability from the policy, review button unavailable with its reason, no save; archived draft read-only; foreign id not found; start-a-basket creates and opens the editor, `?strategyId=` redirected |
+| Contract matrix | `pnpm exec vitest run --project node packages/api-client` | 33 entries proven against the frozen OpenAPI document (draft read, save, archive and effective limits added) |
+| Full unit and integration run | `pnpm test` (inside `pnpm verify`) | 56 files, 346 tests passed |
+| Production build | `pnpm web:build` | 23 routes, all server-rendered on demand, including `/strategies/[strategyId]/edit` |
+| Browser evidence | `MARKOV_TEST_DATABASE_URL=… pnpm web:e2e` | 62 passed on desktop and phone profiles: 2 builder journeys (below) plus the F01 to F06 suites; each profile uses its own accounts |
+| Screenshots | `docs/frontend/evidence/F07/` | `builder-assemble-*.png`, `builder-invalid-*.png`, `builder-conflict-*.png`, `builder-rules-*.png`, `builder-activate-*.png` |
+
+Builder journeys (desktop 1280×800 and the Pixel 7 profile):
+
+1. Sign in → `/strategies/new` creates a draft and opens the editor on
+   Assemble ("No constituent", the backend's `NO_LEGS`) → FXAERO and
+   XSFXA added from the admitted catalog → 60 / 30 with 10 cash saved
+   and validated by the backend ("valid recipe") → 59.99 reported as
+   0.01% unallocated and `WEIGHTS_TOTAL` after the save → 60.001 refused
+   → ±1% buttons → a reload shows exactly the saved weights → a second
+   tab saves FXAERO at 55 first; the first tab's edit is refused with the
+   revision, the panel compares both, "Keep my edits" saves the next
+   revision and the other tab reads it → Set Rules shows the effective
+   limits in USDC and the approval preference → Activate without a
+   wallet offers to verify one, splits a 100 budget exactly and keeps
+   "Review investment" unavailable → the Build page resumes the draft.
+2. The fixture wallet is verified and funded through the fixture RPC
+   (1000 USDC) → a one-constituent basket at equal weight → Activate
+   selects the wallet, reads the balance, refuses a 2000 budget as more
+   than observed, estimates a 100 budget and reports "within the limits";
+   the review button stays unavailable.
+
+Not verified in F07: real wallets, a live cluster, screen-reader
+journeys through the stages, and execution (F09/F10). Long names are
+truncated with the full name as a title; keyboard editing is covered by
+the ±1% buttons and the numeric fields in jsdom and e2e.
+
+Readiness: IMPLEMENTED and FIXTURE_VERIFIED; LIVE_READ/WRITE_VERIFIED only
+against the local B05/B07 API in test mode, which is not production
+evidence.
+
 ## Acceptance matrix (build prompt section 12)
 
 | Journey or risk | Evidence | Status |
@@ -228,7 +276,7 @@ adapter, which is not production evidence.
 | Sign-in → wallet verify → eligibility | F04 journeys 1 and 5 with an injected Wallet Standard wallet against the local API; wallet tests for replay, wrong network, already linked, account switch, altered signature | complete for the fixture wallet (F04); real wallets and the hosted embedded wallet not verified |
 | CSRF or login redirect abuse | Same-origin guard tests, open-redirect vectors in node and browser tests | complete (F03) |
 | Private SSR/CDN response cached publicly | All routes dynamic, session responses `no-store` (build output and e2e header assertion); deployment headers still to be checked in F20 | partial (F03) |
-| Research → builder → saved draft | F06 journey 1: thesis started from an admitted instrument, fixture issuer source fetched and cited, a metadata address refused and recorded, a bounded run adopted as labelled interpretations, revisions saved, publication with "what becomes public", a basket draft created from the saved shortlist with exact integer weights and the backend's validation shown; jsdom tests for a refused save keeping the edits and for the two-tab revision notice | research and the saved draft complete (F06); the basket editor, revision conflict recovery for drafts and small-notional limits arrive with F07 |
+| Research → builder → saved draft | F06 journey 1: thesis started from an admitted instrument, fixture issuer source fetched and cited, a metadata address refused and recorded, a bounded run adopted as labelled interpretations, revisions saved, publication with "what becomes public", a basket draft created from the saved shortlist with exact integer weights and the backend's validation shown; jsdom tests for a refused save keeping the edits and for the two-tab revision notice | research, the saved draft (F06) and the builder (F07: exact weights, readable validation from the backend, two-tab revision conflict with compare and restore, offline copy, small-notional and limit checks in Activate) complete; review and execution arrive with F09/F10 |
 | Untrusted research, token image or assistant content executes | jsdom asserts excerpts with markup render as text (no element created), a `javascript:` source URL is never linked, model output is labelled and adopted only by the person; the API sanitises and refuses retrievals (B06); no images are fetched (F05) | complete for research content (F06); assistant content arrives with F14 |
 
 Every other row is filled by the session that delivers it.

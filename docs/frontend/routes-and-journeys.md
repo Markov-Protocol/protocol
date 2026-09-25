@@ -14,7 +14,8 @@ the target; only the rows marked *implemented* exist.
 | `/markets/[instrumentId]` | Exact-id instrument page: Overview (with rights and evidence, "Add to a new basket draft"), Research (the person's theses mentioning the instrument, start a thesis with it shortlisted, evidence rules), Liquidity (route observations, every field "Not observed" until B17/F09), Instrument tabs; save control; public availability refined by the person's capability states when signed in | public where the instrument is admitted or paused; personal states, theses and drafts authenticated | implemented (F05, F06) |
 | `/research` | Research workspace: the person's theses (visibility, status, revision, instrument count) and a form that starts a private thesis | authenticated | implemented (F06) |
 | `/research/[thesisId]` | Owner: the thesis editor (typed statements with citations, counterarguments, shortlist by canonical id with a catalog picker, research subjects with deterministic mapping, sources with fetched/refused/failed states and dates, bounded research runs with progress and cancel, private notes, publish with "what becomes public", archive, saved revisions, shortlist to basket draft). Anyone else: the published projection or "not found or private" | owner; published projection public | implemented (F06) |
-| `/strategies/new` | The person's basket drafts as the backend holds them (B07), the just-created one highlighted; the editor for weights, rules and activation arrives with F07 | authenticated | drafts list implemented (F06); editor F07 |
+| `/strategies/new` | Static path, never a strategy id: start a basket draft on the server or resume one; `?strategyId=` (older links) opens the editor | authenticated | implemented (F06, F07) |
+| `/strategies/[strategyId]/edit` | The owner's basket builder on one draft identity: 01 Research (linked thesis, shortlist import), 02 Assemble (constituents by canonical id, exact basis-point weights with keyboard steps, explicit equal weights, cash remainder, notes), 03 Set Rules (title, thesis text, maintenance suggestion, references, the person's effective limits and approval preference read from the policy), 04 Activate (verified wallet and budget kept apart from the recipe, exact split estimates, availability and readiness, "Review investment" honestly unavailable until F09/F10); autosave with revision checks, Saving / Saved / Offline changes / Conflict states with compare and restore; archive and restore | owner | implemented (F07) |
 | `/portfolio`, `/activity`, `/rankings`, `/automations`, `/status` | navigation targets | public shell | honest unavailable pages naming the delivering session (F02); real features arrive with F10 onward |
 | `/strategies/[strategyId]/*`, `/portfolio/[instanceId]`, `/review/[intentId]`, `/activity/[intentId]`, `/receipts/[receiptId]`, other `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
 
@@ -183,3 +184,46 @@ Rules that already apply:
   highlighted. "Add to a new basket draft" on an instrument page does the
   same with one constituent at 100.00%. No weight is normalised by the app,
   nothing is bought.
+
+## Session journeys (F07)
+
+- **One draft identity.** `/strategies/new` creates a draft on the server
+  (or resumes one) and opens `/strategies/<id>/edit`; every edit is saved
+  against the revision it started from (`PUT …/draft` with `ifRevision`),
+  and the backend's validation of exactly what was saved is shown in the
+  persistent summary. Nothing lives only in the browser.
+- **Assemble.** Constituents are added from the admitted catalog by
+  canonical id (duplicates refused at the picker); weights are typed as
+  percentages with at most two decimals and stored as integer basis
+  points, or nudged with ±1% buttons; move up/down and remove are buttons.
+  Removing a constituent leaves every other weight as it was and shows
+  the remainder. "Set equal weights" and "Put the remainder in cash" are
+  explicit actions. The total including cash must be exactly 100.00%:
+  9,999 and 10,001 bps are reported as such by the local check and by the
+  backend (`WEIGHTS_TOTAL`), never rounded away. A zero-weight
+  constituent may sit in a draft (`ZERO_WEIGHT`), never in a version. An
+  unavailable constituent is flagged with its status; nothing is swapped
+  in for it.
+- **Save states.** Saving, Saved as revision N, Offline changes (kept on
+  this device under an account-scoped, versioned, short-lived key,
+  purged for any other account) with Retry, Conflict when another tab
+  saved first: the panel compares both revisions (added, removed and
+  changed constituents, cash, title, rules) and the person keeps their
+  edits as the next revision or takes the server's. Leaving with unsaved
+  edits asks first.
+- **Set Rules.** Title, thesis text, maintenance suggestion (a
+  suggestion, never an instruction), references; the limits that apply
+  to the person (per order, per day, per account, slippage, quote age,
+  cash reserve, concentration ceilings, venues, ceiling source) read from
+  `GET /v1/me/limits`; the approval preference is stated: the person
+  approves every transaction in their own wallet.
+- **Activate.** A verified wallet and a budget in the network's
+  stablecoin are chosen apart from the recipe and never stored with it;
+  the budget is split as floor(budget × weight) in exact base units with
+  the remainder as cash, checked against the observed balance and the
+  person's limits; per-constituent availability comes from the policy;
+  a readiness list says what is missing. "Review investment" is
+  unavailable with its reason until F09/F10; nothing is bought.
+- **Safe return.** Sign-in returns to the edit page; verifying a wallet
+  happens on `/settings/wallets` and the draft is on the server when the
+  person comes back.
