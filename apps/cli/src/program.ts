@@ -1680,6 +1680,272 @@ export function buildProgram(io: CliIo = stdio): Command {
         );
       },
     );
+  const registry = program
+    .command('registry')
+    .description('on-chain strategy registry: status, records and publications');
+  registry
+    .command('status')
+    .description('program id, network and indexer status of the deployment')
+    .option(...apiUrlOption)
+    .action(async (options: { url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/registry')));
+    });
+  registry
+    .command('record <address>')
+    .description('an indexed registry record (public)')
+    .option(...apiUrlOption)
+    .action(async (address: string, options: { url: string }) => {
+      io.out(
+        json(
+          await apiCall(options.url, 'GET', `/v1/registry/records/${encodeURIComponent(address)}`),
+        ),
+      );
+    });
+  registry
+    .command('public-version <strategyId> <versionId>')
+    .description('the public view of a registered version with chain evidence and verification')
+    .option(...apiUrlOption)
+    .action(async (strategyId: string, versionId: string, options: { url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/strategies/${encodeURIComponent(strategyId)}/versions/${encodeURIComponent(versionId)}`,
+          ),
+        ),
+      );
+    });
+  registry
+    .command('publication <publicationId>')
+    .description('a publication of yours, re-checked against the chain')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (publicationId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/publications/${encodeURIComponent(publicationId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  registry
+    .command('submit <publicationId>')
+    .description('submit the wallet-signed transaction (base64) of a prepared publication')
+    .requiredOption('--signed <base64>', 'the signed transaction, base64')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(
+      async (publicationId: string, options: { signed: string; token: string; url: string }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/publications/${encodeURIComponent(publicationId)}/submit`,
+              { signedTransaction: options.signed },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  strategy
+    .command('publish <strategyId>')
+    .description(
+      'prepare the on-chain registration of a frozen version: shows what becomes public and the unsigned transaction for your wallet',
+    )
+    .requiredOption('--version-id <versionId>', 'the frozen version to register')
+    .requiredOption(
+      '--wallet <walletId>',
+      'a verified wallet of yours; it signs, pays and becomes the publisher',
+    )
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        strategyId: string,
+        options: { versionId: string; wallet: string; token: string; url: string },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/strategies/${encodeURIComponent(strategyId)}/versions/${encodeURIComponent(options.versionId)}/publication`,
+              { walletId: options.wallet },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  strategy
+    .command('publication <strategyId>')
+    .description('the latest registration attempt of a version, re-checked against the chain')
+    .requiredOption('--version-id <versionId>')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(
+      async (strategyId: string, options: { versionId: string; token: string; url: string }) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'GET',
+              `/v1/me/strategies/${encodeURIComponent(strategyId)}/versions/${encodeURIComponent(options.versionId)}/publication`,
+              undefined,
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  strategy
+    .command('publish-demo <strategyId>')
+    .description(
+      'NONPRODUCTION: link an in-memory wallet, prepare, sign in-process, submit and follow a registration to its outcome',
+    )
+    .requiredOption('--version-id <versionId>', 'the frozen version to register')
+    .requiredOption('--token <token>', 'user session token')
+    .option(
+      '--status <status>',
+      'after registration, also change the record status (deprecated|active)',
+    )
+    .option('--wait-seconds <n>', 'how long to poll for finality', '30')
+    .option(
+      '--fixture-control <url>',
+      'NONPRODUCTION fixture RPC control endpoint (scripts/dev/fixture-rpc.mjs): funds the demo wallet and finalizes submissions',
+    )
+    .option(...apiUrlOption)
+    .action(
+      async (
+        strategyId: string,
+        options: {
+          versionId: string;
+          token: string;
+          status?: string;
+          waitSeconds: string;
+          fixtureControl?: string;
+          url: string;
+        },
+      ) => {
+        const fixture = async (action: Record<string, unknown>) => {
+          if (!options.fixtureControl) {
+            return;
+          }
+          const response = await fetch(options.fixtureControl, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(action),
+          });
+          if (!response.ok) {
+            throw new CliExit(
+              `fixture control refused ${String(action['action'])}`,
+              EXIT_UNAVAILABLE,
+            );
+          }
+        };
+        const { generateKeyPairSync } = await import('node:crypto');
+        const { encodeBase58 } = await import('@markov/contracts');
+        const { base64ToBytes, bytesToBase64, signerFromPrivateKey, signTransaction } =
+          await import('@markov/registry');
+        const signer = signerFromPrivateKey(generateKeyPairSync('ed25519').privateKey);
+        const challenge = (await apiCall(
+          options.url,
+          'POST',
+          '/v1/me/wallets/challenges',
+          { address: signer.publicKey },
+          options.token,
+        )) as { challengeId: string; message: string };
+        const link = (await apiCall(
+          options.url,
+          'POST',
+          '/v1/me/wallets',
+          {
+            challengeId: challenge.challengeId,
+            address: signer.publicKey,
+            signature: encodeBase58(signer.sign(new TextEncoder().encode(challenge.message))),
+          },
+          options.token,
+        )) as { walletId: string };
+        await fixture({ action: 'fund', address: signer.publicKey, lamports: 20_000_000 });
+        io.err(
+          `demo wallet ${signer.publicKey} linked as ${link.walletId}${options.fixtureControl ? ' and funded on the fixture ledger' : '; it must hold rent and fees on the cluster'}`,
+        );
+        const versionPath = `/v1/me/strategies/${encodeURIComponent(strategyId)}/versions/${encodeURIComponent(options.versionId)}`;
+        const follow = async (
+          prepared: {
+            publicationId: string;
+            state: string;
+            transaction: { unsignedTransaction: string } | null;
+          },
+          label: string,
+        ) => {
+          let publication = prepared;
+          if (publication.state === 'awaiting_signature' && publication.transaction) {
+            const signed = signTransaction(
+              base64ToBytes(publication.transaction.unsignedTransaction),
+              signer,
+            );
+            publication = (await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/publications/${encodeURIComponent(prepared.publicationId)}/submit`,
+              { signedTransaction: bytesToBase64(signed.bytes) },
+              options.token,
+            )) as typeof prepared;
+            io.err(`${label}: submitted ${signed.signature}`);
+            await fixture({ action: 'finalize' });
+          }
+          const deadline = Date.now() + Number(options.waitSeconds) * 1000;
+          while (
+            (publication.state === 'submitted' || publication.state === 'unknown') &&
+            Date.now() < deadline
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            publication = (await apiCall(
+              options.url,
+              'GET',
+              `/v1/me/publications/${encodeURIComponent(prepared.publicationId)}`,
+              undefined,
+              options.token,
+            )) as typeof prepared;
+          }
+          io.err(`${label}: ${publication.state}`);
+          return publication;
+        };
+        const prepared = (await apiCall(
+          options.url,
+          'POST',
+          `${versionPath}/publication`,
+          { walletId: link.walletId },
+          options.token,
+        )) as Parameters<typeof follow>[0];
+        const registration = await follow(prepared, 'registration');
+        let statusChange: unknown = null;
+        if (options.status && registration.state === 'registered') {
+          const change = (await apiCall(
+            options.url,
+            'POST',
+            `${versionPath}/status-changes`,
+            { walletId: link.walletId, status: options.status },
+            options.token,
+          )) as Parameters<typeof follow>[0];
+          statusChange = await follow(change, `status change to ${options.status}`);
+        }
+        io.err(
+          'the private key of this demo wallet existed only in this process and is now discarded',
+        );
+        io.out(json({ wallet: signer.publicKey, registration, statusChange }));
+      },
+    );
+
   const instance = program
     .command('instance')
     .description('portfolio instances: a pinned version in a verified wallet');

@@ -8,6 +8,7 @@ Status: B01 slice. Everything below is implemented unless marked *planned*.
 | -------------- | -------------------------- | ---------- |
 | API            | `node apps/api/dist/main.js` | 0 clean shutdown; 78 configuration/identity contradiction; 69 database or listener unavailable; 70 unexpected software error |
 | Worker         | `node apps/worker/dist/main.js` | same mapping; Temporal connection failures after bounded retries exit 69 |
+| Indexer        | `node apps/indexer/dist/main.js [--once]` | same mapping; idle (exit 0 with `{"idle":true}` for `--once`) when no registry program is configured |
 | CLI            | `node apps/cli/dist/main.js` (`pnpm markov`) | 0 ok; 1 not ready; 64 usage; 69 unavailable; 78 configuration |
 
 Boot order and fail-closed checks are described in `architecture.md`.
@@ -155,9 +156,40 @@ Concentration ceilings come from the policy defaults or the configured
 `0007_strategies` adds `strategies`, `strategy_drafts`,
 `strategy_versions` and `portfolio_instances`; versions are never
 updated or deleted by the application, and an archived strategy keeps
-every row. Audit actions: `strategy.*`, `instance.*`. Publication and
-on-chain registration do not exist yet (B08): every version reads
-`publication: unpublished`.
+every row. Audit actions: `strategy.*`, `instance.*`.
+
+## Registry
+
+```
+markov registry status --url …
+markov strategy publish <strategyId> --version-id <versionId> --wallet <walletId> --token <session> --url …
+markov registry submit <publicationId> --signed <base64> --token <session> --url …
+markov registry publication <publicationId> --token <session> --url …
+markov registry public-version <strategyId> <versionId> --url …
+markov-indexer            # apps/indexer: loops every REGISTRY_INDEX_INTERVAL_SECONDS
+markov-indexer --once     # one pass, prints the report as JSON
+```
+
+`REGISTRY_PROGRAM_ID` names the deployed program; unset, publication is
+disabled, the indexer is idle and the public registry routes answer 503.
+`mainnet-read-only` indexes and serves records but never publishes;
+production publication requires `RELEASE_EVIDENCE_REF`. Migration
+`0008_registry` adds `strategy_publications`, `registry_records` and
+`registry_indexer_state`. Audit actions: `strategy.publication.prepare`,
+`strategy.publication.submit`, `strategy.publication.rejected`,
+`strategy.publication.deprecate`, `strategy.publication.reactivate`.
+Records are never updated by the application except by mirroring finalized
+chain state; a version's `publication` column follows its publication.
+
+Operating the indexer: run one `markov-indexer` per deployment next to the
+API (it shares the database and the primary RPC). `GET /v1/registry`
+reports `indexer.lastRunAt`, `lastObservedSlot` and `recordsIndexed`;
+alert when `lastRunAt` is older than three intervals or
+`registry_indexer_state.last_error` is set (registry-index lag). A stuck
+`submitted` publication resolves to `expired` once its blockhash is past;
+`unknown` means the node could not be asked and clears on the next
+successful pass. Deployment, upgrade authority and review gates:
+`docs/markov/strategy-registry.md`.
 
 ## Readiness and monitoring
 

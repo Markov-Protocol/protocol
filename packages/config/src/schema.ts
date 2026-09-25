@@ -91,6 +91,10 @@ export const rawEnvSchema = z.object({
   RESEARCH_MODEL_PROVIDER: z.enum(['disabled', 'fixture']).default('disabled'),
   /** Product complexity limit on recipe legs (B07), tightened downward for a beta; never raised above 10. */
   STRATEGY_MAX_LEGS: intFromEnv(1, 10).default(10),
+  /** Strategy registry program (B08). Unset keeps publication disabled and the indexer idle. */
+  REGISTRY_PROGRAM_ID: base58AddressSchema.optional(),
+  /** Seconds between indexer passes over pending publications and program accounts. */
+  REGISTRY_INDEX_INTERVAL_SECONDS: intFromEnv(5, 3600).default(30),
 
   SHUTDOWN_TIMEOUT_MS: intFromEnv(1000, 120_000).default(10_000),
 });
@@ -175,6 +179,13 @@ export interface MarkovConfig {
   readonly strategies: {
     /** At most this many constituent legs per recipe (default and maximum 10). */
     readonly maxLegs: number;
+  };
+  readonly registry: {
+    /** Program id of the deployed strategy registry, or null when no registry is configured. */
+    readonly programId: string | null;
+    /** Publication needs a program id in a write-capable mode; reads and indexing need the id alone. */
+    readonly publicationEnabled: boolean;
+    readonly indexIntervalSeconds: number;
   };
   readonly catalog: {
     /** Null until an operator configures a verified feed; fixture sources serve local and test. */

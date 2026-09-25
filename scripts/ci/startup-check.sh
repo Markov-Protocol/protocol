@@ -24,6 +24,8 @@ RPC_PID=$!
 
 export MARKOV_ENV=test SERVICE_VERSION=startup-check LOG_LEVEL=warn LOG_FORMAT=json RESEARCH_MODEL_PROVIDER=fixture
 export DATABASE_URL="$DB_URL" SOLANA_CLUSTER=devnet SOLANA_RPC_PRIMARY_URL="http://127.0.0.1:$RPC_PORT"
+# Strategy registry (B08): the development placeholder program id served by the fixture ledger.
+export REGISTRY_PROGRAM_ID="${MARKOV_FIXTURE_REGISTRY_PROGRAM_ID:-6SAPG2iavaEAv628NpuZuSwgKxGhqU23C769w7FfGpuZ}"
 API_PORT=$((30000 + RANDOM % 20000)); export API_PORT API_HOST=127.0.0.1
 
 echo "== markov db migrate"
@@ -168,6 +170,23 @@ DIFF=$(node apps/cli/dist/main.js strategy diff "$STRATEGY_ID" "$V2_ID" --agains
 echo "diff changed:cash:turnover = $DIFF"; [ "$DIFF" = "1:1000->2000:1000" ]
 V1_AGAIN=$(curl -fsS -H "Authorization: Bearer $SESSION_TOKEN" "http://127.0.0.1:$API_PORT/v1/me/strategies/$STRATEGY_ID/versions/$V1_ID" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.versionNumber+":"+j.legs.find(l=>l.instrumentId===process.argv[1]).weightBps+":"+j.cashWeightBps)})' "$AERO_ID")
 echo "v1 unchanged after v2 = $V1_AGAIN"; [ "$V1_AGAIN" = "1:6000:1000" ]
+
+echo "== registry journey: status -> prepare (what becomes public) -> sign -> submit -> finalize -> registered -> indexer -> public verification -> deprecate"
+REGISTRY_STATUS=$(node apps/cli/dist/main.js registry status --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.publicationEnabled+":"+j.programId+":"+j.network.cluster)})')
+echo "registry enabled:program:cluster = $REGISTRY_STATUS"; [ "$REGISTRY_STATUS" = "true:$REGISTRY_PROGRAM_ID:devnet" ]
+# Registration: prepare with a fresh in-process wallet, fund it on the fixture ledger, sign, submit, follow.
+DEMO_OUT=$(node apps/cli/dist/main.js strategy publish-demo "$STRATEGY_ID" --version-id "$V1_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" --fixture-control "http://127.0.0.1:$RPC_PORT/fixture/registry" --status deprecated)
+REG=$(echo "$DEMO_OUT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.registration.state+":"+(j.registration.evidence?j.registration.evidence.status:"none")+":"+(j.statusChange?j.statusChange.state+"/"+j.statusChange.evidence.status:"none")+":"+(j.registration.signature?"sig":"nosig"))})')
+echo "registration state:status:statusChange:signature = $REG"; [ "$REG" = "registered:active:registered/deprecated:sig" ]
+RECORD_ADDRESS=$(echo "$DEMO_OUT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).registration.recordAddress))')
+INDEX=$(node apps/indexer/dist/main.js --once | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.accountsObserved+":"+j.recordsIndexed+":"+j.errors.length)})')
+echo "indexer accounts:records:errors = $INDEX"; [ "$INDEX" = "1:1:0" ]
+PUBLIC=$(node apps/cli/dist/main.js registry public-version "$STRATEGY_ID" "$V1_ID" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.verification.manifestHashMatches+":"+j.verification.contentMatches+":"+j.registration.status+":"+(j.registration.recordAddress===process.argv[1]))})' "$RECORD_ADDRESS")
+echo "public verification hash:content:status:address = $PUBLIC"; [ "$PUBLIC" = "true:true:deprecated:true" ]
+RECORD=$(node apps/cli/dist/main.js registry record "$RECORD_ADDRESS" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.status+":"+(j.version?j.version.versionNumber:"none"))})')
+echo "indexed record status:version = $RECORD"; [ "$RECORD" = "deprecated:1" ]
+STATUS_AFTER=$(node apps/cli/dist/main.js registry status --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.indexer.recordsIndexed+":"+(j.indexer.lastRunAt!==null))})')
+echo "registry indexer records:ran = $STATUS_AFTER"; [ "$STATUS_AFTER" = "1:true" ]
 
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""

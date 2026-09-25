@@ -56,6 +56,12 @@ not claimed here.
 | Private budgets, identities or wallets leaking through a recipe | Manifests carry no author, wallet, holding or budget; `authorPrincipal` is owner-visible only; forks name neither the original owner nor their wallets; operators have no route to private recipes | strategy API test |
 | An agent freezing, forking or moving money on a person's behalf | `proposals:create` covers drafts only; freeze, fork, archive, instance creation and pins are user-only interactive routes; nothing in B07 plans or places an order | strategy API test (scope matrix) |
 | Lost updates between two clients editing the same draft, or two freezes racing | Row lock on the strategy for saves and freezes; `ifRevision` optimistic check answers `IDEMPOTENCY_CONFLICT` with the current revision; concurrent freezes create exactly one version | `packages/db/test/strategy-store.test.ts` |
+| Registering someone else's recipe, re-initialising or rewriting a record, or changing its status without the publisher | Records are keyed by the manifest hash (one possible address, one initialisation); no instruction writes economic fields after creation; `set_status` requires the publisher's signature and changes two fields | `programs/strategy-registry/tests/registry.rs` (duplicate initialisation with byte comparison, unauthorized publishing, status marker) |
+| Seed or account misuse against the program (wrong PDA, keypair record, wrong system program, parent that is not a record or carries another hash), weight overflow, zero weights, duplicates, unsupported token programs, unknown relation or status | Anchor seed, owner, discriminator and program constraints; `check_register_args` with checked `u32` sums and strict mint ordering; the TypeScript mirror refuses the same inputs with the same codes before a transaction is built | program tests (`seed_and_account_misuse_is_refused`, `weight_and_input_rules_are_enforced`), `packages/registry/test/sdk.test.ts`, shared vectors |
+| A wallet signing something other than the prepared registration (extra instructions, other fee payer, altered data) or a stranger's signature | Submission requires the byte-identical prepared message and a valid Ed25519 signature by the publisher wallet; otherwise `SIGNATURE_MISMATCH` and nothing is sent | `apps/api/test/registry.test.ts` |
+| A database row, built transaction or accepted submission presented as on-chain registration; a finalized failure or a dropped transaction shown as pending forever | States derive only from chain observations: signature status with history search, block height against the blockhash's validity, finalized transaction and decoded record compared with the version and publisher; unreachable nodes give `unknown`, not `failed`; the public view verifies hashes and content on read | `packages/registry/test/publication.test.ts`, registry API tests (dropped, landed failure, preflight rejection, expired before signing, outage, lost response), indexer test |
+| Private data in public registry metadata | Manifests and records carry no account, email, wallet-to-account link, budget, holding or note; `preview.neverPublished` names them; public projections built from explicit fields | registry API test asserts the owner id and author principal are absent from the public version |
+| Explorer links or program ids pointing at another chain; publication from a read-only or unreviewed deployment | Links only for public clusters from validated results; `REGISTRY_PROGRAM_ID` unset disables publication; mainnet publication requires production mode and release evidence; the wallet must be verified on the deployment's genesis | `packages/config/test/config.test.ts`, registry API tests |
 
 ## Residual risks after B01
 
@@ -73,9 +79,11 @@ not claimed here.
   tested; the socket path is not); no live page has been retrieved. No
   hosted model provider is integrated (OD-19); the fixture adapter is
   refused outside local/test.
-- Strategy versions are immutable at the API and store level, not yet
-  anchored anywhere outside the database: a database role could still
-  alter a row. B08 registers manifest hashes on chain so a version can be
-  verified independently. Admission snapshots are evidence at freeze
-  time; a later delisting does not alter a version, and the execution
-  policy re-checks availability at order time (B05, B09).
+- Registered versions are anchored on chain and verified on every public
+  read; unregistered versions remain database rows that a database role
+  could alter. The program was verified under `solana-program-test`, not
+  on a validator, and no SBF artifact was built in this environment; the
+  Anchor pin (0.31.1) is behind the current line (ADR-0008). Admission
+  snapshots are evidence at freeze time; a later delisting does not alter
+  a version, and the execution policy re-checks availability at order
+  time (B05, B09).

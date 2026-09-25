@@ -49,9 +49,10 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
     },
     {
       capability: 'solana.rpc.submit',
-      status: 'DISABLED',
-      summary: 'Transaction submission is not implemented before session B10.',
-      evidence: {},
+      status: 'FIXTURE_VERIFIED',
+      summary:
+        'sendTransaction, blockhash, block height, signature status, transaction and program-account reads implemented for registry publication (B08) and verified against the fixture ledger; execution submission, simulation and recovery arrive with B10. No live submission has been made.',
+      evidence: { session: 'B08' },
     },
     {
       capability: 'catalog.prestocks.ingest',
@@ -107,9 +108,10 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
     },
     {
       capability: 'registry.strategy.publish',
-      status: 'DISABLED',
-      summary: 'Not started; planned for session B08.',
-      evidence: {},
+      status: 'FIXTURE_VERIFIED',
+      summary:
+        'Anchor program verified under solana-program-test (registration evidence, duplicate initialisation, unauthorized publishing, seed and account misuse, weight overflow, lineage, immutable content) with shared Rust/TypeScript vectors; publication flow and indexer verified against the fixture ledger and PostgreSQL (B08). No SBF build, no validator run, nothing deployed; publication is disabled until REGISTRY_PROGRAM_ID names a reviewed deployment (OD-09, OD-10).',
+      evidence: { session: 'B08', openDecisions: ['OD-09', 'OD-10', 'OD-20'] },
     },
     {
       capability: 'research.model.generate',

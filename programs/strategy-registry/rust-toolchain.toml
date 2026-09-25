@@ -1,0 +1,5 @@
+# Pinned build tools (docs/markov/strategy-registry.md). Every reviewer and
+# deployment builds with this exact toolchain.
+[toolchain]
+channel = "1.94.1"
+components = ["rustfmt", "clippy"]

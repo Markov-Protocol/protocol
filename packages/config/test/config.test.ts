@@ -267,6 +267,52 @@ describe('identity and credential configuration', () => {
     expect(() => loadConfig({ ...base, STRATEGY_MAX_LEGS: '0' })).toThrow();
   });
 
+  it('keeps registry publication disabled without a program id and fail-closed on mainnet', () => {
+    const disabled = loadConfig(base);
+    expect(disabled.registry).toEqual({
+      programId: null,
+      publicationEnabled: false,
+      indexIntervalSeconds: 30,
+    });
+    const program = '6SAPG2iavaEAv628NpuZuSwgKxGhqU23C769w7FfGpuZ';
+    const devnet = loadConfig({
+      ...base,
+      REGISTRY_PROGRAM_ID: program,
+      REGISTRY_INDEX_INTERVAL_SECONDS: '5',
+    });
+    expect(devnet.registry).toEqual({
+      programId: program,
+      publicationEnabled: true,
+      indexIntervalSeconds: 5,
+    });
+    expect(() => loadConfig({ ...base, REGISTRY_PROGRAM_ID: 'not-base58!' })).toThrow();
+    expect(() => loadConfig({ ...base, REGISTRY_INDEX_INTERVAL_SECONDS: '1' })).toThrow();
+    // Read-only mainnet mode may index the registry but never publishes.
+    const readOnly = loadConfig({
+      ...base,
+      MARKOV_ENV: 'mainnet-read-only',
+      SOLANA_CLUSTER: 'mainnet-beta',
+      SOLANA_RPC_SECONDARY_URL: 'https://rpc-b.example.test/',
+      TEMPORAL_NAMESPACE: 'markov-prod',
+      DATABASE_SSL: 'require',
+      IDENTITY_PROVIDER: 'oidc',
+      IDENTITY_ISSUER: 'https://auth.example.test',
+      IDENTITY_AUDIENCE: 'markov-app',
+      IDENTITY_JWKS_URL: 'https://auth.example.test/.well-known/jwks.json',
+      CREDENTIAL_PEPPER: 'a-production-pepper-with-at-least-32-characters',
+      WALLET_CHALLENGE_DOMAIN: 'markov.pet',
+      LOG_FORMAT: 'json',
+      REGISTRY_PROGRAM_ID: program,
+    });
+    expect(readOnly.registry.publicationEnabled).toBe(false);
+    // Mainnet publication outside production, or without release evidence, is refused.
+    expect(
+      issuesOf({ ...base, SOLANA_CLUSTER: 'mainnet-beta', REGISTRY_PROGRAM_ID: program }).some(
+        (issue) => issue.startsWith('REGISTRY_PROGRAM_ID'),
+      ),
+    ).toBe(true);
+  });
+
   it('keeps the pepper out of the configuration summary', () => {
     const config = loadConfig({
       ...base,

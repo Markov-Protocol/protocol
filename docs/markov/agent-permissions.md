@@ -57,6 +57,11 @@ and must be reviewed against this file first.
   Freezing a version, forking, archiving, following a version in a wallet
   and moving a pin are interactive, user-only operations
   (`docs/markov/strategies.md`).
+- No agent scope covers on-chain registration: preparing a publication,
+  submitting the wallet-signed transaction and changing a record's status
+  are user-only operations bound to one of the person's verified wallets;
+  `portfolio:read` agents may read publication state
+  (`docs/markov/strategy-registry.md`).
 
 ## Model and data handling
 

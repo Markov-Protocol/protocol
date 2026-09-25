@@ -21,6 +21,7 @@ import { createCatalogService } from './catalog/service.js';
 import { createFundingService } from './funding/service.js';
 import { createNetworkIdentityMonitor } from './network-monitor.js';
 import { createPolicyService } from './policy/service.js';
+import { createRegistryService } from './registry/service.js';
 import { createRetriever } from './research/retrieval.js';
 import { createResearchService } from './research/service.js';
 import { createStrategyService } from './strategies/service.js';
@@ -318,6 +319,12 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
       config,
       db: dbClient.db,
       genesisHash: expectedGenesisHash,
+    }),
+    registry: createRegistryService({
+      config,
+      db: dbClient.db,
+      genesisHash: expectedGenesisHash,
+      rpcClients: clients,
     }),
     mintTestToken,
   });

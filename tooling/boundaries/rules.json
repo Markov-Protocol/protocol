@@ -54,9 +54,12 @@
     },
     "@markov/strategy": {
       "allow": ["@markov/contracts"]
+    },
+    "@markov/registry": {
+      "allow": ["@markov/contracts", "@markov/solana-rpc"]
     }
   },
-  "apps": ["@markov/api", "@markov/worker", "@markov/cli", "@markov/web"],
+  "apps": ["@markov/api", "@markov/worker", "@markov/indexer", "@markov/cli", "@markov/web"],
   "testOnlyPackages": ["@markov/testkit"],
   "externalOwners": {
     "@temporalio/": ["@markov/worker", "@markov/cli"],

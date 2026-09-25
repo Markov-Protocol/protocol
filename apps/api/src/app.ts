@@ -34,11 +34,13 @@ import { ApiError } from './errors.js';
 import type { FundingService } from './funding/service.js';
 import type { NetworkIdentitySource } from './network-monitor.js';
 import type { PolicyService } from './policy/service.js';
+import type { RegistryService } from './registry/service.js';
 import type { ResearchService } from './research/service.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { fundingRoutes } from './routes/funding.js';
 import { identityRoutes } from './routes/identity.js';
 import { policyRoutes } from './routes/policy.js';
+import { registryRoutes } from './routes/registry.js';
 import { researchRoutes } from './routes/research.js';
 import { strategyRoutes } from './routes/strategies.js';
 import { watchlistRoutes } from './routes/watchlists.js';
@@ -80,6 +82,7 @@ export interface AppDependencies {
   readonly research: ResearchService;
   readonly watchlists: WatchlistService;
   readonly strategies: StrategyService;
+  readonly registry: RegistryService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -237,6 +240,11 @@ export async function buildApp(deps: AppDependencies) {
           name: 'strategies',
           description: 'Versioned recipes: drafts, immutable versions, forks and pinned instances',
         },
+        {
+          name: 'registry',
+          description:
+            'On-chain registration of frozen versions: prepare, sign with the owner wallet, submit, verify; public views with chain evidence',
+        },
       ],
     },
     transform: jsonSchemaTransform,
@@ -382,6 +390,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(researchRoutes, { research: deps.research });
   await app.register(watchlistRoutes, { watchlists: deps.watchlists });
   await app.register(strategyRoutes, { strategies: deps.strategies });
+  await app.register(registryRoutes, { registry: deps.registry });
 
   return app;
 }

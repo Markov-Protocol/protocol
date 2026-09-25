@@ -25,12 +25,14 @@ import {
   createProbes,
   type MarkovApi,
   type PolicyService,
+  type RegistryService,
   type ResearchService,
   type StrategyService,
   tokenAccountAmount,
   type WatchlistService,
 } from '../src/index.js';
 import { GENESIS } from './support/fixture-rpc.js';
+import { unavailable } from './support/unavailable.js';
 
 const adminUrl = testDatabaseUrl();
 const RENT_EXEMPT = 2_039_280;
@@ -220,6 +222,7 @@ async function withHarness(
         funding,
         research: unavailableResearch,
         watchlists: unavailableWatchlists,
+        registry: unavailable<RegistryService>('registry'),
         strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

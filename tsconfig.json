@@ -38,6 +38,9 @@
       "path": "packages/strategy"
     },
     {
+      "path": "packages/registry"
+    },
+    {
       "path": "packages/db"
     },
     {
@@ -48,6 +51,9 @@
     },
     {
       "path": "apps/worker"
+    },
+    {
+      "path": "apps/indexer"
     },
     {
       "path": "apps/cli"

@@ -112,6 +112,12 @@ function structure(raw: RawEnv): MarkovConfig {
         raw.RESEARCH_MODEL_PROVIDER === 'disabled' ? null : raw.RESEARCH_MODEL_PROVIDER,
     },
     strategies: { maxLegs: raw.STRATEGY_MAX_LEGS },
+    registry: {
+      programId: raw.REGISTRY_PROGRAM_ID ?? null,
+      publicationEnabled:
+        raw.REGISTRY_PROGRAM_ID !== undefined && raw.MARKOV_ENV !== 'mainnet-read-only',
+      indexIntervalSeconds: raw.REGISTRY_INDEX_INTERVAL_SECONDS,
+    },
     catalog: {
       prestocksFeedUrl: raw.PRESTOCKS_FEED_URL ?? null,
       xstocksFeedUrl: raw.XSTOCKS_FEED_URL ?? null,
@@ -207,6 +213,22 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
           message: 'production execution writes require a release evidence reference',
         });
       }
+    }
+  }
+
+  // 2b. Registry publication on mainnet-beta is a permanent public write: production only, with release evidence.
+  if (config.registry.publicationEnabled && cluster === 'mainnet-beta') {
+    if (env !== 'production') {
+      issues.push({
+        path: 'REGISTRY_PROGRAM_ID',
+        message:
+          'mainnet-beta registry publication is only allowed when MARKOV_ENV=production (mainnet-read-only may index it)',
+      });
+    } else if (config.execution.releaseEvidenceRef === null) {
+      issues.push({
+        path: 'RELEASE_EVIDENCE_REF',
+        message: 'production registry publication requires a release evidence reference',
+      });
     }
   }
 
@@ -435,6 +457,7 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
     funding: config.funding,
     research: config.research,
     strategies: config.strategies,
+    registry: config.registry,
     identity: config.identity,
     auth: {
       credentialPepperConfigured: config.auth.credentialPepper !== DEVELOPMENT_CREDENTIAL_PEPPER,

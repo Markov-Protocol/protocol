@@ -16,7 +16,8 @@
       "!docs/markov/openapi.json",
       "!apps/web/next-env.d.ts",
       "!packages/ui/src/styles/tokens.css",
-      "!packages/api-client/src/generated"
+      "!packages/api-client/src/generated",
+      "!programs/strategy-registry/vectors"
     ]
   },
   "formatter": {

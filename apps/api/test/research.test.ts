@@ -30,11 +30,13 @@ import {
   createRetriever,
   type FundingService,
   type MarkovApi,
+  type RegistryService,
   type StrategyService,
   type WatchlistService,
 } from '../src/index.js';
 import { fakeTransport } from './support/fake-transport.js';
 import { GENESIS, prestocksFixtureRpcFetch } from './support/fixture-rpc.js';
+import { unavailable } from './support/unavailable.js';
 
 const adminUrl = testDatabaseUrl();
 const ISSUER_URL = FIXTURE_SOURCES['issuer-terms']?.url ?? '';
@@ -178,6 +180,7 @@ async function withHarness(
         funding: unavailableFunding,
         research,
         watchlists: unavailableWatchlists,
+        registry: unavailable<RegistryService>('registry'),
         strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

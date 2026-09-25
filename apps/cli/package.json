@@ -28,9 +28,10 @@
     "@markov/db": "workspace:*",
     "@markov/observability": "workspace:*",
     "@markov/policy": "workspace:*",
+    "@markov/registry": "workspace:*",
     "@markov/research": "workspace:*",
-    "@markov/strategy": "workspace:*",
     "@markov/solana-rpc": "workspace:*",
+    "@markov/strategy": "workspace:*",
     "@temporalio/client": "1.24.0",
     "commander": "15.0.0"
   },

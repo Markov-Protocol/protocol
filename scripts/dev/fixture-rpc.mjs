@@ -10,6 +10,13 @@
  * getMinimumBalanceForRentExemption) answer from an in-memory table that the
  * browser tests fill through `POST /fixture/funding` with
  * `{ address, lamports, stablecoinRaw }`; unknown addresses hold nothing.
+ * The strategy registry (B08) is served by the in-memory fixture ledger of
+ * @markov/registry for the program id in MARKOV_FIXTURE_REGISTRY_PROGRAM_ID
+ * (default: the development placeholder id): blockhashes, submissions with
+ * the program's own rules and error codes, signature statuses, records.
+ * `POST /fixture/registry` with `{ action }` advances slots (`advance`,
+ * `finalize`), drops the next submission (`drop-next`), lands it with an
+ * error (`land-error`, `code`) or toggles an outage (`outage`, `online`).
  * Usage: node scripts/dev/fixture-rpc.mjs <port> [genesisHash]
  */
 
@@ -28,6 +35,7 @@ const {
   SPL_TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
 } = await import(resolve(root, 'packages/catalog/dist/index.js'));
+const { FixtureLedger } = await import(resolve(root, 'packages/registry/dist/index.js'));
 
 const port = Number(process.argv[2]);
 /** Synthetic stablecoin mint for local and test funding reads; not a real token. */
@@ -66,6 +74,19 @@ function decodeBase58Loose(text) {
   return out;
 }
 const genesis = process.argv[3] ?? 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
+/** Development placeholder program id (programs/strategy-registry/src/lib.rs); never a deployed program. */
+const registryProgramId =
+  process.env.MARKOV_FIXTURE_REGISTRY_PROGRAM_ID ?? '6SAPG2iavaEAv628NpuZuSwgKxGhqU23C769w7FfGpuZ';
+const ledger = new FixtureLedger({ programId: registryProgramId, genesisHash: genesis });
+const LEDGER_METHODS = new Set([
+  'getBlockHeight',
+  'getLatestBlockhash',
+  'isBlockhashValid',
+  'sendTransaction',
+  'getSignatureStatuses',
+  'getTransaction',
+  'getProgramAccounts',
+]);
 const authority = new Uint8Array(createHash('sha256').update('fixture-authority').digest());
 
 function extensionSpec(spec) {
@@ -151,6 +172,48 @@ http
         res.end(JSON.stringify({ ready }));
         return;
       }
+      if (req.method === 'POST' && req.url === '/fixture/registry') {
+        try {
+          const control = JSON.parse(body || '{}');
+          switch (control.action) {
+            case 'advance':
+              ledger.advance(Number(control.slots ?? 1));
+              break;
+            case 'finalize':
+              ledger.finalize();
+              break;
+            case 'drop-next':
+              ledger.dropNext = true;
+              break;
+            case 'land-error':
+              ledger.landNextWithError = Number(control.code ?? 0);
+              break;
+            case 'outage':
+              ledger.outage = true;
+              break;
+            case 'online':
+              ledger.outage = false;
+              break;
+            case 'fund':
+              ledger.fund(String(control.address), BigInt(control.lamports ?? 0));
+              break;
+            default:
+              throw new Error('unknown action');
+          }
+          res.setHeader('content-type', 'application/json');
+          res.end(
+            JSON.stringify({
+              ok: true,
+              slot: ledger.currentSlot,
+              records: ledger.programAccounts().length,
+            }),
+          );
+        } catch {
+          res.statusCode = 400;
+          res.end('{"ok":false}');
+        }
+        return;
+      }
       if (req.method === 'POST' && req.url === '/fixture/funding') {
         try {
           const entry = JSON.parse(body || '{}');
@@ -168,9 +231,29 @@ http
       }
       let id = null;
       let result = null;
+      let rpcError = null;
       try {
         const request = JSON.parse(body || '{}');
         id = request.id ?? null;
+        const ledgerFirst =
+          LEDGER_METHODS.has(request.method) ||
+          (request.method === 'getAccountInfo' && ledger.account(String(request.params?.[0]))) ||
+          (request.method === 'getBalance' && ledger.account(String(request.params?.[0])));
+        if (ledgerFirst) {
+          const answer = ledger.handle(request.method, request.params);
+          if (answer && typeof answer === 'object' && 'rpcError' in answer) {
+            rpcError = answer.rpcError;
+          } else {
+            result = answer;
+          }
+          res.setHeader('content-type', 'application/json');
+          res.end(
+            JSON.stringify(
+              rpcError ? { jsonrpc: '2.0', id, error: rpcError } : { jsonrpc: '2.0', id, result },
+            ),
+          );
+          return;
+        }
         switch (request.method) {
           case 'getGenesisHash':
             result = genesis;

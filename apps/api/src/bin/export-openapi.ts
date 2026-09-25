@@ -11,6 +11,7 @@ import type { IdentityService } from '../auth/service.js';
 import type { CatalogService } from '../catalog/service.js';
 import type { FundingService } from '../funding/service.js';
 import type { PolicyService } from '../policy/service.js';
+import type { RegistryService } from '../registry/service.js';
 import type { ResearchService } from '../research/service.js';
 import type { StrategyService } from '../strategies/service.js';
 import type { WatchlistService } from '../watchlists/service.js';
@@ -51,6 +52,11 @@ const unavailableStrategies = new Proxy({} as StrategyService, {
     throw new Error('strategy service is unavailable in export mode');
   },
 });
+const unavailableRegistry = new Proxy({} as RegistryService, {
+  get: () => () => {
+    throw new Error('registry service is unavailable in export mode');
+  },
+});
 
 async function generate(): Promise<string> {
   const config = loadConfig({
@@ -88,6 +94,7 @@ async function generate(): Promise<string> {
     research: unavailableResearch,
     watchlists: unavailableWatchlists,
     strategies: unavailableStrategies,
+    registry: unavailableRegistry,
     mintTestToken: null,
   });
   await app.ready();

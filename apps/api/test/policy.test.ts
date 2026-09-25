@@ -23,11 +23,13 @@ import {
   createProbes,
   type FundingService,
   type MarkovApi,
+  type RegistryService,
   type ResearchService,
   type StrategyService,
   type WatchlistService,
 } from '../src/index.js';
 import { GENESIS, prestocksFixtureRpcFetch } from './support/fixture-rpc.js';
+import { unavailable } from './support/unavailable.js';
 
 const adminUrl = testDatabaseUrl();
 const USDC = (units: number) => String(BigInt(units) * 1_000_000n);
@@ -119,6 +121,7 @@ async function withHarness(
         funding: unavailableFunding,
         research: unavailableResearch,
         watchlists: unavailableWatchlists,
+        registry: unavailable<RegistryService>('registry'),
         strategies: unavailableStrategies,
         mintTestToken: (input) =>
           issuer.mint({

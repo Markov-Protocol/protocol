@@ -129,6 +129,84 @@ export interface SolanaBalance {
   readonly lamports: number;
 }
 
+const latestBlockhashSchema = z.object({
+  context: z.object({ slot: z.number().int() }),
+  value: z.object({
+    blockhash: z.string().min(32).max(44),
+    lastValidBlockHeight: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  }),
+});
+
+export interface SolanaLatestBlockhash {
+  readonly slot: number;
+  readonly blockhash: string;
+  readonly lastValidBlockHeight: number;
+}
+
+const transactionErrorSchema = z.union([z.string(), z.record(z.string(), z.unknown())]);
+
+const signatureStatusesSchema = z.object({
+  context: z.object({ slot: z.number().int() }),
+  value: z.array(
+    z
+      .object({
+        slot: z.number().int().nonnegative(),
+        confirmations: z.number().int().nullable(),
+        err: transactionErrorSchema.nullable(),
+        confirmationStatus: z.enum(['processed', 'confirmed', 'finalized']).nullable().optional(),
+      })
+      .nullable(),
+  ),
+});
+
+export interface SolanaSignatureStatus {
+  readonly slot: number;
+  readonly confirmations: number | null;
+  /** The transaction error as the node reports it (a string or an object); null when it succeeded. */
+  readonly err: unknown | null;
+  readonly confirmationStatus: 'processed' | 'confirmed' | 'finalized' | null;
+}
+
+const transactionSchema = z
+  .object({
+    slot: z.number().int().nonnegative(),
+    blockTime: z.number().int().nullable().optional(),
+    meta: z
+      .object({
+        err: transactionErrorSchema.nullable(),
+        fee: z.number().int().nonnegative().optional(),
+        logMessages: z.array(z.string()).nullable().optional(),
+      })
+      .nullable(),
+  })
+  .nullable();
+
+export interface SolanaTransaction {
+  readonly slot: number;
+  /** Unix seconds when the node knows the block time. */
+  readonly blockTime: number | null;
+  readonly err: unknown | null;
+  readonly fee: number | null;
+  readonly logs: readonly string[];
+}
+
+const programAccountsSchema = z.array(
+  z.object({
+    pubkey: z.string().min(32).max(44),
+    account: z.object({
+      data: z.tuple([z.string(), z.literal('base64')]),
+      owner: z.string().min(32).max(44),
+      lamports: z.number(),
+      executable: z.boolean(),
+    }),
+  }),
+);
+
+export interface ProgramAccountFilter {
+  readonly dataSize?: number;
+  readonly memcmp?: { readonly offset: number; readonly bytes: string };
+}
+
 export class SolanaRpcClient {
   readonly host: string;
   private readonly options: SolanaRpcClientOptions;
@@ -319,6 +397,117 @@ export class SolanaRpcClient {
         lamports: entry.account.lamports,
       })),
     };
+  }
+
+  /** The latest blockhash and the last block height at which a transaction using it is still valid (agave `getLatestBlockhash`). */
+  async getLatestBlockhash(
+    commitment: 'processed' | 'confirmed' | 'finalized',
+  ): Promise<SolanaLatestBlockhash> {
+    const result = await this.call('getLatestBlockhash', [{ commitment }], latestBlockhashSchema);
+    return {
+      slot: result.context.slot,
+      blockhash: result.value.blockhash,
+      lastValidBlockHeight: result.value.lastValidBlockHeight,
+    };
+  }
+
+  getBlockHeight(commitment: 'processed' | 'confirmed' | 'finalized'): Promise<number> {
+    return this.call(
+      'getBlockHeight',
+      [{ commitment }],
+      z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    );
+  }
+
+  /**
+   * Submit a fully signed wire transaction (agave `sendTransaction`, base64
+   * encoding, preflight simulation on). The answer is the transaction
+   * signature the node accepted, never a confirmation: callers must observe
+   * the signature status afterwards.
+   */
+  sendTransaction(
+    transactionBase64: string,
+    options: { readonly preflightCommitment?: 'processed' | 'confirmed' | 'finalized' } = {},
+  ): Promise<string> {
+    return this.call(
+      'sendTransaction',
+      [
+        transactionBase64,
+        {
+          encoding: 'base64',
+          skipPreflight: false,
+          preflightCommitment: options.preflightCommitment ?? 'confirmed',
+          maxRetries: 0,
+        },
+      ],
+      z.string().min(64).max(88),
+    );
+  }
+
+  /** Statuses of up to 256 signatures, searching the ledger history (agave `getSignatureStatuses`). */
+  async getSignatureStatuses(signatures: readonly string[]): Promise<{
+    readonly slot: number;
+    readonly statuses: readonly (SolanaSignatureStatus | null)[];
+  }> {
+    const result = await this.call(
+      'getSignatureStatuses',
+      [signatures, { searchTransactionHistory: true }],
+      signatureStatusesSchema,
+    );
+    return {
+      slot: result.context.slot,
+      statuses: result.value.map((entry) =>
+        entry
+          ? {
+              slot: entry.slot,
+              confirmations: entry.confirmations,
+              err: entry.err,
+              confirmationStatus: entry.confirmationStatus ?? null,
+            }
+          : null,
+      ),
+    };
+  }
+
+  /** A landed transaction's slot, block time, error and logs (agave `getTransaction`, json encoding); null when unknown. */
+  async getTransaction(
+    signature: string,
+    commitment: 'confirmed' | 'finalized',
+  ): Promise<SolanaTransaction | null> {
+    const result = await this.call(
+      'getTransaction',
+      [signature, { commitment, encoding: 'json', maxSupportedTransactionVersion: 0 }],
+      transactionSchema,
+    );
+    if (result === null) {
+      return null;
+    }
+    return {
+      slot: result.slot,
+      blockTime: result.blockTime ?? null,
+      err: result.meta?.err ?? null,
+      fee: result.meta?.fee ?? null,
+      logs: result.meta?.logMessages ?? [],
+    };
+  }
+
+  /** Accounts a program owns, base64 data, optionally filtered by size and byte prefix (agave `getProgramAccounts`). */
+  async getProgramAccounts(
+    programId: string,
+    commitment: 'processed' | 'confirmed' | 'finalized',
+    filters: readonly ProgramAccountFilter[] = [],
+  ): Promise<readonly SolanaKeyedAccount[]> {
+    const result = await this.call(
+      'getProgramAccounts',
+      [programId, { encoding: 'base64', commitment, filters }],
+      programAccountsSchema,
+    );
+    return result.map((entry) => ({
+      pubkey: entry.pubkey,
+      owner: entry.account.owner,
+      data: new Uint8Array(Buffer.from(entry.account.data[0], 'base64')),
+      lamports: entry.account.lamports,
+    }));
   }
 
   /** Lamports an account of `dataLength` bytes needs to be rent exempt (agave `getMinimumBalanceForRentExemption`). */

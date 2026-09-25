@@ -220,10 +220,30 @@ moves no pin. No route edits or deletes a version. Another person's
 strategy, version or instance is `NOT_FOUND`. Rules, encodings and test
 vectors: `docs/markov/strategies.md`.
 
+## Endpoints (B08)
+
+| Method | Path                                                     | Principal                                  | Purpose |
+| ------ | -------------------------------------------------------- | ------------------------------------------ | ------- |
+| GET    | /v1/registry                                             | anonymous                                  | Program id, network, whether publication is enabled (and why not), record space, leg cap, indexer state (last run, last observed slot, records) |
+| POST   | /v1/me/strategies/{strategyId}/versions/{versionId}/publication | user (10/min)                       | Prepare the registration of a frozen version with one of the caller's verified wallets: validates against the program rules, shows `preview` (exactly what becomes public, what never does, the permanence statement) and answers the unsigned transaction; 201, or 200 with the in-flight or registered publication; 503 `PROVIDER_UNAVAILABLE` when no program is configured or the node gives no blockhash |
+| GET    | /v1/me/strategies/{strategyId}/versions/{versionId}/publication | user, agent `portfolio:read`        | The latest registration attempt of the version, re-checked against the chain on read; 404 before any preparation |
+| POST   | /v1/me/strategies/{strategyId}/versions/{versionId}/status-changes | user (10/min)                    | Prepare a deprecation or reactivation of a registered version; the wallet must be the publisher wallet |
+| POST   | /v1/me/publications/{publicationId}/submit               | user (10/min)                              | Submit the wallet-signed transaction. Byte-identical prepared message and a valid publisher signature required (`SIGNATURE_MISMATCH`, 409, otherwise, nothing sent); `PUBLICATION_EXPIRED` (409) once the blockhash is past; a node preflight verdict is recorded as `failed`/`expired` and answered 200; another node error answers 503 and leaves the transaction valid; a lost response records `unknown` |
+| GET    | /v1/me/publications/{publicationId}                      | user, agent `portfolio:read`               | A publication re-checked against the chain (`confirmationStatus`, `evidence`, `failure`) |
+| GET    | /v1/strategies/{strategyId}                              | anonymous                                  | Public view: the strategy's registered, unmoderated versions with record addresses and status |
+| GET    | /v1/strategies/{strategyId}/versions/{versionId}         | anonymous                                  | Public view of a registered version: manifest, canonical bytes, hashes, registration evidence with explorer links, and `verification` (manifest hash recomputed and compared with the indexed record; record content compared with the version) |
+| GET    | /v1/registry/records/{address}                           | anonymous                                  | An indexed registry record (permissionless registrations included) with a version link only when that version is public |
+
+Publication states: `awaiting_signature` → `submitted` → `registered`,
+with `failed`, `expired` and `unknown` branches, every one decided from
+chain observations (`docs/markov/strategy-registry.md`). `registered` is
+terminal for a registration and idempotent to prepare or submit again.
+Public routes answer 503 when the deployment has no registry program.
+
 ## Planned surface
 
-Registry, discovery, portfolio,
+Discovery, portfolio,
 execution, receipts, maintenance, agents and operations routes are specified
-in the build document and arrive with sessions B08 to B18. Authentication,
+in the build document and arrive with sessions B09 to B18. Authentication,
 idempotency keys, cursor pagination and streaming are introduced with the
 first routes that need them (B02, B07, B10).

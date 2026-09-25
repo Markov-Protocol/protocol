@@ -74,6 +74,9 @@ importers:
       '@markov/policy':
         specifier: workspace:*
         version: link:../../packages/policy
+      '@markov/registry':
+        specifier: workspace:*
+        version: link:../../packages/registry
       '@markov/research':
         specifier: workspace:*
         version: link:../../packages/research
@@ -120,6 +123,9 @@ importers:
       '@markov/policy':
         specifier: workspace:*
         version: link:../../packages/policy
+      '@markov/registry':
+        specifier: workspace:*
+        version: link:../../packages/registry
       '@markov/research':
         specifier: workspace:*
         version: link:../../packages/research
@@ -135,6 +141,31 @@ importers:
       commander:
         specifier: 15.0.0
         version: 15.0.0
+    devDependencies:
+      '@markov/testkit':
+        specifier: workspace:*
+        version: link:../../packages/testkit
+
+  apps/indexer:
+    dependencies:
+      '@markov/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@markov/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@markov/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@markov/registry':
+        specifier: workspace:*
+        version: link:../../packages/registry
+      '@markov/solana-rpc':
+        specifier: workspace:*
+        version: link:../../packages/solana-rpc
     devDependencies:
       '@markov/testkit':
         specifier: workspace:*
@@ -410,6 +441,15 @@ importers:
       '@markov/contracts':
         specifier: workspace:*
         version: link:../contracts
+
+  packages/registry:
+    dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@markov/solana-rpc':
+        specifier: workspace:*
+        version: link:../solana-rpc
 
   packages/research:
     dependencies:

@@ -25,8 +25,15 @@ import {
   type OnChainMint,
   type OwnerLimits,
   type PolicyDenial,
+  PUBLICATION_LIFECYCLE,
+  PUBLICATION_OPERATIONS,
   PUBLICATION_STATES,
+  type PublicationFailure,
+  REGISTRY_RECORD_STATUSES,
+  REGISTRY_RELATIONS,
   RESERVATION_STATUSES,
+  type RegistrationEvidence,
+  type RegistryRecord,
   type ResearchSubject,
   RUN_STATUSES,
   SNAPSHOT_KINDS,
@@ -908,3 +915,117 @@ export const portfolioInstances = pgTable(
     enumCheck('portfolio_instances_status_check', table.status, INSTANCE_STATUSES),
   ],
 );
+
+/* -------------------------------------------------------------------------
+ * Registry (B08): publications are the owner's attempts to register a
+ * frozen version on chain with a verified wallet; registry records are what
+ * the indexer has read from finalized chain state, whether or not a Markov
+ * version matches them. A row here is evidence of an attempt or of an
+ * observation, never registration by itself.
+ * ------------------------------------------------------------------------- */
+
+export const strategyPublications = pgTable(
+  'strategy_publications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => strategyVersions.id, { onDelete: 'cascade' }),
+    strategyId: uuid('strategy_id')
+      .notNull()
+      .references(() => strategies.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    operation: text('operation').notNull().default('register'),
+    state: text('state').notNull().default('awaiting_signature'),
+    programId: text('program_id').notNull(),
+    genesisHash: text('genesis_hash').notNull(),
+    recordAddress: text('record_address').notNull(),
+    publisherWalletId: uuid('publisher_wallet_id')
+      .notNull()
+      .references(() => walletLinks.id),
+    publisherAddress: text('publisher_address').notNull(),
+    manifestHash: text('manifest_hash').notNull(),
+    contentDigest: text('content_digest').notNull(),
+    /** Wire transaction with zeroed signatures, base64: exactly what the wallet was asked to sign. */
+    unsignedTransaction: text('unsigned_transaction').notNull(),
+    /** The message bytes (base64) the signature must cover; a submission whose message differs is refused. */
+    message: text('message').notNull(),
+    recentBlockhash: text('recent_blockhash').notNull(),
+    lastValidBlockHeight: bigint('last_valid_block_height', { mode: 'number' }).notNull(),
+    estimatedCostLamports: bigint('estimated_cost_lamports', { mode: 'number' }).notNull(),
+    signature: text('signature'),
+    submittedAt: timestamp('submitted_at', { withTimezone: true, mode: 'date' }),
+    /** The node's confirmation level at the last check; only `finalized` can register. */
+    confirmationStatus: text('confirmation_status'),
+    evidence: jsonb('evidence').$type<RegistrationEvidence>(),
+    failure: jsonb('failure').$type<PublicationFailure>(),
+    lastCheckedAt: timestamp('last_checked_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('strategy_publications_version_idx').on(table.versionId, table.createdAt),
+    index('strategy_publications_state_idx').on(table.state, table.updatedAt),
+    // At most one publication of an operation may be in flight for a version.
+    uniqueIndex('strategy_publications_in_flight_unique')
+      .on(table.versionId, table.operation)
+      .where(sql`${table.state} IN ('validated', 'awaiting_signature', 'submitted')`),
+    enumCheck('strategy_publications_state_check', table.state, PUBLICATION_LIFECYCLE),
+    enumCheck('strategy_publications_operation_check', table.operation, PUBLICATION_OPERATIONS),
+  ],
+);
+
+export const registryRecords = pgTable(
+  'registry_records',
+  {
+    address: text('address').primaryKey(),
+    programId: text('program_id').notNull(),
+    genesisHash: text('genesis_hash').notNull(),
+    publisher: text('publisher').notNull(),
+    status: text('status').notNull(),
+    layoutVersion: integer('layout_version').notNull(),
+    schemaVersion: integer('schema_version').notNull(),
+    relation: text('relation').notNull(),
+    parentManifestHash: text('parent_manifest_hash'),
+    manifestHash: text('manifest_hash').notNull(),
+    contentDigest: text('content_digest').notNull(),
+    cashWeightBps: integer('cash_weight_bps').notNull(),
+    legs: jsonb('legs').$type<RegistryRecord['legs']>().notNull(),
+    registeredSlot: bigint('registered_slot', { mode: 'number' }).notNull(),
+    registeredUnixTime: bigint('registered_unix_time', { mode: 'number' }).notNull(),
+    statusUpdatedSlot: bigint('status_updated_slot', { mode: 'number' }).notNull(),
+    /** The exact account bytes, base64, so a reader can re-decode and re-verify. */
+    data: text('data').notNull(),
+    /** The Markov version carrying this manifest hash, when one exists. */
+    versionId: uuid('version_id').references(() => strategyVersions.id),
+    /** Registration transaction when the indexer learned it from a publication. */
+    signature: text('signature'),
+    observedSlot: bigint('observed_slot', { mode: 'number' }).notNull(),
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('registry_records_manifest_idx').on(table.programId, table.manifestHash),
+    index('registry_records_publisher_idx').on(table.publisher),
+    index('registry_records_version_idx').on(table.versionId),
+    enumCheck('registry_records_status_check', table.status, REGISTRY_RECORD_STATUSES),
+    enumCheck('registry_records_relation_check', table.relation, REGISTRY_RELATIONS),
+  ],
+);
+
+/** One row per program: when the indexer last ran and how far it has looked. */
+export const registryIndexerState = pgTable('registry_indexer_state', {
+  programId: text('program_id').primaryKey(),
+  genesisHash: text('genesis_hash').notNull(),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true, mode: 'date' }),
+  lastObservedSlot: bigint('last_observed_slot', { mode: 'number' }),
+  recordsIndexed: integer('records_indexed').notNull().default(0),
+  lastError: text('last_error'),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+});

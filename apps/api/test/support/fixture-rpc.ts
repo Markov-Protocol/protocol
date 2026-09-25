@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { encodeMintAccount, SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@markov/catalog';
 import { KNOWN_GENESIS_HASHES } from '@markov/config';
 import { decodeBase58 } from '@markov/contracts';
+import { type FixtureLedger, fetchForLedger } from '@markov/registry';
 
 export const GENESIS = KNOWN_GENESIS_HASHES.devnet;
 
@@ -21,8 +22,12 @@ const prestocksMints = (
   ) as { mints: FixtureMint[] }
 ).mints;
 
-/** JSON-RPC stand-in serving the PreStocks fixture mints as real-shaped accounts; FXGRID is deliberately absent. */
-export function prestocksFixtureRpcFetch(): typeof fetch {
+/**
+ * JSON-RPC stand-in serving the PreStocks fixture mints as real-shaped
+ * accounts; FXGRID is deliberately absent. With a ledger, registry methods
+ * (blockhashes, submissions, statuses, records) are answered by it.
+ */
+export function prestocksFixtureRpcFetch(ledger?: FixtureLedger): typeof fetch {
   const accounts = new Map<string, { owner: string; data: Uint8Array }>();
   for (const item of prestocksMints) {
     if (item.symbol === 'FXGRID') {
@@ -41,6 +46,37 @@ export function prestocksFixtureRpcFetch(): typeof fetch {
         extensions,
       }),
     });
+  }
+  const answer = (method: string, params: unknown): unknown => {
+    const list = Array.isArray(params) ? params : [];
+    switch (method) {
+      case 'getGenesisHash':
+        return GENESIS;
+      case 'getHealth':
+        return 'ok';
+      case 'getVersion':
+        return { 'solana-core': 'fixture' };
+      case 'getAccountInfo': {
+        const account = accounts.get(String(list[0]));
+        return {
+          context: { slot: 4242 },
+          value: account
+            ? {
+                data: [Buffer.from(account.data).toString('base64'), 'base64'],
+                executable: false,
+                lamports: 1,
+                owner: account.owner,
+                space: account.data.length,
+              }
+            : null,
+        };
+      }
+      default:
+        return null;
+    }
+  };
+  if (ledger) {
+    return fetchForLedger(ledger, answer);
   }
   return (async (_input: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as {

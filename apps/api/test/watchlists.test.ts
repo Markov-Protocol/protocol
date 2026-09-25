@@ -21,10 +21,12 @@ import {
   createWatchlistService,
   type FundingService,
   type MarkovApi,
+  type RegistryService,
   type ResearchService,
   type StrategyService,
 } from '../src/index.js';
 import { GENESIS, prestocksFixtureRpcFetch } from './support/fixture-rpc.js';
+import { unavailable } from './support/unavailable.js';
 
 const adminUrl = testDatabaseUrl();
 const BOGUS = '99999999-9999-4999-8999-999999999999';
@@ -127,6 +129,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         funding: unavailableFunding,
         research: unavailableResearch,
         watchlists: createWatchlistService({ db: client.db, catalog }),
+        registry: unavailable<RegistryService>('registry'),
         strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

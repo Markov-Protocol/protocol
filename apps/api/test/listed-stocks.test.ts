@@ -28,10 +28,12 @@ import {
   createProbes,
   type FundingService,
   type MarkovApi,
+  type RegistryService,
   type ResearchService,
   type StrategyService,
   type WatchlistService,
 } from '../src/index.js';
+import { unavailable } from './support/unavailable.js';
 
 const adminUrl = testDatabaseUrl();
 const GENESIS = KNOWN_GENESIS_HASHES.devnet;
@@ -223,6 +225,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         funding: unavailableFunding,
         research: unavailableResearch,
         watchlists: unavailableWatchlists,
+        registry: unavailable<RegistryService>('registry'),
         strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

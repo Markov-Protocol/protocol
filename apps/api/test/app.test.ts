@@ -10,10 +10,12 @@ import {
   type IdentityService,
   type NetworkIdentitySnapshot,
   type PolicyService,
+  type RegistryService,
   type ResearchService,
   type StrategyService,
   type WatchlistService,
 } from '../src/index.js';
+import { unavailable } from './support/unavailable.js';
 
 const unavailableIdentity = new Proxy({} as IdentityService, {
   get: () => () => {
@@ -113,6 +115,7 @@ async function makeApp(
     funding: unavailableFunding,
     research: unavailableResearch,
     watchlists: unavailableWatchlists,
+    registry: unavailable<RegistryService>('registry'),
     strategies: unavailableStrategies,
     mintTestToken: null,
   });

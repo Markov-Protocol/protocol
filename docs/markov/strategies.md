@@ -9,8 +9,9 @@ moves nobody's pin. This document is the contract for
 `@markov/strategy`, the `strategies`, `strategy_drafts`,
 `strategy_versions` and `portfolio_instances` tables (migration
 `0007_strategies`) and the `/v1/me/strategies` and `/v1/me/instances`
-routes. Publication and on-chain registration are B08; execution is B09
-and B10; nothing here places an order.
+routes. Publication and on-chain registration are B08
+(`docs/markov/strategy-registry.md`); execution is B09 and B10; nothing
+here places an order.
 
 ## Draft content
 
@@ -89,9 +90,14 @@ the manifest. `parentVersionId` is the strategy's previous version;
 
 A freeze of a draft whose economic content equals the current version's
 answers that version with status 200 instead of creating a twin (201).
-Versions carry `publication: unpublished` and `moderation: none` until
-B08 introduces registration and review; `deprecatedBy` links a version a
-creator has superseded on purpose (B08).
+Versions start with `publication: unpublished` and `moderation: none`.
+`publication` follows the owner's on-chain registration
+(`docs/markov/strategy-registry.md`): `awaiting_signature`, `submitted`,
+`registered`, `failed`, `expired` or `unknown`, always derived from what
+the chain reported; `publisherWallet` is set only by a registration that
+reached `registered`. `deprecatedBy` links a version a creator has
+superseded on purpose; the on-chain deprecation marker lives on the
+registry record.
 
 There is no route that edits or deletes a version. Archiving a strategy
 (`PATCH …/{strategyId}` with `status: archived`) stops edits, freezes and
@@ -142,9 +148,11 @@ canonicalContent  = {"cashWeightBps":2000,"kind":"stock_spot_basket","legs":[…
 contentDigest     = 910207cf06da18bcbf497381e9ac8f209e8c0ab895c1ae011bf36390102e0819
 ```
 
-The B08 registry program must reproduce `manifestHash` from the same
-bytes; the vectors above are the shared fixture for the Rust and
-TypeScript implementations.
+The registry program's Rust tests reproduce `manifestHash` and
+`contentDigest` from the same bytes with their own canonical JSON writer,
+and `programs/strategy-registry/vectors/registry-vectors.json` extends
+the fixture with instruction and account encodings that the TypeScript SDK
+proves byte for byte (`docs/markov/strategy-registry.md`).
 
 ## Forks
 

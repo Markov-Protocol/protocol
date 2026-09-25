@@ -4,6 +4,7 @@ import { SolanaRpcClient, SolanaRpcError, verifyNetworkIdentity } from '../src/i
 
 const GENESIS = 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
 const OTHER = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
+const PROGRAM = '6SAPG2iavaEAv628NpuZuSwgKxGhqU23C769w7FfGpuZ';
 
 const closers: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -101,6 +102,111 @@ describe('SolanaRpcClient', () => {
       params: [165],
     });
     expect(await failureKind(rpc.getBalance('whale', 'confirmed'))).toBe('malformed');
+  });
+
+  it('reads blockhashes, block heights, signature statuses, transactions and program accounts, and sends base64 transactions', async () => {
+    const server = await fake({
+      handlers: {
+        getLatestBlockhash: () => ({
+          context: { slot: 10 },
+          value: {
+            blockhash: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG',
+            lastValidBlockHeight: 160,
+          },
+        }),
+        getBlockHeight: () => 12,
+        sendTransaction: () => '5'.repeat(88),
+        getSignatureStatuses: () => ({
+          context: { slot: 11 },
+          value: [
+            { slot: 9, confirmations: 3, err: null, confirmationStatus: 'confirmed' },
+            null,
+            {
+              slot: 8,
+              confirmations: null,
+              err: { InstructionError: [0, { Custom: 6008 }] },
+              confirmationStatus: 'finalized',
+            },
+          ],
+        }),
+        getTransaction: (params) =>
+          (params as unknown[])[0] === 'missing'
+            ? null
+            : {
+                slot: 9,
+                blockTime: 1_758_800_000,
+                meta: { err: null, fee: 5000, logMessages: ['ok'] },
+              },
+        getProgramAccounts: () => [
+          {
+            pubkey: 'Acct1111111111111111111111111111111111111111',
+            account: {
+              data: [Buffer.from([1, 2, 3]).toString('base64'), 'base64'],
+              owner: PROGRAM,
+              lamports: 5,
+              executable: false,
+            },
+          },
+        ],
+      },
+    });
+    const rpc = client(server.url);
+    expect(await rpc.getLatestBlockhash('finalized')).toEqual({
+      slot: 10,
+      blockhash: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG',
+      lastValidBlockHeight: 160,
+    });
+    expect(await rpc.getBlockHeight('finalized')).toBe(12);
+    expect(await rpc.sendTransaction('AQID')).toBe('5'.repeat(88));
+    expect(server.requests.at(-1)).toMatchObject({
+      method: 'sendTransaction',
+      params: [
+        'AQID',
+        {
+          encoding: 'base64',
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+          maxRetries: 0,
+        },
+      ],
+    });
+    const statuses = await rpc.getSignatureStatuses(['a', 'b', 'c']);
+    expect(statuses.statuses).toEqual([
+      { slot: 9, confirmations: 3, err: null, confirmationStatus: 'confirmed' },
+      null,
+      {
+        slot: 8,
+        confirmations: null,
+        err: { InstructionError: [0, { Custom: 6008 }] },
+        confirmationStatus: 'finalized',
+      },
+    ]);
+    expect(server.requests.at(-1)).toMatchObject({
+      params: [['a', 'b', 'c'], { searchTransactionHistory: true }],
+    });
+    expect(await rpc.getTransaction('sig', 'finalized')).toEqual({
+      slot: 9,
+      blockTime: 1_758_800_000,
+      err: null,
+      fee: 5000,
+      logs: ['ok'],
+    });
+    expect(await rpc.getTransaction('missing', 'finalized')).toBeNull();
+    const accounts = await rpc.getProgramAccounts(PROGRAM, 'finalized', [{ dataSize: 3 }]);
+    expect(accounts).toEqual([
+      {
+        pubkey: 'Acct1111111111111111111111111111111111111111',
+        owner: PROGRAM,
+        data: new Uint8Array([1, 2, 3]),
+        lamports: 5,
+      },
+    ]);
+    expect(server.requests.at(-1)).toMatchObject({
+      params: [
+        PROGRAM,
+        { encoding: 'base64', commitment: 'finalized', filters: [{ dataSize: 3 }] },
+      ],
+    });
   });
 
   it('classifies node-unhealthy rpc errors from getHealth without throwing', async () => {

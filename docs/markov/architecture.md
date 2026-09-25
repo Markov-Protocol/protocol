@@ -22,8 +22,8 @@ flowchart TD
 ```
 
 Independently runnable processes: `apps/api` (Fastify), `apps/worker`
-(Temporal), `apps/cli` (operator/developer commands). `apps/indexer` is
-introduced with the registry in B08.
+(Temporal), `apps/indexer` (registry indexer, B08) and `apps/cli`
+(operator/developer commands).
 
 ## Stack (decided in ADR-0002 and ADR-0003)
 
@@ -44,6 +44,7 @@ introduced with the registry in B08.
 ```
 apps/api            Fastify domain API
 apps/worker         Temporal worker and workflows
+apps/indexer        registry indexer: follows publications to finality and mirrors program records (B08)
 apps/cli            markov command line
 packages/contracts  zod schemas shared by everything (bottom of the graph)
 packages/config     strict env parsing and runtime-mode invariants
@@ -58,6 +59,8 @@ packages/amounts    exact BigInt decimals, on-chain double conversion, raw/scale
 packages/policy     pure eligibility, limits, capability-state and policy evaluation rules (B05)
 packages/research   pure research rules: thesis validation, safe-retrieval policy, sanitiser, mapping, model adapter contract (B06)
 packages/strategy   pure recipe rules: exact-weight validation, admission snapshots, canonical manifest and content digest, version diff (B07)
+packages/registry   registry SDK: program-derived addresses, instruction and account encodings, rules mirror, legacy transaction codec and verification, publication state machine, fixture ledger (B08)
+programs/strategy-registry  Anchor program recording immutable version recipes, program-test suite and shared vectors (B08); programs/idl-build generates its IDL
 packages/api-client generated OpenAPI client with runtime contract validation, used by the app server (F03)
 packages/testkit    test-only helpers (never imported by production code)
 apps/web            markov.pet application (Next.js App Router; ADR-0006)
@@ -69,8 +72,7 @@ docs/sessions       per-session evidence
 ```
 
 Planned packages follow the specification: allocation, execution,
-portfolio, integrations, agent-tools, receipts; `programs/strategy-registry`
-for the Anchor program; `infra` for deployment.
+portfolio, integrations, agent-tools, receipts; `infra` for deployment.
 
 ## Dependency direction
 
