@@ -34,6 +34,8 @@ export API_TRUST_PROXY=true
 export RESEARCH_MODEL_PROVIDER=fixture
 # Synthetic stablecoin mint served by the fixture RPC (never a real token).
 export FUNDING_STABLECOIN_MINT=GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9ts
+# Execution planning (B09): synthetic venue quotes for the review journeys (F09).
+export EXECUTION_VENUE_PROVIDER=fixture
 # Development placeholder registry program id: the fixture RPC's in-memory ledger executes the
 # program's rules under it (scripts/dev/fixture-rpc.mjs), so publishing journeys sign real
 # transactions that never leave this machine. Nothing is deployed anywhere.

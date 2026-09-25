@@ -54,7 +54,9 @@ with its limit and observed value in the same unit:
 
 Concentration and reserve checks need exposure. Until the ledger (B12)
 supplies holdings, the caller declares them (`exposure.source:
-caller_declared`) and the decision records that source. A quote-stage
+caller_declared`) and the decision records that source. Execution planning
+(B09) declares, for each constituent it evaluates, the other constituents'
+targets as positions and the cash the wallet keeps after the plan. A quote-stage
 evaluation with `source: none` skips those checks; the submit stage refuses.
 
 A decision expires after 60 seconds, or earlier when the eligibility

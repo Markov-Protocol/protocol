@@ -26,6 +26,8 @@ export MARKOV_ENV=test SERVICE_VERSION=startup-check LOG_LEVEL=warn LOG_FORMAT=j
 export DATABASE_URL="$DB_URL" SOLANA_CLUSTER=devnet SOLANA_RPC_PRIMARY_URL="http://127.0.0.1:$RPC_PORT"
 # Strategy registry (B08): the development placeholder program id served by the fixture ledger.
 export REGISTRY_PROGRAM_ID="${MARKOV_FIXTURE_REGISTRY_PROGRAM_ID:-6SAPG2iavaEAv628NpuZuSwgKxGhqU23C769w7FfGpuZ}"
+# Execution planning (B09): the synthetic stablecoin the fixture RPC serves balances for, and the fixture venue.
+export FUNDING_STABLECOIN_MINT=GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9ts EXECUTION_VENUE_PROVIDER=fixture
 API_PORT=$((30000 + RANDOM % 20000)); export API_PORT API_HOST=127.0.0.1
 
 echo "== markov db migrate"
@@ -103,11 +105,12 @@ node apps/cli/dist/main.js policy terms acknowledge --terms-version 2026-09-24 -
 STEPS=$(node apps/cli/dist/main.js policy eligibility --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.outcome+":"+j.terms.complete+":"+j.steps.join(","))})')
 echo "eligibility status: $STEPS"; [ "$STEPS" = "eligible:true:" ]
 AVAIL=$(node apps/cli/dist/main.js policy availability "$AERO_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.capabilities.discoverable+":"+j.capabilities.quoteable+":"+j.capabilities.buyable+":"+j.conditions.join(","))})')
-echo "capability states: $AVAIL"; [ "$AVAIL" = "true:false:false:venue_disabled,execution_disabled" ]
+# Since B09 the venue quote capability is fixture-verified, so an eligible person can be quoted; buying waits for B10.
+echo "capability states: $AVAIL"; [ "$AVAIL" = "true:true:false:execution_disabled" ]
 ALLOWED=$(node apps/cli/dist/main.js policy evaluate --instrument "$AERO_ID" --notional 100000000 --intent startup-1 --cash 1000000000 --reserve --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.outcome+":"+(j.reservation?j.reservation.status:"none")+":"+j.budget.dailyUsedUsdcRaw)})')
 echo "quote-stage evaluation with reservation: $ALLOWED"; [ "$ALLOWED" = "allow:held:100000000" ]
 SUBMIT=$(node apps/cli/dist/main.js policy evaluate --instrument "$AERO_ID" --notional 100000000 --intent startup-1 --stage submit --cash 1000000000 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.outcome+":"+j.denials.map(x=>x.code).join(","))})')
-echo "submit-stage evaluation: $SUBMIT"; [ "$SUBMIT" = "deny:EXECUTION_DISABLED,VENUE_DISABLED" ]
+echo "submit-stage evaluation: $SUBMIT"; [ "$SUBMIT" = "deny:EXECUTION_DISABLED" ]
 CAPPED=$(node apps/cli/dist/main.js policy evaluate --instrument "$AERO_ID" --notional 1500000000 --intent startup-2 --cash 100000000000 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);const x=j.denials[0];console.log(x.code+":"+x.limit+":"+x.observed)})')
 echo "order above the cap: $CAPPED"; [ "$CAPPED" = "ORDER_CAP_EXCEEDED:1000000000:1500000000" ]
 RELEASED=$(node apps/cli/dist/main.js policy reservations release startup-1 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).status))')
@@ -187,6 +190,36 @@ RECORD=$(node apps/cli/dist/main.js registry record "$RECORD_ADDRESS" --url "htt
 echo "indexed record status:version = $RECORD"; [ "$RECORD" = "deprecated:1" ]
 STATUS_AFTER=$(node apps/cli/dist/main.js registry status --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.indexer.recordsIndexed+":"+(j.indexer.lastRunAt!==null))})')
 echo "registry indexer records:ran = $STATUS_AFTER"; [ "$STATUS_AFTER" = "1:true" ]
+
+echo "== planning journey: fund wallet -> intent (idempotent) -> fixture plan -> conservation, bounds and hash -> acknowledgement rules -> cancel"
+WALLET_ADDRESS=$(curl -fsS -H "Authorization: Bearer $SESSION_TOKEN" "http://127.0.0.1:$API_PORT/v1/me/wallets" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).wallets[0].address))')
+INTENT=$(node apps/cli/dist/main.js intents create --version-id "$V1_ID" --wallet "$WALLET_ID" --budget 1000000000 --idempotency-key startup-intent-1 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.intentId+":"+j.state+":"+j.kind+":"+j.budget.symbol+":"+j.slippageBps)})')
+echo "intent id:state:kind:symbol:slippage = $INTENT"; case "$INTENT" in *:DRAFT:basket_investment:USDC:50) ;; *) exit 1;; esac
+INTENT_ID=${INTENT%%:*}
+SAME=$(node apps/cli/dist/main.js intents create --version-id "$V1_ID" --wallet "$WALLET_ID" --budget 1000000000 --idempotency-key startup-intent-1 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).intentId===process.argv[1]))' "$INTENT_ID")
+echo "same key, same request answers the same intent: $SAME"; [ "$SAME" = "true" ]
+CONFLICT=$(node apps/cli/dist/main.js intents create --version-id "$V1_ID" --wallet "$WALLET_ID" --budget 2000000000 --idempotency-key startup-intent-1 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "IDEMPOTENCY_CONFLICT" || true)
+echo "same key, other request refused: $CONFLICT"; [ "$CONFLICT" = "1" ]
+UNFUNDED=$(node apps/cli/dist/main.js intents plan "$INTENT_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "INSUFFICIENT_FUNDS" || true)
+echo "plan refused while the wallet is empty: $UNFUNDED"; [ "$UNFUNDED" = "1" ]
+curl -fsS -X POST -H "content-type: application/json" -d "{\"address\":\"$WALLET_ADDRESS\",\"lamports\":50000000,\"stablecoinRaw\":\"2500000000\"}" "http://127.0.0.1:$RPC_PORT/fixture/funding" > /dev/null
+PLAN_JSON=$(node apps/cli/dist/main.js intents plan "$INTENT_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+PLAN=$(echo "$PLAN_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);const sum=j.allocation.legs.reduce((s,l)=>s+BigInt(l.targetRaw),0n)+BigInt(j.allocation.cash.targetRaw);const spend=j.legs.reduce((s,l)=>s+BigInt(l.maxInputRaw),0n)+BigInt(j.bounds.residualCashRaw);console.log(j.mode+":"+j.grouping.mode+":"+j.legs.length+":"+(sum===BigInt(j.allocation.investableRaw))+":"+(spend===BigInt(j.input.totalSpendRaw))+":"+j.status+":"+j.funds.sufficient+":"+j.legs.every(l=>l.policyDecision.outcome==="allow"&&BigInt(l.minimumOutputRaw)<=BigInt(l.expectedOutputRaw)))})')
+echo "plan mode:grouping:legs:conserved:bounded:status:funded:legs-ok = $PLAN"; [ "$PLAN" = "fixture:staged:2:true:true:valid:true:true" ]
+PLAN_ID=$(echo "$PLAN_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).planId))')
+PLAN_HASH=$(echo "$PLAN_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).planHash))')
+VERIFY=$(node apps/cli/dist/main.js intents verify-plan --input "$PLAN_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.matches+":"+j.conserved+":"+j.bounded)})')
+echo "offline plan verification matches:conserved:bounded = $VERIFY"; [ "$VERIFY" = "true:true:true" ]
+NO_STAGED=$(node apps/cli/dist/main.js intents acknowledge "$INTENT_ID" "$PLAN_ID" --plan-hash "$PLAN_HASH" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "VALIDATION_FAILED" || true)
+echo "staged plan without acknowledgement refused: $NO_STAGED"; [ "$NO_STAGED" = "1" ]
+WRONG_HASH=$(node apps/cli/dist/main.js intents acknowledge "$INTENT_ID" "$PLAN_ID" --plan-hash "$(printf '0%.0s' $(seq 1 64))" --staged --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "PLAN_CHANGED" || true)
+echo "other hash refused: $WRONG_HASH"; [ "$WRONG_HASH" = "1" ]
+ACK=$(node apps/cli/dist/main.js intents acknowledge "$INTENT_ID" "$PLAN_ID" --plan-hash "$PLAN_HASH" --staged --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.review.stagedAcknowledged+":"+(j.review.acknowledgedHash===j.planHash))})')
+echo "acknowledged staged:hash-bound = $ACK"; [ "$ACK" = "true:true" ]
+INTENT_STATE=$(node apps/cli/dist/main.js intents show "$INTENT_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.state+":"+(j.latestPlanId===process.argv[1]))})' "$PLAN_ID")
+echo "intent state:latest-plan = $INTENT_STATE"; [ "$INTENT_STATE" = "AWAITING_APPROVAL:true" ]
+CANCELLED=$(node apps/cli/dist/main.js intents cancel "$INTENT_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).state))')
+echo "cancelled state = $CANCELLED"; [ "$CANCELLED" = "CANCELLED" ]
 
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""

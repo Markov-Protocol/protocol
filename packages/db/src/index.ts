@@ -12,6 +12,7 @@ export * from './follow-store.js';
 export * from './identity.js';
 export * from './identity-store.js';
 export * from './migrate.js';
+export * from './planning-store.js';
 export * from './policy-store.js';
 export * from './registry-store.js';
 export * from './research-store.js';

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createEd25519TestWallet, generateCredential } from '@markov/auth';
 import { describeConfig, type MarkovConfig, tryLoadConfig } from '@markov/config';
 import {
+  executionPlanSchema,
   type HealthResponse,
   OPERATOR_SCOPES,
   PLATFORM_HEALTH_WORKFLOW_TYPE,
@@ -21,6 +22,7 @@ import {
   runMigrations,
   seedCapabilityReadiness,
 } from '@markov/db';
+import { planHashOf, verifyPlanHash } from '@markov/planning';
 import { SolanaRpcClient, verifyNetworkIdentity } from '@markov/solana-rpc';
 import { Client, Connection } from '@temporalio/client';
 import { Command } from 'commander';
@@ -1680,6 +1682,219 @@ export function buildProgram(io: CliIo = stdio): Command {
         );
       },
     );
+  const intents = program
+    .command('intents')
+    .description('investment intents and bounded, hashed execution plans (B09)');
+  intents
+    .command('create')
+    .description(
+      'create an intent: a basket investment in a pinned version (--version-id) or a single buy (--instrument)',
+    )
+    .requiredOption('--wallet <walletId>', 'one of your verified wallets')
+    .requiredOption('--budget <raw>', 'budget in raw base units of the platform stablecoin')
+    .option('--version-id <versionId>', 'the pinned version to invest in')
+    .option('--instrument <instrumentId>', 'the admitted instrument to buy')
+    .option('--mode <mode>', 'all_in_stablecoin | investable_notional', 'all_in_stablecoin')
+    .option(
+      '--slippage-bps <n>',
+      'slippage in basis points (default: platform default within your limit)',
+    )
+    .option('--idempotency-key <key>', 'client key scoped to you (default: a random key)')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(
+      async (options: {
+        wallet: string;
+        budget: string;
+        versionId?: string;
+        instrument?: string;
+        mode: string;
+        slippageBps?: string;
+        idempotencyKey?: string;
+        token: string;
+        url: string;
+      }) => {
+        if (!options.versionId && !options.instrument) {
+          throw new CliExit(
+            'pass --version-id for a basket investment or --instrument for a single buy',
+            64,
+          );
+        }
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              '/v1/me/intents',
+              {
+                kind: options.versionId ? 'basket_investment' : 'single_buy',
+                strategyVersionId: options.versionId ?? null,
+                instrumentId: options.instrument ?? null,
+                walletId: options.wallet,
+                budget: { rawAmount: options.budget },
+                budgetMode: options.mode,
+                ...(options.slippageBps ? { slippageBps: Number(options.slippageBps) } : {}),
+                idempotencyKey: options.idempotencyKey ?? `cli-${randomUUID()}`,
+              },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  intents
+    .command('list')
+    .description('your intents, newest first')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/me/intents', undefined, options.token)));
+    });
+  intents
+    .command('show <intentId>')
+    .description('one intent with its state and latest plan reference')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (intentId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/intents/${encodeURIComponent(intentId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  intents
+    .command('plan <intentId>')
+    .description(
+      'build a bounded execution plan: allocation, one checked venue quote and policy decision per constituent, fees, grouping, validity and the plan hash',
+    )
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (intentId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/me/intents/${encodeURIComponent(intentId)}/plans`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  intents
+    .command('plan-show <intentId> <planId>')
+    .description('a plan with its review state and current validity')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (intentId: string, planId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/intents/${encodeURIComponent(intentId)}/plans/${encodeURIComponent(planId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  intents
+    .command('acknowledge <intentId> <planId>')
+    .description('acknowledge a reviewed plan by its hash (staged plans need --staged)')
+    .requiredOption('--plan-hash <hash>', 'the plan hash you reviewed')
+    .option(
+      '--staged',
+      'accept staged execution: batches land one by one and completion can be partial',
+    )
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        intentId: string,
+        planId: string,
+        options: { planHash: string; staged?: boolean; token: string; url: string },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/intents/${encodeURIComponent(intentId)}/plans/${encodeURIComponent(planId)}/acknowledgements`,
+              { planHash: options.planHash, stagedAcknowledged: options.staged === true },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  intents
+    .command('cancel <intentId>')
+    .description('cancel an intent before any signature')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (intentId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/me/intents/${encodeURIComponent(intentId)}/cancel`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  intents
+    .command('verify-plan')
+    .description(
+      'offline: recompute the hash of a plan document and check its conservation and bounds without the API',
+    )
+    .option('--file <path>', 'plan JSON file')
+    .option('--input <json>', 'plan JSON inline')
+    .action(async (options: { file?: string; input?: string }) => {
+      const parsed = executionPlanSchema.safeParse(await readContent(options));
+      if (!parsed.success) {
+        throw new CliExit(
+          `not an execution plan: ${parsed.error.issues
+            .slice(0, 5)
+            .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+            .join('; ')}`,
+          65,
+        );
+      }
+      const plan = parsed.data;
+      const { planHash, ...rest } = plan;
+      const recomputed = planHashOf(rest);
+      const legsSum = plan.allocation.legs.reduce((sum, leg) => sum + BigInt(leg.targetRaw), 0n);
+      const allocationSum = legsSum + BigInt(plan.allocation.cash.targetRaw);
+      const spend = plan.legs.reduce((sum, leg) => sum + BigInt(leg.maxInputRaw), 0n);
+      const bounded =
+        spend + BigInt(plan.bounds.residualCashRaw) === BigInt(plan.input.totalSpendRaw);
+      io.out(
+        json({
+          planId: plan.planId,
+          planHash,
+          recomputed,
+          matches: verifyPlanHash(plan),
+          conserved: allocationSum === BigInt(plan.allocation.investableRaw),
+          bounded,
+          mode: plan.mode,
+          grouping: plan.grouping.mode,
+          legs: plan.legs.length,
+          expiresAt: plan.validity.expiresAt,
+          status: plan.status,
+        }),
+      );
+    });
   const registry = program
     .command('registry')
     .description('on-chain strategy registry: status, records and publications');

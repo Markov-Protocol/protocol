@@ -90,15 +90,17 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
     },
     {
       capability: 'execution.jupiter.quote',
-      status: 'DISABLED',
-      summary: 'Not started; planned for session B09.',
-      evidence: {},
+      status: 'FIXTURE_VERIFIED',
+      summary:
+        'Execution plans (B09) quote every constituent through the Markov quote contract: the fixture venue (local/test) and an operator-configured gateway URL are implemented and fixture-verified; the live Jupiter quote API is unverified from the build environment (OD-21) and no live quote has been taken.',
+      evidence: { session: 'B09', openDecision: 'OD-21' },
     },
     {
       capability: 'execution.jupiter.build',
       status: 'DISABLED',
-      summary: 'Not started; planned for session B09.',
-      evidence: {},
+      summary:
+        'Transaction building for a reviewed plan arrives with B10; B09 produces hashed plans with bounds and never a transaction.',
+      evidence: { session: 'B09' },
     },
     {
       capability: 'execution.spot.submit',

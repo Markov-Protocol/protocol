@@ -11,6 +11,7 @@ import type { IdentityService } from '../auth/service.js';
 import type { CatalogService } from '../catalog/service.js';
 import type { FollowService } from '../follows/service.js';
 import type { FundingService } from '../funding/service.js';
+import type { PlanningService } from '../planning/service.js';
 import type { PolicyService } from '../policy/service.js';
 import type { RegistryService } from '../registry/service.js';
 import type { ResearchService } from '../research/service.js';
@@ -63,6 +64,11 @@ const unavailableFollows = new Proxy({} as FollowService, {
     throw new Error('follow service is unavailable in export mode');
   },
 });
+const unavailablePlanning = new Proxy({} as PlanningService, {
+  get: () => () => {
+    throw new Error('planning service is unavailable in export mode');
+  },
+});
 
 async function generate(): Promise<string> {
   const config = loadConfig({
@@ -102,6 +108,7 @@ async function generate(): Promise<string> {
     strategies: unavailableStrategies,
     registry: unavailableRegistry,
     follows: unavailableFollows,
+    planning: unavailablePlanning,
     mintTestToken: null,
   });
   await app.ready();

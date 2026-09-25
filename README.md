@@ -14,6 +14,8 @@ accounts), **B03** (admitted PreStocks catalog, fixture-verified) and
 **B07** (immutable stock basket versions with explicit follower pins),
 **B08** (on-chain strategy registry program, verified registration flow
 and indexer, fixture-verified),
+**B09** (deterministic budget allocation and bounded, hashed execution
+plans, fixture-verified),
 **F04** (verified wallet and trading readiness flows),
 **F05** (issuer-aware discovery and watchlists),
 **F06** (instrument evidence and strategy theses),
@@ -101,7 +103,8 @@ bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful s
 | Research: versioned theses with typed statements and citation rules, SSRF-safe source retrieval with sanitised excerpts, deterministic company mapping, bounded model runs with provenance, labelled public projections | implemented, tested (B06); model adapter fixture-only, no hosted provider (OD-19) |
 | Strategies: exact-weight recipes with cash, deterministic validation, immutable versions with admission snapshots, canonical manifest and content digest with test vectors, forks with provenance, explicit follower pins that a creator's edit never moves, optimistic concurrency | implemented, tested (B07) |
 | Registry: hash-keyed Anchor program with publisher-only status authority and immutable content, shared Rust/TypeScript vectors, publication flow (what-becomes-public preview, byte-exact signed submission, chain-derived states, deprecation), indexer, public verification on read | implemented, program-test and fixture-ledger verified (B08); no SBF build or validator run in this environment, nothing deployed (OD-09, OD-10) |
-| Execution, accounting, discovery, agents, maintenance | not started (B09 onward) |
+| Execution planning: intents with idempotency, largest-remainder base-unit allocation with conservation and explicit cash and dust, separate bounded SOL fee budget, per-constituent venue quotes checked against the request, owner limits and a reviewed program matrix, per-constituent policy decisions, immutable hashed plans with executable bounds and validity, atomic or explicitly staged grouping, owner acknowledgement by hash | implemented, tested (B09) with the fixture venue; live Jupiter interface BLOCKED (OD-21); nothing signs or submits |
+| Execution submission, accounting, discovery, agents, maintenance | not started (B10 onward) |
 | Web design system, exact formatters, internal component reference, production guards | implemented, tested (F01) |
 | Mark I shell, companion home, navigation with honest placeholder routes | implemented, tested (F02) |
 | App sessions: server-verified HttpOnly cookie, sign-in, expiry recovery, sign-out, account switch isolation, generated API client | implemented, tested against the local API (F03); hosted identity provider adapter BLOCKED (OD-05) |

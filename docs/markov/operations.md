@@ -191,6 +191,43 @@ alert when `lastRunAt` is older than three intervals or
 successful pass. Deployment, upgrade authority and review gates:
 `docs/markov/strategy-registry.md`.
 
+## Execution planning
+
+```
+markov intents create --version-id <versionId> --wallet <walletId> --budget <raw> --token <session> --url …
+markov intents create --instrument <instrumentId> --wallet <walletId> --budget <raw> --token <session> --url …
+markov intents list --token <session|agent> --url …
+markov intents show <intentId> --token <session|agent> --url …
+markov intents plan <intentId> --token <session> --url …
+markov intents plan-show <intentId> <planId> --token <session|agent> --url …
+markov intents acknowledge <intentId> <planId> --plan-hash <hash> [--staged] --token <session> --url …
+markov intents cancel <intentId> --token <session> --url …
+markov intents verify-plan --file plan.json      # offline: hash, conservation, bounds
+```
+
+`EXECUTION_VENUE_PROVIDER` selects the venue adapter: `disabled` (every
+plan build answers 503), `fixture` (local/test only; synthetic quotes for
+the fixture mints) or `configured_url` (`EXECUTION_VENUE_QUOTE_URL`, an
+operator-run gateway serving the Markov quote contract over https, with an
+optional bearer key in `EXECUTION_VENUE_API_KEY`). Any venue needs
+`FUNDING_STABLECOIN_MINT` (plans are budgeted in that stablecoin); the
+configuration fails closed otherwise. Migration `0010_planning` adds
+`intents`, `execution_plans` and `venue_quotes`. Audit actions:
+`planning.intent.created`, `planning.plan.built`, `planning.plan.refused`,
+`planning.plan.acknowledged`, `planning.intent.cancelled`.
+
+Operating: plan builds are rate-limited to 20 per minute per client and
+intent creation to 30; watch the audit log for `planning.plan.refused` and
+the API's 503s on `/plans` (venue unreachable, refused quotes) separately
+from 403s (`POLICY_DENIED`) and 409s (`INSUFFICIENT_FUNDS`). Rows in
+`venue_quotes` with `accepted = false` list why a quote was refused; a
+burst of `PROGRAM_NOT_REVIEWED` means the venue routes through a program
+the matrix has not reviewed (`packages/planning/src/programs.ts`), which
+is a review task, never a config switch. Plans expire with their quotes
+(30 s from the fixture venue) and policy decisions; an open intent expires
+after 24 hours. Nothing in B09 signs, submits or reserves; B10 adds the
+transaction lifecycle. Contract: `docs/markov/execution-planning.md`.
+
 ## Readiness and monitoring
 
 - Liveness (`/healthz`) restarts a hung process; readiness (`/readyz`) removes

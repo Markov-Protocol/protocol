@@ -34,7 +34,12 @@ sessions add per-action, per-owner checks and `EXECUTION_WRITES_ENABLED`).
    (`issuerFeedSchema`): `fixture` (synthetic products bundled in
    `packages/issuer-prestocks/fixtures`, refused outside local and test) or
    `configured_url` (`PRESTOCKS_FEED_URL`, https outside local/test, no
-   credentials, no redirects, 10 s, 2 MiB).
+   credentials, no redirects, 10 s, 2 MiB). Fixture sources re-anchor the
+   products' `referencePrice.observedAt` to the current hour relative to
+   the fixtures' authoring instant (`FIXTURE_PRICE_ANCHOR`), so a fixture
+   written as fresh stays fresh and one written as stale stays stale
+   whatever the date; nothing else in a fixture moves and configured URLs
+   are never touched.
 2. The payload is hashed and recorded as a snapshot. Structural drift
    (renamed keys, unknown schema version, another issuer) rejects the whole
    snapshot and changes nothing.

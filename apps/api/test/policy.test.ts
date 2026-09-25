@@ -24,6 +24,7 @@ import {
   type FollowService,
   type FundingService,
   type MarkovApi,
+  type PlanningService,
   type RegistryService,
   type ResearchService,
   type StrategyService,
@@ -124,6 +125,7 @@ async function withHarness(
         watchlists: unavailableWatchlists,
         registry: unavailable<RegistryService>('registry'),
         follows: unavailable<FollowService>('follows'),
+        planning: unavailable<PlanningService>('planning'),
         strategies: unavailableStrategies,
         mintTestToken: (input) =>
           issuer.mint({

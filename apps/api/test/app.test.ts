@@ -10,6 +10,7 @@ import {
   type FundingService,
   type IdentityService,
   type NetworkIdentitySnapshot,
+  type PlanningService,
   type PolicyService,
   type RegistryService,
   type ResearchService,
@@ -118,6 +119,7 @@ async function makeApp(
     watchlists: unavailableWatchlists,
     registry: unavailable<RegistryService>('registry'),
     follows: unavailable<FollowService>('follows'),
+    planning: unavailable<PlanningService>('planning'),
     strategies: unavailableStrategies,
     mintTestToken: null,
   });

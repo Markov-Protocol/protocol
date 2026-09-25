@@ -260,6 +260,76 @@ describe('identity and credential configuration', () => {
     expect(() => loadConfig({ ...base, RESEARCH_MODEL_PROVIDER: 'openai' })).toThrow();
   });
 
+  it('configures the execution venue fail-closed and keeps its key out of the description', () => {
+    expect(loadConfig(base).execution.venue).toEqual({
+      provider: null,
+      quoteUrl: null,
+      apiKey: null,
+    });
+    expect(
+      issuesOf({ ...base, EXECUTION_VENUE_PROVIDER: 'fixture' }).some((issue) =>
+        issue.startsWith('FUNDING_STABLECOIN_MINT: is required when an execution venue'),
+      ),
+    ).toBe(true);
+    expect(
+      loadConfig({
+        ...base,
+        EXECUTION_VENUE_PROVIDER: 'fixture',
+        FUNDING_STABLECOIN_MINT: MAINNET_USDC_MINT,
+      }).execution.venue.provider,
+    ).toBe('fixture');
+    expect(
+      issuesOf({
+        ...base,
+        MARKOV_ENV: 'staging',
+        EXECUTION_VENUE_PROVIDER: 'fixture',
+        FUNDING_STABLECOIN_MINT: MAINNET_USDC_MINT,
+      }).some((issue) => issue.startsWith('EXECUTION_VENUE_PROVIDER')),
+    ).toBe(true);
+    expect(
+      issuesOf({
+        ...base,
+        EXECUTION_VENUE_PROVIDER: 'configured_url',
+        FUNDING_STABLECOIN_MINT: MAINNET_USDC_MINT,
+      }).some((issue) => issue.startsWith('EXECUTION_VENUE_QUOTE_URL: is required')),
+    ).toBe(true);
+    expect(
+      issuesOf({ ...base, EXECUTION_VENUE_API_KEY: 'k' }).some((issue) =>
+        issue.startsWith('EXECUTION_VENUE_API_KEY'),
+      ),
+    ).toBe(true);
+    expect(
+      issuesOf({
+        ...base,
+        MARKOV_ENV: 'staging',
+        SOLANA_RPC_SECONDARY_URL: 'https://rpc-b.example.test/v1/key',
+        EXECUTION_VENUE_PROVIDER: 'configured_url',
+        EXECUTION_VENUE_QUOTE_URL: 'http://gateway.example.test/quote',
+        FUNDING_STABLECOIN_MINT: MAINNET_USDC_MINT,
+      }).some((issue) => issue.startsWith('EXECUTION_VENUE_QUOTE_URL: must use https')),
+    ).toBe(true);
+    expect(
+      issuesOf({
+        ...base,
+        EXECUTION_VENUE_PROVIDER: 'configured_url',
+        EXECUTION_VENUE_QUOTE_URL: 'https://user:pw@gateway.example.test/quote',
+        FUNDING_STABLECOIN_MINT: MAINNET_USDC_MINT,
+      }).some((issue) => issue.startsWith('EXECUTION_VENUE_QUOTE_URL: must not embed')),
+    ).toBe(true);
+    const configured = loadConfig({
+      ...base,
+      EXECUTION_VENUE_PROVIDER: 'configured_url',
+      EXECUTION_VENUE_QUOTE_URL: 'https://gateway.example.test/v1/quote?token=secret-token',
+      EXECUTION_VENUE_API_KEY: 'k-secret',
+      FUNDING_STABLECOIN_MINT: MAINNET_USDC_MINT,
+    });
+    expect(configured.execution.venue.apiKey).toBe('k-secret');
+    const described = JSON.stringify(describeConfig(configured));
+    expect(described).not.toContain('k-secret');
+    expect(described).not.toContain('secret-token');
+    expect(described).toContain('"apiKeyConfigured":true');
+  });
+
   it('bounds the recipe leg limit to at most ten', () => {
     expect(loadConfig(base).strategies.maxLegs).toBe(10);
     expect(loadConfig({ ...base, STRATEGY_MAX_LEGS: '4' }).strategies.maxLegs).toBe(4);

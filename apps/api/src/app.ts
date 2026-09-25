@@ -34,6 +34,7 @@ import { ApiError } from './errors.js';
 import type { FollowService } from './follows/service.js';
 import type { FundingService } from './funding/service.js';
 import type { NetworkIdentitySource } from './network-monitor.js';
+import type { PlanningService } from './planning/service.js';
 import type { PolicyService } from './policy/service.js';
 import type { RegistryService } from './registry/service.js';
 import type { ResearchService } from './research/service.js';
@@ -41,6 +42,7 @@ import { catalogRoutes } from './routes/catalog.js';
 import { followRoutes } from './routes/follows.js';
 import { fundingRoutes } from './routes/funding.js';
 import { identityRoutes } from './routes/identity.js';
+import { planningRoutes } from './routes/planning.js';
 import { policyRoutes } from './routes/policy.js';
 import { registryRoutes } from './routes/registry.js';
 import { researchRoutes } from './routes/research.js';
@@ -86,6 +88,7 @@ export interface AppDependencies {
   readonly strategies: StrategyService;
   readonly registry: RegistryService;
   readonly follows: FollowService;
+  readonly planning: PlanningService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -249,6 +252,11 @@ export async function buildApp(deps: AppDependencies) {
             'On-chain registration of frozen versions: prepare, sign with the owner wallet, submit, verify; public views with chain evidence',
         },
         {
+          name: 'execution',
+          description:
+            'Investment intents and bounded, hashed execution plans reviewed by the owner before any signature',
+        },
+        {
           name: 'follows',
           description:
             'Following public strategies: bookkeeping on the account, never a pin or an order',
@@ -400,6 +408,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(strategyRoutes, { strategies: deps.strategies });
   await app.register(registryRoutes, { registry: deps.registry });
   await app.register(followRoutes, { follows: deps.follows });
+  await app.register(planningRoutes, { planning: deps.planning });
 
   return app;
 }

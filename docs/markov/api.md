@@ -254,10 +254,29 @@ who). `POST /v1/me/strategies/{strategyId}/forks` accepts, from any
 signed-in person, a version that is registered and not withheld; the owner
 keeps forking any of their versions (`docs/markov/strategies.md`).
 
+## Endpoints (B09)
+
+| Method | Path                                                     | Principal                                  | Purpose |
+| ------ | -------------------------------------------------------- | ------------------------------------------ | ------- |
+| POST   | /v1/me/intents                                           | user (30/min)                              | Create an investment intent: a basket investment in a pinned version the caller owns or a public one, or a single buy of an admitted instrument; the budget is raw units of the platform stablecoin from one of the caller's verified wallets; slippage never above the owner's limit. 201 new, 200 for the same idempotency key with the same request, `IDEMPOTENCY_CONFLICT` (409) for the same key with another. Nothing is quoted or reserved |
+| GET    | /v1/me/intents                                           | user, agent `portfolio:read`               | The caller's intents, newest first (at most 50) |
+| GET    | /v1/me/intents/{intentId}                                | user, agent `portfolio:read`               | One intent with its state, reason and latest plan reference; an open intent past its 24-hour lifetime is answered as `EXPIRED` |
+| POST   | /v1/me/intents/{intentId}/plans                          | user (20/min)                              | Build a bounded plan: admission re-checked per constituent, funds observed (`INSUFFICIENT_FUNDS`, 409, before any venue call), integer allocation (`VALIDATION_FAILED` with the smallest workable budget below a route minimum), one venue quote per constituent checked against the request, the owner's limits and the reviewed program matrix (`PROVIDER_UNAVAILABLE`, 503, when the venue fails or a quote is refused; also when no venue is configured), one policy decision per constituent (`POLICY_DENIED`, 403, with denials), then the hashed plan (201). A new plan supersedes the intent's earlier ones |
+| GET    | /v1/me/intents/{intentId}/plans/{planId}                 | user, agent `portfolio:read`               | A plan with its review state and current validity (`valid`, `expired`, `superseded`) |
+| POST   | /v1/me/intents/{intentId}/plans/{planId}/acknowledgements | user                                      | Bind the owner's review to the plan hash: `PLAN_CHANGED` (409) for another hash or a superseded plan, `QUOTE_EXPIRED` (409) past validity, `VALIDATION_FAILED` for a staged plan without `stagedAcknowledged`; the intent moves to `AWAITING_APPROVAL`; idempotent for the same hash |
+| POST   | /v1/me/intents/{intentId}/cancel                         | user                                       | Cancel before any signature (idempotent); refused once the intent left the planning states |
+
+Intent states in B09: `DRAFT` → `QUOTED` → `AWAITING_APPROVAL`, with
+`EXPIRED` and `CANCELLED`; the execution states are defined and reserved
+for B10/B11 (`docs/markov/execution-planning.md`). Plans built from the
+fixture venue are labelled `mode: fixture` and cannot be executed. The
+build document proposes these operations under `/v1/intents`; this API
+keeps every owner-scoped resource under `/v1/me/` as the other sessions do.
+
 ## Planned surface
 
 Discovery, portfolio,
-execution, receipts, maintenance, agents and operations routes are specified
-in the build document and arrive with sessions B09 to B18. Authentication,
+execution submission, receipts, maintenance, agents and operations routes
+are specified in the build document and arrive with sessions B10 to B18. Authentication,
 idempotency keys, cursor pagination and streaming are introduced with the
 first routes that need them (B02, B07, B10).

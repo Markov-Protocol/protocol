@@ -25,6 +25,7 @@ import {
   createProbes,
   type FollowService,
   type MarkovApi,
+  type PlanningService,
   type PolicyService,
   type RegistryService,
   type ResearchService,
@@ -225,6 +226,7 @@ async function withHarness(
         watchlists: unavailableWatchlists,
         registry: unavailable<RegistryService>('registry'),
         follows: unavailable<FollowService>('follows'),
+        planning: unavailable<PlanningService>('planning'),
         strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

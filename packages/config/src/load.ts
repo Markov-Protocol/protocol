@@ -87,6 +87,11 @@ function structure(raw: RawEnv): MarkovConfig {
           }
         : null,
       releaseEvidenceRef: raw.RELEASE_EVIDENCE_REF ?? null,
+      venue: {
+        provider: raw.EXECUTION_VENUE_PROVIDER === 'disabled' ? null : raw.EXECUTION_VENUE_PROVIDER,
+        quoteUrl: raw.EXECUTION_VENUE_QUOTE_URL ?? null,
+        apiKey: raw.EXECUTION_VENUE_API_KEY ?? null,
+      },
     },
     identity: {
       provider: raw.IDENTITY_PROVIDER,
@@ -306,6 +311,7 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
     ['PRESTOCKS_FEED_URL', config.catalog.prestocksFeedUrl],
     ['XSTOCKS_FEED_URL', config.catalog.xstocksFeedUrl],
     ['XSTOCKS_EVENTS_URL', config.catalog.xstocksEventsUrl],
+    ['EXECUTION_VENUE_QUOTE_URL', config.execution.venue.quoteUrl],
   ] as const) {
     if (value === null) {
       continue;
@@ -323,6 +329,38 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
     issues.push({
       path: 'RESEARCH_MODEL_PROVIDER',
       message: `the fixture research model is not allowed when MARKOV_ENV=${env}`,
+    });
+  }
+  if (config.execution.venue.provider === 'fixture' && !isDev) {
+    issues.push({
+      path: 'EXECUTION_VENUE_PROVIDER',
+      message: `the fixture execution venue is not allowed when MARKOV_ENV=${env}`,
+    });
+  }
+  if (
+    config.execution.venue.provider === 'configured_url' &&
+    config.execution.venue.quoteUrl === null
+  ) {
+    issues.push({
+      path: 'EXECUTION_VENUE_QUOTE_URL',
+      message: 'is required when EXECUTION_VENUE_PROVIDER=configured_url',
+    });
+  }
+  if (config.execution.venue.provider !== null && config.funding.stablecoin === null) {
+    issues.push({
+      path: 'FUNDING_STABLECOIN_MINT',
+      message:
+        'is required when an execution venue is configured: plans are budgeted in the stablecoin',
+    });
+  }
+  if (
+    config.execution.venue.provider !== 'configured_url' &&
+    config.execution.venue.apiKey !== null
+  ) {
+    issues.push({
+      path: 'EXECUTION_VENUE_API_KEY',
+      message:
+        'is only used when EXECUTION_VENUE_PROVIDER=configured_url; remove it or configure the gateway',
     });
   }
 
@@ -453,7 +491,19 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
       },
       readCommitment: config.solana.readCommitment,
     },
-    execution: config.execution,
+    execution: {
+      writesEnabled: config.execution.writesEnabled,
+      betaCaps: config.execution.betaCaps,
+      releaseEvidenceRef: config.execution.releaseEvidenceRef,
+      venue: {
+        provider: config.execution.venue.provider,
+        quoteUrl:
+          config.execution.venue.quoteUrl === null
+            ? null
+            : redactUrl(config.execution.venue.quoteUrl),
+        apiKeyConfigured: config.execution.venue.apiKey !== null,
+      },
+    },
     funding: config.funding,
     research: config.research,
     strategies: config.strategies,

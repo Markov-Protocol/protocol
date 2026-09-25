@@ -52,6 +52,7 @@ import {
   createStrategyService,
   type FundingService,
   type MarkovApi,
+  type PlanningService,
   type ResearchService,
   type WatchlistService,
 } from '../src/index.js';
@@ -161,6 +162,7 @@ async function withHarness(
           rpcClients: [rpc],
         }),
         follows: createFollowService({ db: client.db }),
+        planning: unavailable<PlanningService>('planning'),
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();

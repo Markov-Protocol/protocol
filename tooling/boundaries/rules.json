@@ -57,6 +57,12 @@
     },
     "@markov/registry": {
       "allow": ["@markov/contracts", "@markov/solana-rpc"]
+    },
+    "@markov/planning": {
+      "allow": ["@markov/contracts"]
+    },
+    "@markov/venue-jupiter": {
+      "allow": ["@markov/contracts", "@markov/planning"]
     }
   },
   "apps": ["@markov/api", "@markov/worker", "@markov/indexer", "@markov/cli", "@markov/web"],

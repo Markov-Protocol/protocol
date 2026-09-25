@@ -50,8 +50,9 @@ execution is never keyed by ticker.
    of the record; resumption after a pause needs a new verification.
 5. **Operator decision with audit trail.** Every admit, reject, pause,
    resume and delist records who, why and which evidence references.
-6. **Executable route tests and applicable terms** arrive with B05 and
-   B09; until then `availability.trade` is a literal false.
+6. **Executable route tests and applicable terms** arrive with B05, B09
+   (quotes checked per constituent against the reviewed route/program
+   matrix) and B10; until B10 `availability.trade` is a literal false.
 
 ## Lifecycle
 

@@ -41,6 +41,12 @@
       "path": "packages/registry"
     },
     {
+      "path": "packages/planning"
+    },
+    {
+      "path": "packages/venue-jupiter"
+    },
+    {
       "path": "packages/db"
     },
     {

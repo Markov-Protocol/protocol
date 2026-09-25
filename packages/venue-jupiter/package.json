@@ -1,0 +1,26 @@
+{
+  "name": "@markov/venue-jupiter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@markov/contracts": "workspace:*",
+    "@markov/planning": "workspace:*"
+  },
+  "devDependencies": {},
+  "description": "Venue adapters answering the Markov quote contract: a synthetic fixture venue for local and test modes and an operator-configured gateway URL; the live Jupiter interface is unverified from the build environment (OD-21) and no provider SDK is used"
+}

@@ -53,6 +53,51 @@ const fixtureFiles: Record<PrestocksFixture, string> = {
   drift: 'prestocks-feed.drift.json',
 };
 
+/**
+ * Authoring instant of the bundled fixtures. Reference-price observation
+ * times are re-anchored to the current hour at fetch time so that the
+ * relative freshness the fixtures were written with (a fresh mark, a stale
+ * mark) never erodes as real time passes; nothing else in a fixture moves,
+ * and configured URLs are never touched. Quantising to the hour keeps
+ * repeated fixture ingestions byte-identical within an hour.
+ */
+export const FIXTURE_PRICE_ANCHOR = Date.parse('2026-09-25T00:00:00Z');
+
+export function reanchorFixturePrices(payload: unknown, now: Date): unknown {
+  if (payload === null || typeof payload !== 'object') {
+    return payload;
+  }
+  const products = (payload as { products?: unknown }).products;
+  if (!Array.isArray(products)) {
+    return payload;
+  }
+  const hour = Math.floor(now.getTime() / 3_600_000) * 3_600_000;
+  const shift = hour - FIXTURE_PRICE_ANCHOR;
+  return {
+    ...(payload as Record<string, unknown>),
+    products: products.map((product: unknown) => {
+      if (product === null || typeof product !== 'object') {
+        return product;
+      }
+      const price = (product as { referencePrice?: unknown }).referencePrice;
+      if (price === null || typeof price !== 'object') {
+        return product;
+      }
+      const observedAt = (price as { observedAt?: unknown }).observedAt;
+      if (typeof observedAt !== 'string' || Number.isNaN(Date.parse(observedAt))) {
+        return product;
+      }
+      return {
+        ...(product as Record<string, unknown>),
+        referencePrice: {
+          ...(price as Record<string, unknown>),
+          observedAt: new Date(Date.parse(observedAt) + shift).toISOString(),
+        },
+      };
+    }),
+  };
+}
+
 /** Synthetic products only: no real issuer product, mint or price appears in a fixture. */
 export function createPrestocksFixtureSource(fixture: PrestocksFixture = 'default'): IssuerSource {
   const file = new URL(`../fixtures/${fixtureFiles[fixture]}`, import.meta.url);
@@ -61,10 +106,11 @@ export function createPrestocksFixtureSource(fixture: PrestocksFixture = 'defaul
     source: 'fixture',
     async fetch() {
       const text = await readFile(file, 'utf8');
+      const fetchedAt = new Date();
       return {
         sourceRef: `fixture:${fixture}`,
-        fetchedAt: new Date(),
-        payload: JSON.parse(text) as unknown,
+        fetchedAt,
+        payload: reanchorFixturePrices(JSON.parse(text) as unknown, fetchedAt),
         bytes: Buffer.byteLength(text),
       };
     },

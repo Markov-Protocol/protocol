@@ -1,5 +1,12 @@
 import { readFileSync } from 'node:fs';
-import { encodeMintAccount, SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@markov/catalog';
+import {
+  EXTENSION_TYPE_BY_NAME,
+  type ExtensionFixtureSpec,
+  encodeExtensionData,
+  encodeMintAccount,
+  SPL_TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+} from '@markov/catalog';
 import { KNOWN_GENESIS_HASHES } from '@markov/config';
 import { decodeBase58 } from '@markov/contracts';
 import { type FixtureLedger, fetchForLedger } from '@markov/registry';
@@ -11,6 +18,7 @@ interface FixtureMint {
   mint: string;
   decimals: number;
   tokenProgram: 'spl-token' | 'token-2022';
+  extensions?: Record<string, unknown>[];
 }
 
 const prestocksMints = (
@@ -21,6 +29,69 @@ const prestocksMints = (
     ),
   ) as { mints: FixtureMint[] }
 ).mints;
+
+const xstocksMints = (
+  JSON.parse(
+    readFileSync(
+      new URL('../../../../packages/issuer-xstocks/fixtures/fixture-mints.json', import.meta.url),
+      'utf8',
+    ),
+  ) as { mints: FixtureMint[] }
+).mints;
+const xstocksAuthority = new Uint8Array(32).fill(7);
+
+function xstocksExtension(raw: Record<string, unknown>): ExtensionFixtureSpec {
+  switch (raw['name']) {
+    case 'MetadataPointer':
+      return {
+        name: 'MetadataPointer',
+        authority: xstocksAuthority,
+        metadataAddress: xstocksAuthority,
+      };
+    case 'ScaledUiAmount':
+      return {
+        name: 'ScaledUiAmount',
+        authority: xstocksAuthority,
+        multiplier: Number(raw['multiplier']),
+        newMultiplier: Number(raw['newMultiplier']),
+        newMultiplierEffectiveAt: Number(raw['newMultiplierEffectiveAt'] ?? 0),
+      };
+    case 'Pausable':
+      return { name: 'Pausable', authority: xstocksAuthority, paused: Boolean(raw['paused']) };
+    case 'TransferFeeConfig':
+      return {
+        name: 'TransferFeeConfig',
+        basisPoints: Number(raw['basisPoints']),
+        maximumFee: BigInt(String(raw['maximumFee'])),
+      };
+    case 'PermanentDelegate':
+      return { name: 'PermanentDelegate', delegate: raw['delegate'] ? xstocksAuthority : null };
+    default:
+      throw new Error(`unknown fixture extension ${String(raw['name'])}`);
+  }
+}
+
+/** The xStocks fixture mints with their Token-2022 extension data, as `getAccountInfo` would serve them. */
+export function xstocksFixtureMintAccounts(): Map<string, { owner: string; data: Uint8Array }> {
+  const accounts = new Map<string, { owner: string; data: Uint8Array }>();
+  for (const item of xstocksMints) {
+    const extensions = (item.extensions ?? []).map((raw) => {
+      const full = xstocksExtension(raw);
+      return { type: EXTENSION_TYPE_BY_NAME[full.name], data: encodeExtensionData(full) };
+    });
+    accounts.set(item.mint, {
+      owner: item.tokenProgram === 'token-2022' ? TOKEN_2022_PROGRAM_ID : SPL_TOKEN_PROGRAM_ID,
+      data: encodeMintAccount({
+        decimals: item.decimals,
+        supply: 5_000_000n,
+        mintAuthority: xstocksAuthority,
+        freezeAuthority: null,
+        extensions,
+      }),
+    });
+  }
+  return accounts;
+}
 
 /**
  * JSON-RPC stand-in serving the PreStocks fixture mints as real-shaped

@@ -1,0 +1,25 @@
+{
+  "name": "@markov/planning",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@markov/contracts": "workspace:*"
+  },
+  "devDependencies": {},
+  "description": "Pure execution planning: integer base-unit allocation with largest-remainder rounding, the beta fee policy, quote checks against policy and the reviewed route-program matrix, plan assembly with executable bounds and validity, the canonical plan hash and the intent state machine"
+}

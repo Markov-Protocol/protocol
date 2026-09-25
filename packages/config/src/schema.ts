@@ -89,6 +89,14 @@ export const rawEnvSchema = z.object({
   FUNDING_STABLECOIN_MINT: base58AddressSchema.optional(),
   /** Research model adapter (B06): `disabled` keeps research manual; `fixture` is allowed in local/test only. */
   RESEARCH_MODEL_PROVIDER: z.enum(['disabled', 'fixture']).default('disabled'),
+  /**
+   * Execution venue adapter (B09): `disabled` refuses every plan; `fixture` (local/test only) answers
+   * synthetic quotes; `configured_url` posts the Markov quote contract to EXECUTION_VENUE_QUOTE_URL.
+   */
+  EXECUTION_VENUE_PROVIDER: z.enum(['disabled', 'fixture', 'configured_url']).default('disabled'),
+  EXECUTION_VENUE_QUOTE_URL: z.url().optional(),
+  /** Bearer token for the configured gateway; never logged, never part of a plan. */
+  EXECUTION_VENUE_API_KEY: z.string().min(1).max(4000).optional(),
   /** Product complexity limit on recipe legs (B07), tightened downward for a beta; never raised above 10. */
   STRATEGY_MAX_LEGS: intFromEnv(1, 10).default(10),
   /** Strategy registry program (B08). Unset keeps publication disabled and the indexer idle. */
@@ -149,6 +157,12 @@ export interface MarkovConfig {
     readonly writesEnabled: boolean;
     readonly betaCaps: BetaCaps | null;
     readonly releaseEvidenceRef: string | null;
+    readonly venue: {
+      /** Null when no venue is configured; planning then refuses with PROVIDER_UNAVAILABLE. */
+      readonly provider: 'fixture' | 'configured_url' | null;
+      readonly quoteUrl: string | null;
+      readonly apiKey: string | null;
+    };
   };
   readonly identity: {
     readonly provider: 'test' | 'oidc';

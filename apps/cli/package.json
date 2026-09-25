@@ -27,6 +27,7 @@
     "@markov/contracts": "workspace:*",
     "@markov/db": "workspace:*",
     "@markov/observability": "workspace:*",
+    "@markov/planning": "workspace:*",
     "@markov/policy": "workspace:*",
     "@markov/registry": "workspace:*",
     "@markov/research": "workspace:*",

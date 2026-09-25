@@ -21273,6 +21273,2163 @@ export type paths = {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/v1/me/intents": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Your intents, newest first (at most 50) */
+        readonly get: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description Default Response */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly intents: readonly {
+                                /** Format: uuid */
+                                readonly intentId: string;
+                                /** @enum {string} */
+                                readonly schemaVersion: "1";
+                                /** @enum {string} */
+                                readonly kind: "basket_investment" | "single_buy";
+                                /** @enum {string} */
+                                readonly state: "DRAFT" | "QUOTED" | "AWAITING_APPROVAL" | "AUTHORIZED" | "SUBMITTING" | "SUBMITTED" | "CONFIRMED" | "FINALIZED" | "PARTIALLY_COMPLETED" | "EXPIRED" | "REJECTED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "UNKNOWN_REQUIRES_RECONCILIATION";
+                                readonly stateReason: string | null;
+                                readonly wallet: {
+                                    /** Format: uuid */
+                                    readonly walletId: string;
+                                    readonly address: string;
+                                };
+                                readonly strategy: {
+                                    /** Format: uuid */
+                                    readonly strategyId: string;
+                                    /** Format: uuid */
+                                    readonly versionId: string;
+                                    readonly versionNumber: number;
+                                    readonly title: string;
+                                    readonly manifestHash: string;
+                                } | null;
+                                readonly instrumentId: string | null;
+                                readonly budget: {
+                                    readonly mint: string;
+                                    readonly symbol: string;
+                                    readonly decimals: number;
+                                    readonly rawAmount: string;
+                                };
+                                /** @enum {string} */
+                                readonly budgetMode: "all_in_stablecoin" | "investable_notional";
+                                /** @enum {string} */
+                                readonly executionPreference: "atomic_or_explicit_staged_review";
+                                /** @enum {string} */
+                                readonly approvalMode: "owner_each_plan";
+                                readonly slippageBps: number;
+                                readonly latestPlanId: string | null;
+                                readonly latestPlanHash: string | null;
+                                readonly idempotencyKey: string;
+                                /** Format: date-time */
+                                readonly createdAt: string;
+                                /** Format: date-time */
+                                readonly updatedAt: string;
+                                /** Format: date-time */
+                                readonly expiresAt: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 429: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 503: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        readonly put?: never;
+        /**
+         * Create an investment intent (idempotent per key)
+         * @description A basket investment names a pinned version you own or a public one; a single buy names an admitted instrument. The budget is raw units of the platform stablecoin from one of your verified wallets. 201 for a new intent, 200 when the key was already used with the same request; IDEMPOTENCY_CONFLICT when it was used with another. Nothing is quoted or reserved here.
+         */
+        readonly post: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody: {
+                readonly content: {
+                    readonly "application/json": {
+                        /**
+                         * @default 1
+                         * @enum {string}
+                         */
+                        readonly schemaVersion?: "1";
+                        /** @enum {string} */
+                        readonly kind: "basket_investment" | "single_buy";
+                        /** @default null */
+                        readonly strategyVersionId?: string | null;
+                        /** @default null */
+                        readonly instrumentId?: string | null;
+                        /** Format: uuid */
+                        readonly walletId: string;
+                        readonly budget: {
+                            readonly rawAmount: string;
+                        };
+                        /**
+                         * @default all_in_stablecoin
+                         * @enum {string}
+                         */
+                        readonly budgetMode?: "all_in_stablecoin" | "investable_notional";
+                        /**
+                         * @default atomic_or_explicit_staged_review
+                         * @enum {string}
+                         */
+                        readonly executionPreference?: "atomic_or_explicit_staged_review";
+                        /**
+                         * @default owner_each_plan
+                         * @enum {string}
+                         */
+                        readonly approvalMode?: "owner_each_plan";
+                        /** @default null */
+                        readonly slippageBps?: number | null;
+                        readonly idempotencyKey: string;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description Default Response */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            /** Format: uuid */
+                            readonly intentId: string;
+                            /** @enum {string} */
+                            readonly schemaVersion: "1";
+                            /** @enum {string} */
+                            readonly kind: "basket_investment" | "single_buy";
+                            /** @enum {string} */
+                            readonly state: "DRAFT" | "QUOTED" | "AWAITING_APPROVAL" | "AUTHORIZED" | "SUBMITTING" | "SUBMITTED" | "CONFIRMED" | "FINALIZED" | "PARTIALLY_COMPLETED" | "EXPIRED" | "REJECTED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "UNKNOWN_REQUIRES_RECONCILIATION";
+                            readonly stateReason: string | null;
+                            readonly wallet: {
+                                /** Format: uuid */
+                                readonly walletId: string;
+                                readonly address: string;
+                            };
+                            readonly strategy: {
+                                /** Format: uuid */
+                                readonly strategyId: string;
+                                /** Format: uuid */
+                                readonly versionId: string;
+                                readonly versionNumber: number;
+                                readonly title: string;
+                                readonly manifestHash: string;
+                            } | null;
+                            readonly instrumentId: string | null;
+                            readonly budget: {
+                                readonly mint: string;
+                                readonly symbol: string;
+                                readonly decimals: number;
+                                readonly rawAmount: string;
+                            };
+                            /** @enum {string} */
+                            readonly budgetMode: "all_in_stablecoin" | "investable_notional";
+                            /** @enum {string} */
+                            readonly executionPreference: "atomic_or_explicit_staged_review";
+                            /** @enum {string} */
+                            readonly approvalMode: "owner_each_plan";
+                            readonly slippageBps: number;
+                            readonly latestPlanId: string | null;
+                            readonly latestPlanHash: string | null;
+                            readonly idempotencyKey: string;
+                            /** Format: date-time */
+                            readonly createdAt: string;
+                            /** Format: date-time */
+                            readonly updatedAt: string;
+                            /** Format: date-time */
+                            readonly expiresAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 201: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            /** Format: uuid */
+                            readonly intentId: string;
+                            /** @enum {string} */
+                            readonly schemaVersion: "1";
+                            /** @enum {string} */
+                            readonly kind: "basket_investment" | "single_buy";
+                            /** @enum {string} */
+                            readonly state: "DRAFT" | "QUOTED" | "AWAITING_APPROVAL" | "AUTHORIZED" | "SUBMITTING" | "SUBMITTED" | "CONFIRMED" | "FINALIZED" | "PARTIALLY_COMPLETED" | "EXPIRED" | "REJECTED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "UNKNOWN_REQUIRES_RECONCILIATION";
+                            readonly stateReason: string | null;
+                            readonly wallet: {
+                                /** Format: uuid */
+                                readonly walletId: string;
+                                readonly address: string;
+                            };
+                            readonly strategy: {
+                                /** Format: uuid */
+                                readonly strategyId: string;
+                                /** Format: uuid */
+                                readonly versionId: string;
+                                readonly versionNumber: number;
+                                readonly title: string;
+                                readonly manifestHash: string;
+                            } | null;
+                            readonly instrumentId: string | null;
+                            readonly budget: {
+                                readonly mint: string;
+                                readonly symbol: string;
+                                readonly decimals: number;
+                                readonly rawAmount: string;
+                            };
+                            /** @enum {string} */
+                            readonly budgetMode: "all_in_stablecoin" | "investable_notional";
+                            /** @enum {string} */
+                            readonly executionPreference: "atomic_or_explicit_staged_review";
+                            /** @enum {string} */
+                            readonly approvalMode: "owner_each_plan";
+                            readonly slippageBps: number;
+                            readonly latestPlanId: string | null;
+                            readonly latestPlanHash: string | null;
+                            readonly idempotencyKey: string;
+                            /** Format: date-time */
+                            readonly createdAt: string;
+                            /** Format: date-time */
+                            readonly updatedAt: string;
+                            /** Format: date-time */
+                            readonly expiresAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 429: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 503: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/v1/me/intents/{intentId}": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** One of your intents with its state and latest plan reference */
+        readonly get: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path: {
+                    readonly intentId: string;
+                };
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description Default Response */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            /** Format: uuid */
+                            readonly intentId: string;
+                            /** @enum {string} */
+                            readonly schemaVersion: "1";
+                            /** @enum {string} */
+                            readonly kind: "basket_investment" | "single_buy";
+                            /** @enum {string} */
+                            readonly state: "DRAFT" | "QUOTED" | "AWAITING_APPROVAL" | "AUTHORIZED" | "SUBMITTING" | "SUBMITTED" | "CONFIRMED" | "FINALIZED" | "PARTIALLY_COMPLETED" | "EXPIRED" | "REJECTED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "UNKNOWN_REQUIRES_RECONCILIATION";
+                            readonly stateReason: string | null;
+                            readonly wallet: {
+                                /** Format: uuid */
+                                readonly walletId: string;
+                                readonly address: string;
+                            };
+                            readonly strategy: {
+                                /** Format: uuid */
+                                readonly strategyId: string;
+                                /** Format: uuid */
+                                readonly versionId: string;
+                                readonly versionNumber: number;
+                                readonly title: string;
+                                readonly manifestHash: string;
+                            } | null;
+                            readonly instrumentId: string | null;
+                            readonly budget: {
+                                readonly mint: string;
+                                readonly symbol: string;
+                                readonly decimals: number;
+                                readonly rawAmount: string;
+                            };
+                            /** @enum {string} */
+                            readonly budgetMode: "all_in_stablecoin" | "investable_notional";
+                            /** @enum {string} */
+                            readonly executionPreference: "atomic_or_explicit_staged_review";
+                            /** @enum {string} */
+                            readonly approvalMode: "owner_each_plan";
+                            readonly slippageBps: number;
+                            readonly latestPlanId: string | null;
+                            readonly latestPlanHash: string | null;
+                            readonly idempotencyKey: string;
+                            /** Format: date-time */
+                            readonly createdAt: string;
+                            /** Format: date-time */
+                            readonly updatedAt: string;
+                            /** Format: date-time */
+                            readonly expiresAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 429: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 503: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/v1/me/intents/{intentId}/plans": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Build a bounded execution plan for an intent
+         * @description Checks the recipe is still admitted, observes the wallet’s funds, allocates the budget in integer base units (largest remainder; refused with the smallest workable budget when a route minimum is not met), takes one venue quote per constituent, checks every quote against the request, policy and the reviewed route-program matrix, evaluates policy per constituent, and answers the immutable, hashed plan with its bounds, fee budget, grouping and validity. Fixture-mode plans are labelled and cannot be executed. A new plan supersedes the intent’s earlier plans. No funds move and nothing is reserved.
+         */
+        readonly post: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path: {
+                    readonly intentId: string;
+                };
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description Default Response */
+                readonly 201: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            /** Format: uuid */
+                            readonly planId: string;
+                            readonly planHash: string;
+                            /** @enum {string} */
+                            readonly schemaVersion: "1";
+                            /** Format: uuid */
+                            readonly intentId: string;
+                            /** @enum {string} */
+                            readonly kind: "basket_investment" | "single_buy";
+                            /** @enum {string} */
+                            readonly mode: "fixture" | "live";
+                            readonly network: {
+                                /** @enum {string} */
+                                readonly cluster: "localnet" | "devnet" | "testnet" | "mainnet-beta";
+                                readonly genesisHash: string;
+                            };
+                            readonly wallet: {
+                                /** Format: uuid */
+                                readonly walletId: string;
+                                readonly address: string;
+                            };
+                            readonly strategy: {
+                                /** Format: uuid */
+                                readonly strategyId: string;
+                                /** Format: uuid */
+                                readonly versionId: string;
+                                readonly versionNumber: number;
+                                readonly manifestHash: string;
+                            } | null;
+                            readonly input: {
+                                readonly mint: string;
+                                readonly symbol: string;
+                                readonly decimals: number;
+                                readonly budgetRaw: string;
+                                /** @enum {string} */
+                                readonly budgetMode: "all_in_stablecoin" | "investable_notional";
+                                readonly investableRaw: string;
+                                readonly totalSpendRaw: string;
+                            };
+                            readonly allocation: {
+                                /** @enum {string} */
+                                readonly method: "largest_remainder";
+                                readonly legs: readonly {
+                                    readonly key: string;
+                                    readonly weightBps: number;
+                                    readonly exactFloorRaw: string;
+                                    readonly roundingRaw: string;
+                                    readonly targetRaw: string;
+                                }[];
+                                readonly cash: {
+                                    readonly key: string;
+                                    readonly weightBps: number;
+                                    readonly exactFloorRaw: string;
+                                    readonly roundingRaw: string;
+                                    readonly targetRaw: string;
+                                };
+                                readonly feeReserveRaw: string;
+                                readonly dustRaw: string;
+                                readonly investableRaw: string;
+                                readonly sumRaw: string;
+                                /** @enum {boolean} */
+                                readonly conserved: true;
+                            };
+                            readonly legs: readonly {
+                                readonly legIndex: number;
+                                /** Format: uuid */
+                                readonly instrumentId: string;
+                                readonly symbol: string;
+                                /** @enum {string} */
+                                readonly issuer: "prestocks" | "xstocks" | "tessera";
+                                readonly mint: string;
+                                /** @enum {string} */
+                                readonly tokenProgram: "spl-token" | "token-2022" | "unknown";
+                                readonly decimals: number;
+                                /** @enum {string} */
+                                readonly side: "buy";
+                                readonly weightBps: number;
+                                readonly inputMint: string;
+                                readonly targetInputRaw: string;
+                                readonly maxInputRaw: string;
+                                readonly expectedOutputRaw: string;
+                                readonly minimumOutputRaw: string;
+                                readonly slippageBps: number;
+                                readonly priceImpactBps: number | null;
+                                readonly quote: {
+                                    /** @enum {string} */
+                                    readonly schemaVersion: "1";
+                                    /** @enum {string} */
+                                    readonly venue: "jupiter";
+                                    /** @enum {string} */
+                                    readonly mode: "fixture" | "configured_url";
+                                    readonly quoteRef: string;
+                                    readonly inputMint: string;
+                                    readonly outputMint: string;
+                                    readonly inAmountRaw: string;
+                                    readonly outAmountRaw: string;
+                                    readonly otherAmountThresholdRaw: string;
+                                    readonly slippageBps: number;
+                                    readonly priceImpactBps: number | null;
+                                    readonly routePlan: readonly {
+                                        readonly programId: string;
+                                        readonly label: string;
+                                        readonly percent: number;
+                                    }[];
+                                    readonly contextSlot: number | null;
+                                    /** Format: date-time */
+                                    readonly observedAt: string;
+                                    /** Format: date-time */
+                                    readonly expiresAt: string;
+                                    readonly sourceRef: string;
+                                };
+                                readonly policyDecision: {
+                                    /** Format: uuid */
+                                    readonly decisionId: string;
+                                    /** @enum {string} */
+                                    readonly outcome: "allow";
+                                    readonly policyVersion: string | null;
+                                    /** Format: date-time */
+                                    readonly expiresAt: string;
+                                };
+                                readonly batch: number;
+                            }[];
+                            readonly fees: {
+                                readonly feePayer: string;
+                                readonly network: {
+                                    /** @enum {string} */
+                                    readonly unit: "lamports";
+                                    readonly baseFeeLamportsPerSignature: string;
+                                    readonly signaturesPerBatch: number;
+                                    readonly batches: number;
+                                    readonly baseFeeLamports: string;
+                                    readonly priorityFeeCapLamports: string;
+                                    readonly rentExemptTokenAccountLamports: string;
+                                    readonly newTokenAccounts: number;
+                                    readonly rentLamports: string;
+                                    readonly totalLamportsMax: string;
+                                };
+                                readonly protocol: {
+                                    readonly feePolicyVersion: string;
+                                    readonly feeBps: number;
+                                    readonly feeRaw: string;
+                                };
+                            };
+                            readonly grouping: {
+                                /** @enum {string} */
+                                readonly mode: "atomic" | "staged";
+                                readonly batches: readonly {
+                                    readonly batch: number;
+                                    readonly legIndexes: readonly number[];
+                                    readonly description: string;
+                                    readonly worstCaseSpentRaw: string;
+                                    readonly remainingCashRaw: string;
+                                }[];
+                                readonly acknowledgementRequired: boolean;
+                                readonly note: string;
+                            };
+                            readonly bounds: {
+                                readonly maxTotalInputRaw: string;
+                                readonly maxTotalLamports: string;
+                                readonly minimumOutputs: readonly {
+                                    readonly legIndex: number;
+                                    readonly mint: string;
+                                    readonly minimumOutputRaw: string;
+                                }[];
+                                readonly residualCashRaw: string;
+                            };
+                            readonly validity: {
+                                /** Format: date-time */
+                                readonly quotesObservedAt: string;
+                                /** Format: date-time */
+                                readonly quotesExpireAt: string;
+                                /** Format: date-time */
+                                readonly policyExpiresAt: string;
+                                /** Format: date-time */
+                                readonly expiresAt: string;
+                                readonly simulation: null;
+                                readonly evidence: {
+                                    readonly eligibilityDecisionId: string | null;
+                                    readonly policyVersion: string | null;
+                                    readonly policyDecisionIds: readonly string[];
+                                    readonly quoteRefs: readonly string[];
+                                    readonly instrumentUpdatedAt: readonly string[];
+                                };
+                            };
+                            readonly funds: {
+                                /** Format: date-time */
+                                readonly observedAt: string;
+                                readonly slot: number;
+                                readonly stablecoinRaw: string;
+                                readonly lamports: string;
+                                readonly sufficient: boolean;
+                                readonly shortfalls: readonly {
+                                    /** @enum {string} */
+                                    readonly asset: "stablecoin" | "sol";
+                                    readonly requiredRaw: string;
+                                    readonly observedRaw: string;
+                                }[];
+                            };
+                            readonly warnings: readonly string[];
+                            readonly review: {
+                                readonly acknowledgedAt: string | null;
+                                readonly acknowledgedHash: string | null;
+                                readonly stagedAcknowledged: boolean;
+                            };
+                            /** @enum {string} */
+                            readonly status: "valid" | "expired" | "superseded";
+                            /** Format: date-time */
+                            readonly createdAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 429: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 503: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/v1/me/intents/{intentId}/plans/{planId}": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** A plan of yours, with its review state and current validity */
+        readonly get: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path: {
+                    readonly intentId: string;
+                    readonly planId: string;
+                };
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description Default Response */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            /** Format: uuid */
+                            readonly planId: string;
+                            readonly planHash: string;
+                            /** @enum {string} */
+                            readonly schemaVersion: "1";
+                            /** Format: uuid */
+                            readonly intentId: string;
+                            /** @enum {string} */
+                            readonly kind: "basket_investment" | "single_buy";
+                            /** @enum {string} */
+                            readonly mode: "fixture" | "live";
+                            readonly network: {
+                                /** @enum {string} */
+                                readonly cluster: "localnet" | "devnet" | "testnet" | "mainnet-beta";
+                                readonly genesisHash: string;
+                            };
+                            readonly wallet: {
+                                /** Format: uuid */
+                                readonly walletId: string;
+                                readonly address: string;
+                            };
+                            readonly strategy: {
+                                /** Format: uuid */
+                                readonly strategyId: string;
+                                /** Format: uuid */
+                                readonly versionId: string;
+                                readonly versionNumber: number;
+                                readonly manifestHash: string;
+                            } | null;
+                            readonly input: {
+                                readonly mint: string;
+                                readonly symbol: string;
+                                readonly decimals: number;
+                                readonly budgetRaw: string;
+                                /** @enum {string} */
+                                readonly budgetMode: "all_in_stablecoin" | "investable_notional";
+                                readonly investableRaw: string;
+                                readonly totalSpendRaw: string;
+                            };
+                            readonly allocation: {
+                                /** @enum {string} */
+                                readonly method: "largest_remainder";
+                                readonly legs: readonly {
+                                    readonly key: string;
+                                    readonly weightBps: number;
+                                    readonly exactFloorRaw: string;
+                                    readonly roundingRaw: string;
+                                    readonly targetRaw: string;
+                                }[];
+                                readonly cash: {
+                                    readonly key: string;
+                                    readonly weightBps: number;
+                                    readonly exactFloorRaw: string;
+                                    readonly roundingRaw: string;
+                                    readonly targetRaw: string;
+                                };
+                                readonly feeReserveRaw: string;
+                                readonly dustRaw: string;
+                                readonly investableRaw: string;
+                                readonly sumRaw: string;
+                                /** @enum {boolean} */
+                                readonly conserved: true;
+                            };
+                            readonly legs: readonly {
+                                readonly legIndex: number;
+                                /** Format: uuid */
+                                readonly instrumentId: string;
+                                readonly symbol: string;
+                                /** @enum {string} */
+                                readonly issuer: "prestocks" | "xstocks" | "tessera";
+                                readonly mint: string;
+                                /** @enum {string} */
+                                readonly tokenProgram: "spl-token" | "token-2022" | "unknown";
+                                readonly decimals: number;
+                                /** @enum {string} */
+                                readonly side: "buy";
+                                readonly weightBps: number;
+                                readonly inputMint: string;
+                                readonly targetInputRaw: string;
+                                readonly maxInputRaw: string;
+                                readonly expectedOutputRaw: string;
+                                readonly minimumOutputRaw: string;
+                                readonly slippageBps: number;
+                                readonly priceImpactBps: number | null;
+                                readonly quote: {
+                                    /** @enum {string} */
+                                    readonly schemaVersion: "1";
+                                    /** @enum {string} */
+                                    readonly venue: "jupiter";
+                                    /** @enum {string} */
+                                    readonly mode: "fixture" | "configured_url";
+                                    readonly quoteRef: string;
+                                    readonly inputMint: string;
+                                    readonly outputMint: string;
+                                    readonly inAmountRaw: string;
+                                    readonly outAmountRaw: string;
+                                    readonly otherAmountThresholdRaw: string;
+                                    readonly slippageBps: number;
+                                    readonly priceImpactBps: number | null;
+                                    readonly routePlan: readonly {
+                                        readonly programId: string;
+                                        readonly label: string;
+                                        readonly percent: number;
+                                    }[];
+                                    readonly contextSlot: number | null;
+                                    /** Format: date-time */
+                                    readonly observedAt: string;
+                                    /** Format: date-time */
+                                    readonly expiresAt: string;
+                                    readonly sourceRef: string;
+                                };
+                                readonly policyDecision: {
+                                    /** Format: uuid */
+                                    readonly decisionId: string;
+                                    /** @enum {string} */
+                                    readonly outcome: "allow";
+                                    readonly policyVersion: string | null;
+                                    /** Format: date-time */
+                                    readonly expiresAt: string;
+                                };
+                                readonly batch: number;
+                            }[];
+                            readonly fees: {
+                                readonly feePayer: string;
+                                readonly network: {
+                                    /** @enum {string} */
+                                    readonly unit: "lamports";
+                                    readonly baseFeeLamportsPerSignature: string;
+                                    readonly signaturesPerBatch: number;
+                                    readonly batches: number;
+                                    readonly baseFeeLamports: string;
+                                    readonly priorityFeeCapLamports: string;
+                                    readonly rentExemptTokenAccountLamports: string;
+                                    readonly newTokenAccounts: number;
+                                    readonly rentLamports: string;
+                                    readonly totalLamportsMax: string;
+                                };
+                                readonly protocol: {
+                                    readonly feePolicyVersion: string;
+                                    readonly feeBps: number;
+                                    readonly feeRaw: string;
+                                };
+                            };
+                            readonly grouping: {
+                                /** @enum {string} */
+                                readonly mode: "atomic" | "staged";
+                                readonly batches: readonly {
+                                    readonly batch: number;
+                                    readonly legIndexes: readonly number[];
+                                    readonly description: string;
+                                    readonly worstCaseSpentRaw: string;
+                                    readonly remainingCashRaw: string;
+                                }[];
+                                readonly acknowledgementRequired: boolean;
+                                readonly note: string;
+                            };
+                            readonly bounds: {
+                                readonly maxTotalInputRaw: string;
+                                readonly maxTotalLamports: string;
+                                readonly minimumOutputs: readonly {
+                                    readonly legIndex: number;
+                                    readonly mint: string;
+                                    readonly minimumOutputRaw: string;
+                                }[];
+                                readonly residualCashRaw: string;
+                            };
+                            readonly validity: {
+                                /** Format: date-time */
+                                readonly quotesObservedAt: string;
+                                /** Format: date-time */
+                                readonly quotesExpireAt: string;
+                                /** Format: date-time */
+                                readonly policyExpiresAt: string;
+                                /** Format: date-time */
+                                readonly expiresAt: string;
+                                readonly simulation: null;
+                                readonly evidence: {
+                                    readonly eligibilityDecisionId: string | null;
+                                    readonly policyVersion: string | null;
+                                    readonly policyDecisionIds: readonly string[];
+                                    readonly quoteRefs: readonly string[];
+                                    readonly instrumentUpdatedAt: readonly string[];
+                                };
+                            };
+                            readonly funds: {
+                                /** Format: date-time */
+                                readonly observedAt: string;
+                                readonly slot: number;
+                                readonly stablecoinRaw: string;
+                                readonly lamports: string;
+                                readonly sufficient: boolean;
+                                readonly shortfalls: readonly {
+                                    /** @enum {string} */
+                                    readonly asset: "stablecoin" | "sol";
+                                    readonly requiredRaw: string;
+                                    readonly observedRaw: string;
+                                }[];
+                            };
+                            readonly warnings: readonly string[];
+                            readonly review: {
+                                readonly acknowledgedAt: string | null;
+                                readonly acknowledgedHash: string | null;
+                                readonly stagedAcknowledged: boolean;
+                            };
+                            /** @enum {string} */
+                            readonly status: "valid" | "expired" | "superseded";
+                            /** Format: date-time */
+                            readonly createdAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 429: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 503: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/v1/me/intents/{intentId}/plans/{planId}/acknowledgements": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Acknowledge a reviewed plan by its hash
+         * @description Binds your review to the plan hash: PLAN_CHANGED when the hash differs or a newer plan exists, QUOTE_EXPIRED when the plan’s validity has passed, VALIDATION_FAILED when a staged plan is acknowledged without accepting partial completion. Moves the intent to AWAITING_APPROVAL; the wallet signature arrives with B10.
+         */
+        readonly post: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path: {
+                    readonly intentId: string;
+                    readonly planId: string;
+                };
+                readonly cookie?: never;
+            };
+            readonly requestBody: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly planHash: string;
+                        /** @default false */
+                        readonly stagedAcknowledged?: boolean;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description Default Response */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            /** Format: uuid */
+                            readonly planId: string;
+                            readonly planHash: string;
+                            /** @enum {string} */
+                            readonly schemaVersion: "1";
+                            /** Format: uuid */
+                            readonly intentId: string;
+                            /** @enum {string} */
+                            readonly kind: "basket_investment" | "single_buy";
+                            /** @enum {string} */
+                            readonly mode: "fixture" | "live";
+                            readonly network: {
+                                /** @enum {string} */
+                                readonly cluster: "localnet" | "devnet" | "testnet" | "mainnet-beta";
+                                readonly genesisHash: string;
+                            };
+                            readonly wallet: {
+                                /** Format: uuid */
+                                readonly walletId: string;
+                                readonly address: string;
+                            };
+                            readonly strategy: {
+                                /** Format: uuid */
+                                readonly strategyId: string;
+                                /** Format: uuid */
+                                readonly versionId: string;
+                                readonly versionNumber: number;
+                                readonly manifestHash: string;
+                            } | null;
+                            readonly input: {
+                                readonly mint: string;
+                                readonly symbol: string;
+                                readonly decimals: number;
+                                readonly budgetRaw: string;
+                                /** @enum {string} */
+                                readonly budgetMode: "all_in_stablecoin" | "investable_notional";
+                                readonly investableRaw: string;
+                                readonly totalSpendRaw: string;
+                            };
+                            readonly allocation: {
+                                /** @enum {string} */
+                                readonly method: "largest_remainder";
+                                readonly legs: readonly {
+                                    readonly key: string;
+                                    readonly weightBps: number;
+                                    readonly exactFloorRaw: string;
+                                    readonly roundingRaw: string;
+                                    readonly targetRaw: string;
+                                }[];
+                                readonly cash: {
+                                    readonly key: string;
+                                    readonly weightBps: number;
+                                    readonly exactFloorRaw: string;
+                                    readonly roundingRaw: string;
+                                    readonly targetRaw: string;
+                                };
+                                readonly feeReserveRaw: string;
+                                readonly dustRaw: string;
+                                readonly investableRaw: string;
+                                readonly sumRaw: string;
+                                /** @enum {boolean} */
+                                readonly conserved: true;
+                            };
+                            readonly legs: readonly {
+                                readonly legIndex: number;
+                                /** Format: uuid */
+                                readonly instrumentId: string;
+                                readonly symbol: string;
+                                /** @enum {string} */
+                                readonly issuer: "prestocks" | "xstocks" | "tessera";
+                                readonly mint: string;
+                                /** @enum {string} */
+                                readonly tokenProgram: "spl-token" | "token-2022" | "unknown";
+                                readonly decimals: number;
+                                /** @enum {string} */
+                                readonly side: "buy";
+                                readonly weightBps: number;
+                                readonly inputMint: string;
+                                readonly targetInputRaw: string;
+                                readonly maxInputRaw: string;
+                                readonly expectedOutputRaw: string;
+                                readonly minimumOutputRaw: string;
+                                readonly slippageBps: number;
+                                readonly priceImpactBps: number | null;
+                                readonly quote: {
+                                    /** @enum {string} */
+                                    readonly schemaVersion: "1";
+                                    /** @enum {string} */
+                                    readonly venue: "jupiter";
+                                    /** @enum {string} */
+                                    readonly mode: "fixture" | "configured_url";
+                                    readonly quoteRef: string;
+                                    readonly inputMint: string;
+                                    readonly outputMint: string;
+                                    readonly inAmountRaw: string;
+                                    readonly outAmountRaw: string;
+                                    readonly otherAmountThresholdRaw: string;
+                                    readonly slippageBps: number;
+                                    readonly priceImpactBps: number | null;
+                                    readonly routePlan: readonly {
+                                        readonly programId: string;
+                                        readonly label: string;
+                                        readonly percent: number;
+                                    }[];
+                                    readonly contextSlot: number | null;
+                                    /** Format: date-time */
+                                    readonly observedAt: string;
+                                    /** Format: date-time */
+                                    readonly expiresAt: string;
+                                    readonly sourceRef: string;
+                                };
+                                readonly policyDecision: {
+                                    /** Format: uuid */
+                                    readonly decisionId: string;
+                                    /** @enum {string} */
+                                    readonly outcome: "allow";
+                                    readonly policyVersion: string | null;
+                                    /** Format: date-time */
+                                    readonly expiresAt: string;
+                                };
+                                readonly batch: number;
+                            }[];
+                            readonly fees: {
+                                readonly feePayer: string;
+                                readonly network: {
+                                    /** @enum {string} */
+                                    readonly unit: "lamports";
+                                    readonly baseFeeLamportsPerSignature: string;
+                                    readonly signaturesPerBatch: number;
+                                    readonly batches: number;
+                                    readonly baseFeeLamports: string;
+                                    readonly priorityFeeCapLamports: string;
+                                    readonly rentExemptTokenAccountLamports: string;
+                                    readonly newTokenAccounts: number;
+                                    readonly rentLamports: string;
+                                    readonly totalLamportsMax: string;
+                                };
+                                readonly protocol: {
+                                    readonly feePolicyVersion: string;
+                                    readonly feeBps: number;
+                                    readonly feeRaw: string;
+                                };
+                            };
+                            readonly grouping: {
+                                /** @enum {string} */
+                                readonly mode: "atomic" | "staged";
+                                readonly batches: readonly {
+                                    readonly batch: number;
+                                    readonly legIndexes: readonly number[];
+                                    readonly description: string;
+                                    readonly worstCaseSpentRaw: string;
+                                    readonly remainingCashRaw: string;
+                                }[];
+                                readonly acknowledgementRequired: boolean;
+                                readonly note: string;
+                            };
+                            readonly bounds: {
+                                readonly maxTotalInputRaw: string;
+                                readonly maxTotalLamports: string;
+                                readonly minimumOutputs: readonly {
+                                    readonly legIndex: number;
+                                    readonly mint: string;
+                                    readonly minimumOutputRaw: string;
+                                }[];
+                                readonly residualCashRaw: string;
+                            };
+                            readonly validity: {
+                                /** Format: date-time */
+                                readonly quotesObservedAt: string;
+                                /** Format: date-time */
+                                readonly quotesExpireAt: string;
+                                /** Format: date-time */
+                                readonly policyExpiresAt: string;
+                                /** Format: date-time */
+                                readonly expiresAt: string;
+                                readonly simulation: null;
+                                readonly evidence: {
+                                    readonly eligibilityDecisionId: string | null;
+                                    readonly policyVersion: string | null;
+                                    readonly policyDecisionIds: readonly string[];
+                                    readonly quoteRefs: readonly string[];
+                                    readonly instrumentUpdatedAt: readonly string[];
+                                };
+                            };
+                            readonly funds: {
+                                /** Format: date-time */
+                                readonly observedAt: string;
+                                readonly slot: number;
+                                readonly stablecoinRaw: string;
+                                readonly lamports: string;
+                                readonly sufficient: boolean;
+                                readonly shortfalls: readonly {
+                                    /** @enum {string} */
+                                    readonly asset: "stablecoin" | "sol";
+                                    readonly requiredRaw: string;
+                                    readonly observedRaw: string;
+                                }[];
+                            };
+                            readonly warnings: readonly string[];
+                            readonly review: {
+                                readonly acknowledgedAt: string | null;
+                                readonly acknowledgedHash: string | null;
+                                readonly stagedAcknowledged: boolean;
+                            };
+                            /** @enum {string} */
+                            readonly status: "valid" | "expired" | "superseded";
+                            /** Format: date-time */
+                            readonly createdAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 429: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 503: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/v1/me/intents/{intentId}/cancel": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /** Cancel an intent before any signature (idempotent) */
+        readonly post: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path: {
+                    readonly intentId: string;
+                };
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description Default Response */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            /** Format: uuid */
+                            readonly intentId: string;
+                            /** @enum {string} */
+                            readonly schemaVersion: "1";
+                            /** @enum {string} */
+                            readonly kind: "basket_investment" | "single_buy";
+                            /** @enum {string} */
+                            readonly state: "DRAFT" | "QUOTED" | "AWAITING_APPROVAL" | "AUTHORIZED" | "SUBMITTING" | "SUBMITTED" | "CONFIRMED" | "FINALIZED" | "PARTIALLY_COMPLETED" | "EXPIRED" | "REJECTED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "UNKNOWN_REQUIRES_RECONCILIATION";
+                            readonly stateReason: string | null;
+                            readonly wallet: {
+                                /** Format: uuid */
+                                readonly walletId: string;
+                                readonly address: string;
+                            };
+                            readonly strategy: {
+                                /** Format: uuid */
+                                readonly strategyId: string;
+                                /** Format: uuid */
+                                readonly versionId: string;
+                                readonly versionNumber: number;
+                                readonly title: string;
+                                readonly manifestHash: string;
+                            } | null;
+                            readonly instrumentId: string | null;
+                            readonly budget: {
+                                readonly mint: string;
+                                readonly symbol: string;
+                                readonly decimals: number;
+                                readonly rawAmount: string;
+                            };
+                            /** @enum {string} */
+                            readonly budgetMode: "all_in_stablecoin" | "investable_notional";
+                            /** @enum {string} */
+                            readonly executionPreference: "atomic_or_explicit_staged_review";
+                            /** @enum {string} */
+                            readonly approvalMode: "owner_each_plan";
+                            readonly slippageBps: number;
+                            readonly latestPlanId: string | null;
+                            readonly latestPlanHash: string | null;
+                            readonly idempotencyKey: string;
+                            /** Format: date-time */
+                            readonly createdAt: string;
+                            /** Format: date-time */
+                            readonly updatedAt: string;
+                            /** Format: date-time */
+                            readonly expiresAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 429: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                readonly 503: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": {
+                            readonly error: {
+                                /** @enum {string} */
+                                readonly code: "AUTH_REQUIRED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "ELIGIBILITY_UNKNOWN" | "ASSET_NOT_ADMITTED" | "QUOTE_EXPIRED" | "INSUFFICIENT_FUNDS" | "POLICY_DENIED" | "PLAN_CHANGED" | "SIGNATURE_MISMATCH" | "PARTIAL_EXECUTION" | "SUBMISSION_UNKNOWN" | "PUBLICATION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "IDEMPOTENCY_CONFLICT" | "STEP_UP_REQUIRED" | "CHALLENGE_INVALID" | "WALLET_ALREADY_LINKED" | "ADMISSION_BLOCKED" | "SERVICE_NOT_READY" | "INTERNAL";
+                                readonly message: string;
+                                readonly requestId: string;
+                                readonly details?: readonly {
+                                    readonly path: string;
+                                    readonly message: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
 };
 export type webhooks = Record<string, never>;
 export type components = {

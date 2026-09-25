@@ -15,12 +15,14 @@ import {
 import { createLogger, type Logger } from '@markov/observability';
 import { createFixtureModelAdapter } from '@markov/research';
 import { SolanaRpcClient } from '@markov/solana-rpc';
+import { createConfiguredUrlVenue, createFixtureVenue } from '@markov/venue-jupiter';
 import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
 import { createIdentityService } from './auth/service.js';
 import { createCatalogService } from './catalog/service.js';
 import { createFollowService } from './follows/service.js';
 import { createFundingService } from './funding/service.js';
 import { createNetworkIdentityMonitor } from './network-monitor.js';
+import { createPlanningService } from './planning/service.js';
 import { createPolicyService } from './policy/service.js';
 import { createRegistryService } from './registry/service.js';
 import { createRetriever } from './research/retrieval.js';
@@ -293,6 +295,28 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
   });
 
   const nonproduction = config.markovEnv === 'local' || config.markovEnv === 'test';
+  // Execution venue (B09): fixture quotes in local/test, or an operator-configured gateway; else no plans.
+  const venueConfig = config.execution.venue;
+  const venue =
+    venueConfig.provider === null || config.funding.stablecoin === null
+      ? null
+      : venueConfig.provider === 'fixture'
+        ? createFixtureVenue({ stablecoin: config.funding.stablecoin })
+        : createConfiguredUrlVenue({
+            url: venueConfig.quoteUrl as string,
+            apiKey: venueConfig.apiKey,
+            allowInsecure: nonproduction,
+          });
+  if (venue === null) {
+    logger.warn(
+      'no execution venue is configured; plans cannot be built (EXECUTION_VENUE_PROVIDER)',
+    );
+  } else {
+    logger.info(
+      { venue: venue.venue, mode: venue.mode, sourceRef: venue.sourceRef },
+      'execution venue configured',
+    );
+  }
   const researchService = createResearchService({
     config,
     db: dbClient.db,
@@ -328,6 +352,15 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
       rpcClients: clients,
     }),
     follows: createFollowService({ db: dbClient.db }),
+    planning: createPlanningService({
+      config,
+      db: dbClient.db,
+      catalog: catalogService,
+      policy: policyService,
+      funding: fundingService,
+      venue,
+      genesisHash: expectedGenesisHash,
+    }),
     mintTestToken,
   });
 

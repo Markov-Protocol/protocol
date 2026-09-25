@@ -71,6 +71,9 @@ importers:
       '@markov/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@markov/planning':
+        specifier: workspace:*
+        version: link:../../packages/planning
       '@markov/policy':
         specifier: workspace:*
         version: link:../../packages/policy
@@ -86,6 +89,9 @@ importers:
       '@markov/strategy':
         specifier: workspace:*
         version: link:../../packages/strategy
+      '@markov/venue-jupiter':
+        specifier: workspace:*
+        version: link:../../packages/venue-jupiter
       fastify:
         specifier: 5.12.5
         version: 5.12.5
@@ -120,6 +126,9 @@ importers:
       '@markov/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@markov/planning':
+        specifier: workspace:*
+        version: link:../../packages/planning
       '@markov/policy':
         specifier: workspace:*
         version: link:../../packages/policy
@@ -433,6 +442,12 @@ importers:
         specifier: 13.1.3
         version: 13.1.3
 
+  packages/planning:
+    dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   packages/policy:
     dependencies:
       '@markov/amounts':
@@ -534,6 +549,15 @@ importers:
       react-dom:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
+
+  packages/venue-jupiter:
+    dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@markov/planning':
+        specifier: workspace:*
+        version: link:../planning
 
 packages:
 

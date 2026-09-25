@@ -35,16 +35,22 @@
       "path": "../../packages/observability"
     },
     {
+      "path": "../../packages/planning"
+    },
+    {
       "path": "../../packages/policy"
     },
     {
       "path": "../../packages/research"
     },
     {
+      "path": "../../packages/solana-rpc"
+    },
+    {
       "path": "../../packages/strategy"
     },
     {
-      "path": "../../packages/solana-rpc"
+      "path": "../../packages/venue-jupiter"
     }
   ]
 }

@@ -32,6 +32,8 @@ export default defineConfig({
             'packages/observability/test/**/*.test.ts',
             'packages/policy/test/**/*.test.ts',
             'packages/registry/test/**/*.test.ts',
+            'packages/planning/test/**/*.test.ts',
+            'packages/venue-jupiter/test/**/*.test.ts',
             'packages/research/test/**/*.test.ts',
             'packages/strategy/test/**/*.test.ts',
             'packages/solana-rpc/test/**/*.test.ts',

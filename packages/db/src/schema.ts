@@ -1,4 +1,5 @@
 import {
+  BUDGET_MODES,
   CAPABILITY_STATUSES,
   type CatalogPrice,
   CORPORATE_ACTION_STATUSES,
@@ -7,6 +8,7 @@ import {
   type Disclosures,
   ELIGIBILITY_CAPABILITIES,
   ELIGIBILITY_OUTCOMES,
+  type ExecutionPlan,
   type ExtensionAssessment,
   type FrozenLeg,
   INGESTION_SOURCES,
@@ -14,6 +16,8 @@ import {
   INSTRUMENT_DECISIONS,
   INSTRUMENT_KINDS,
   INSTRUMENT_STATUSES,
+  INTENT_KINDS,
+  INTENT_STATES,
   type InstrumentReference,
   ISSUERS,
   JURISDICTION_EVIDENCE_KINDS,
@@ -24,6 +28,8 @@ import {
   MULTIPLIER_SOURCES,
   type OnChainMint,
   type OwnerLimits,
+  PLAN_MODES,
+  PLAN_STATUSES,
   type PolicyDenial,
   PUBLICATION_LIFECYCLE,
   PUBLICATION_OPERATIONS,
@@ -46,12 +52,15 @@ import {
   THESIS_VISIBILITIES,
   type ThesisStatement,
   TOKEN_PROGRAMS,
+  VENUE_QUOTE_MODES,
+  type VenueQuote,
 } from '@markov/contracts';
 import { sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
   bigint,
   bigserial,
+  boolean,
   check,
   index,
   integer,
@@ -1050,5 +1059,120 @@ export const strategyFollows = pgTable(
     primaryKey({ columns: [table.userId, table.strategyId] }),
     index('strategy_follows_strategy_idx').on(table.strategyId),
     index('strategy_follows_user_idx').on(table.userId, table.createdAt),
+  ],
+);
+
+/* ---------------------------------------------------------------------------
+ * Execution planning (session B09): the owner's intents, the immutable hashed
+ * plans built for them and the venue quotes each plan rests on. A plan never
+ * moves funds and never reserves budget; transactions arrive with B10.
+ * ------------------------------------------------------------------------- */
+
+export const intents = pgTable(
+  'intents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Client-supplied, scoped to the owner; the same key with another request hash is a conflict. */
+    idempotencyKey: text('idempotency_key').notNull(),
+    requestHash: text('request_hash').notNull(),
+    schemaVersion: text('schema_version').notNull(),
+    kind: text('kind').notNull(),
+    state: text('state').notNull().default('DRAFT'),
+    stateReason: text('state_reason'),
+    walletId: uuid('wallet_id')
+      .notNull()
+      .references(() => walletLinks.id),
+    walletAddress: text('wallet_address').notNull(),
+    strategyId: uuid('strategy_id').references(() => strategies.id),
+    versionId: uuid('version_id').references(() => strategyVersions.id),
+    instrumentId: uuid('instrument_id').references(() => instruments.id),
+    budgetMint: text('budget_mint').notNull(),
+    budgetSymbol: text('budget_symbol').notNull(),
+    budgetDecimals: integer('budget_decimals').notNull(),
+    budgetRaw: text('budget_raw').notNull(),
+    budgetMode: text('budget_mode').notNull(),
+    executionPreference: text('execution_preference').notNull(),
+    approvalMode: text('approval_mode').notNull(),
+    slippageBps: integer('slippage_bps').notNull(),
+    latestPlanId: uuid('latest_plan_id'),
+    latestPlanHash: text('latest_plan_hash'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('intents_owner_key_unique').on(table.ownerUserId, table.idempotencyKey),
+    index('intents_owner_idx').on(table.ownerUserId, table.createdAt),
+    enumCheck('intents_state_check', table.state, INTENT_STATES),
+    enumCheck('intents_kind_check', table.kind, INTENT_KINDS),
+    enumCheck('intents_budget_mode_check', table.budgetMode, BUDGET_MODES),
+    check(
+      'intents_slippage_check',
+      sql`${table.slippageBps} >= 1 AND ${table.slippageBps} <= 10000`,
+    ),
+  ],
+);
+
+export const executionPlans = pgTable(
+  'execution_plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    intentId: uuid('intent_id')
+      .notNull()
+      .references(() => intents.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    planHash: text('plan_hash').notNull(),
+    mode: text('mode').notNull(),
+    status: text('status').notNull().default('valid'),
+    /** The immutable plan document exactly as hashed; the review fields live in the columns below. */
+    plan: jsonb('plan').$type<ExecutionPlan>().notNull(),
+    acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true, mode: 'date' }),
+    acknowledgedHash: text('acknowledged_hash'),
+    stagedAcknowledged: boolean('staged_acknowledged').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    index('execution_plans_intent_idx').on(table.intentId, table.createdAt),
+    index('execution_plans_hash_idx').on(table.planHash),
+    enumCheck('execution_plans_status_check', table.status, PLAN_STATUSES),
+    enumCheck('execution_plans_mode_check', table.mode, PLAN_MODES),
+  ],
+);
+
+export const venueQuotes = pgTable(
+  'venue_quotes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    intentId: uuid('intent_id')
+      .notNull()
+      .references(() => intents.id, { onDelete: 'cascade' }),
+    planId: uuid('plan_id').references(() => executionPlans.id, { onDelete: 'set null' }),
+    legIndex: integer('leg_index').notNull(),
+    venue: text('venue').notNull(),
+    mode: text('mode').notNull(),
+    quoteRef: text('quote_ref').notNull(),
+    inputMint: text('input_mint').notNull(),
+    outputMint: text('output_mint').notNull(),
+    inAmountRaw: text('in_amount_raw').notNull(),
+    outAmountRaw: text('out_amount_raw').notNull(),
+    otherAmountThresholdRaw: text('other_amount_threshold_raw').notNull(),
+    slippageBps: integer('slippage_bps').notNull(),
+    priceImpactBps: integer('price_impact_bps'),
+    /** The validated quote; never the raw provider response and never a credential. */
+    quote: jsonb('quote').$type<VenueQuote>().notNull(),
+    accepted: boolean('accepted').notNull(),
+    issues: jsonb('issues').$type<{ code: string; message: string }[]>().notNull().default([]),
+    observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('venue_quotes_intent_idx').on(table.intentId, table.createdAt),
+    enumCheck('venue_quotes_mode_check', table.mode, VENUE_QUOTE_MODES),
   ],
 );
