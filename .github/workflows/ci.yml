@@ -140,6 +140,12 @@ jobs:
           MARKOV_TEST_DATABASE_URL: postgres://markov:markov@127.0.0.1:5432/markov_test
         run: pnpm web:e2e
 
+      - name: Documentation site (markov.pet/docs) build, broken links are errors
+        run: pnpm docs:build
+
+      - name: Documentation site browser evidence (served build, desktop and phone)
+        run: pnpm docs:e2e
+
       - name: Upload test report
         if: always()
         run: |

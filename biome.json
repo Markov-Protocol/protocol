@@ -17,7 +17,13 @@
       "!apps/web/next-env.d.ts",
       "!packages/ui/src/styles/tokens.css",
       "!packages/api-client/src/generated",
-      "!programs/strategy-registry/vectors"
+      "!programs/strategy-registry/vectors",
+      "!apps/docs/build",
+      "!apps/docs/.docusaurus",
+      "!apps/docs/docs/reference",
+      "!apps/docs/docs/api",
+      "!apps/docs/docs/cli",
+      "!apps/docs/src/css/markov-tokens.generated.css"
     ]
   },
   "formatter": {

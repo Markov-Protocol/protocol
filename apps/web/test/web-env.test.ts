@@ -17,8 +17,49 @@ describe('web environment guards', () => {
         fixturesEnabled: false,
         appOrigin: null,
         apiOrigin: 'http://127.0.0.1:3000',
+        docsOrigin: null,
       },
     });
+  });
+
+  it('accepts a documentation origin only as a bare origin, https outside local and test', () => {
+    expect(issues({ MARKOV_ENV: 'local', MARKOV_DOCS_ORIGIN: 'http://127.0.0.1:3200' })).toEqual(
+      [],
+    );
+    const local = parseWebEnv({ MARKOV_DOCS_ORIGIN: 'http://127.0.0.1:3200' });
+    expect(local.ok && local.value.docsOrigin).toBe('http://127.0.0.1:3200');
+    expect(issues({ MARKOV_ENV: 'local', MARKOV_DOCS_ORIGIN: 'http://127.0.0.1:3200/' })).toEqual([
+      'MARKOV_DOCS_ORIGIN',
+    ]);
+    expect(
+      issues({ MARKOV_ENV: 'local', MARKOV_DOCS_ORIGIN: 'http://127.0.0.1:3200/docs' }),
+    ).toEqual(['MARKOV_DOCS_ORIGIN']);
+    expect(issues({ MARKOV_ENV: 'local', MARKOV_DOCS_ORIGIN: 'not a url' })).toEqual([
+      'MARKOV_DOCS_ORIGIN',
+    ]);
+    expect(
+      issues({
+        MARKOV_ENV: 'production',
+        NEXT_PUBLIC_APP_ORIGIN: 'https://markov.pet',
+        MARKOV_API_ORIGIN: 'https://api.markov.pet',
+        MARKOV_DOCS_ORIGIN: 'http://docs.markov.pet',
+      }),
+    ).toEqual(['MARKOV_DOCS_ORIGIN']);
+    expect(
+      issues({
+        MARKOV_ENV: 'production',
+        NEXT_PUBLIC_APP_ORIGIN: 'https://markov.pet',
+        MARKOV_API_ORIGIN: 'https://api.markov.pet',
+        MARKOV_DOCS_ORIGIN: 'https://docs.markov.pet',
+      }),
+    ).toEqual([]);
+    // Unset means /docs is not served; there is no fallback origin.
+    const unset = parseWebEnv({
+      MARKOV_ENV: 'production',
+      NEXT_PUBLIC_APP_ORIGIN: 'https://markov.pet',
+      MARKOV_API_ORIGIN: 'https://api.markov.pet',
+    });
+    expect(unset.ok && unset.value.docsOrigin).toBe(null);
   });
 
   it('allows internal routes and fixtures in local and test', () => {

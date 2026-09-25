@@ -1,0 +1,244 @@
+/*
+ * markov.pet/docs theme: the Mark I device. A cream perimeter frames a black
+ * screen; periwinkle is the one accent; the pixel eyes keep their own blue.
+ * Colour, spacing, radius and type tokens come from packages/ui
+ * (markov-tokens.generated.css is written by scripts/sync-content.mjs from
+ * packages/ui/src/styles/tokens.css); nothing here invents a value.
+ */
+@import "./markov-tokens.generated.css";
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../../../web/src/assets/fonts/InterVariable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../../../web/src/assets/fonts/InterVariable-Italic.woff2") format("woff2");
+}
+
+:root {
+  /* Light mode: the cream of the frame carries the page; ink text; a deeper periwinkle for links (5.35:1 on frame-light). */
+  --markov-ink: #09121d;
+  --markov-ink-muted: #4f5a6d;
+  --markov-accent-on-cream: #3f55c9;
+  --ifm-font-family-base: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ifm-font-family-monospace:
+    ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  --ifm-font-size-base: 16px;
+  --ifm-line-height-base: 1.5;
+  --ifm-heading-font-weight: 600;
+  --ifm-global-radius: var(--markov-radius-control);
+  --ifm-code-font-size: 92%;
+  --ifm-color-primary: var(--markov-accent-on-cream);
+  --ifm-color-primary-dark: #3648b8;
+  --ifm-color-primary-darker: #2f41a8;
+  --ifm-color-primary-darkest: #263690;
+  --ifm-color-primary-light: #4a5fd0;
+  --ifm-color-primary-lighter: #5468d6;
+  --ifm-color-primary-lightest: #6f80de;
+  --ifm-background-color: var(--markov-color-frame-light);
+  --ifm-background-surface-color: #fbf8f3;
+  --ifm-font-color-base: var(--markov-ink);
+  --ifm-color-content-secondary: var(--markov-ink-muted);
+  --ifm-navbar-background-color: var(--markov-color-frame-cream);
+  --ifm-navbar-link-color: var(--markov-ink);
+  --ifm-navbar-link-hover-color: var(--markov-accent-on-cream);
+  --ifm-footer-background-color: var(--markov-color-frame-cream);
+  --ifm-footer-color: var(--markov-ink-muted);
+  --ifm-footer-link-color: var(--markov-ink);
+  --ifm-footer-title-color: var(--markov-ink);
+  --ifm-toc-border-color: rgba(103, 116, 135, 0.35);
+  --ifm-color-emphasis-300: rgba(103, 116, 135, 0.35);
+  --ifm-table-stripe-background: rgba(230, 220, 209, 0.55);
+  --ifm-code-background: rgba(9, 18, 29, 0.06);
+  --docusaurus-highlighted-code-line-bg: rgba(130, 153, 253, 0.18);
+  --markov-screen-radius: var(--markov-radius-screen-desktop);
+  --markov-perimeter: var(--markov-frame-perimeter-desktop);
+}
+
+html[data-theme="dark"] {
+  /* Dark mode: the screen. Periwinkle on black measures 7.53:1. */
+  --ifm-color-primary: var(--markov-color-accent);
+  --ifm-color-primary-dark: #6f88f5;
+  --ifm-color-primary-darker: #5b76ed;
+  --ifm-color-primary-darkest: #4763e0;
+  --ifm-color-primary-light: #96aafe;
+  --ifm-color-primary-lighter: #a5b6fe;
+  --ifm-color-primary-lightest: #b4c2fe;
+  --ifm-background-color: var(--markov-color-screen);
+  --ifm-background-surface-color: var(--markov-color-surface);
+  --ifm-font-color-base: var(--markov-color-text);
+  --ifm-color-content-secondary: var(--markov-color-text-muted);
+  --ifm-toc-border-color: rgba(103, 116, 135, 0.4);
+  --ifm-color-emphasis-300: rgba(103, 116, 135, 0.4);
+  --ifm-table-stripe-background: rgba(26, 29, 33, 0.7);
+  --ifm-code-background: rgba(243, 241, 233, 0.08);
+  --ifm-menu-color: var(--markov-color-text);
+  --ifm-menu-color-active: var(--markov-color-accent);
+  --docusaurus-highlighted-code-line-bg: rgba(130, 153, 253, 0.22);
+}
+
+/* The frame is cream in both modes; the navbar and footer are part of it. */
+html,
+body {
+  background: var(--markov-color-frame-cream);
+}
+
+.navbar {
+  box-shadow: none;
+  border-bottom: 0;
+  background: var(--markov-color-frame-cream);
+}
+
+.navbar__title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--markov-ink);
+}
+
+.navbar__brand .markov-eyes {
+  height: 14px;
+  width: auto;
+  margin-right: 10px;
+  color: var(--markov-color-eyes);
+}
+
+[data-theme="dark"] .navbar__link,
+[data-theme="dark"] .navbar__title,
+[data-theme="dark"] .navbar__toggle,
+[data-theme="dark"] .clean-btn.navbar__toggle,
+[data-theme="dark"] .navbar .clean-btn {
+  color: var(--markov-ink);
+}
+
+[data-theme="dark"] .navbar__link:hover,
+[data-theme="dark"] .navbar__link--active {
+  color: var(--markov-accent-on-cream);
+}
+
+.navbar__brand:hover .navbar__title {
+  color: var(--markov-accent-on-cream);
+}
+
+[data-theme="dark"] .navbar-sidebar {
+  background: var(--markov-color-frame-cream);
+  color: var(--markov-ink);
+}
+
+[data-theme="dark"] .navbar-sidebar .menu__link {
+  color: var(--markov-ink);
+}
+
+/* The screen: everything under the navbar sits in a rounded black (or cream-light) panel. */
+.main-wrapper {
+  background: var(--ifm-background-color);
+  border-radius: var(--markov-screen-radius);
+  margin: 0 var(--markov-perimeter) var(--markov-perimeter);
+  overflow: hidden;
+  min-height: 60vh;
+}
+
+@media (max-width: 996px) {
+  :root {
+    --markov-screen-radius: var(--markov-radius-screen-mobile);
+    --markov-perimeter: var(--markov-frame-perimeter-phone);
+  }
+}
+
+.footer {
+  background: var(--markov-color-frame-cream);
+  color: var(--markov-ink-muted);
+}
+
+.footer__title,
+.footer__link-item {
+  color: var(--markov-ink);
+}
+
+.footer__link-item:hover {
+  color: var(--markov-accent-on-cream);
+}
+
+.footer__copyright {
+  font-size: var(--markov-text-supporting);
+  line-height: var(--markov-text-supporting--line-height);
+  max-width: 64rem;
+  margin: 0 auto;
+}
+
+/* Content rhythm from the design system: panels, captions, tables. */
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  letter-spacing: -0.01em;
+}
+
+.markdown table {
+  display: table;
+  width: 100%;
+  font-size: var(--markov-text-supporting);
+  line-height: var(--markov-text-supporting--line-height);
+}
+
+.markdown table th {
+  text-align: left;
+}
+
+.theme-doc-sidebar-container {
+  border-right-color: var(--ifm-toc-border-color);
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+  background: rgba(130, 153, 253, 0.14);
+}
+
+.theme-code-block {
+  border-radius: var(--markov-radius-panel);
+}
+
+.admonition,
+.theme-admonition {
+  border-radius: var(--markov-radius-panel);
+}
+
+.pagination-nav__link {
+  border-radius: var(--markov-radius-panel);
+}
+
+/* Verification badges used by the generated and hand-written pages. */
+.markov-state {
+  display: inline-block;
+  border-radius: var(--markov-radius-pill);
+  padding: 2px 10px;
+  font-size: var(--markov-text-caption);
+  line-height: var(--markov-text-caption--line-height);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--ifm-toc-border-color);
+}
+
+.markov-state--fixture {
+  color: var(--markov-color-attention);
+}
+
+.markov-state--implemented {
+  color: var(--markov-color-success);
+}
+
+.markov-state--blocked {
+  color: var(--markov-color-error);
+}
+
+/* Search: the local index renders inside the cream navbar. */
+.navbar__search-input {
+  border-radius: var(--markov-radius-pill);
+  background: var(--markov-color-frame-light);
+  color: var(--markov-ink);
+}

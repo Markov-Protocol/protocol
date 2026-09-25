@@ -367,6 +367,46 @@ lists a version unranked with `insufficient_history` is the 30-day product
 rule; `incomplete_window` means a day without an observation inside the
 window. Rankings never include an account's series, whatever it shows.
 
+## Documentation site
+
+`apps/docs` is the Docusaurus site served at `https://markov.pet/docs`
+(site `url` `https://markov.pet`, `baseUrl` `/docs/`). It contains no
+hand-copied documentation: `pnpm docs:build` first runs
+`apps/docs/scripts/sync-content.mjs` (every document under `docs/markov`,
+`docs/markov/adr`, `docs/frontend`, `docs/frontend/design-reference` and
+`docs/sessions`, with an edit link to the source file and links to
+evidence or code rewritten to the repository), then
+`generate-api-reference.mjs` (one page per tag of `docs/markov/openapi.json`
+with parameters, bodies and responses) and `generate-cli-reference.mjs`
+(the command tree of the built `apps/cli`, so `pnpm build` runs first),
+then `docusaurus build` with broken links and anchors as errors. Generated
+pages live under `apps/docs/docs/{reference,api,cli}` and are ignored by
+git; the hand-written guides live under `apps/docs/docs/{intro.md,
+getting-started,guides,contributing.md}`, and their commands are the ones
+`scripts/ci/startup-check.sh` runs.
+
+```
+pnpm docs:start          # local preview, http://127.0.0.1:3200/docs/
+pnpm docs:build          # sync, generate, build (part of pnpm verify and CI)
+pnpm docs:serve          # serve the built site on 127.0.0.1:3200
+pnpm docs:e2e            # Playwright against the served build at 1280 and 320 px (CI)
+```
+
+Serving: the built `apps/docs/build` directory is static and must be
+served under the `/docs/` path prefix by any static host or by the docs
+origin. The app (`apps/web`) proxies `/docs` and `/docs/*` to that origin
+only when `MARKOV_DOCS_ORIGIN` is configured (a bare origin, https outside
+local and test); unset means `/docs` is not served by the app, never a
+fallback. Deploying the site to `markov.pet` is a deployment step outside
+this repository (DNS and hosting are out of scope; see OD-24) and is not
+performed by any session.
+
+Theme: the site reads `packages/ui/src/styles/tokens.css` at build time
+(`src/css/markov-tokens.generated.css`), uses the Inter files under
+`apps/web/src/assets/fonts`, and reproduces the Mark I frame (cream
+perimeter, dark screen) in both colour modes; the light mode uses the
+darker accent from the design system for contrast on the cream frame.
+
 ## Readiness and monitoring
 
 - Liveness (`/healthz`) restarts a hung process; readiness (`/readyz`) removes

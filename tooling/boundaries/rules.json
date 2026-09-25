@@ -77,7 +77,14 @@
       "allow": ["@markov/contracts", "@markov/amounts"]
     }
   },
-  "apps": ["@markov/api", "@markov/worker", "@markov/indexer", "@markov/cli", "@markov/web"],
+  "apps": [
+    "@markov/api",
+    "@markov/worker",
+    "@markov/indexer",
+    "@markov/cli",
+    "@markov/web",
+    "@markov/docs"
+  ],
   "testOnlyPackages": ["@markov/testkit"],
   "externalOwners": {
     "@temporalio/": ["@markov/worker", "@markov/cli"],
@@ -90,8 +97,8 @@
     "@meteora-ag/": [],
     "next": ["@markov/web"],
     "next/": ["@markov/web"],
-    "react": ["@markov/ui", "@markov/web", "@markov/shell"],
-    "react-dom": ["@markov/ui", "@markov/web", "@markov/shell"],
+    "react": ["@markov/ui", "@markov/web", "@markov/shell", "@markov/docs"],
+    "react-dom": ["@markov/ui", "@markov/web", "@markov/shell", "@markov/docs"],
     "radix-ui": ["@markov/ui"],
     "@radix-ui/": ["@markov/ui"],
     "lucide-react": ["@markov/ui", "@markov/web", "@markov/shell"],
@@ -115,6 +122,18 @@
     ],
     "@markov/api": ["@markov/ui", "@markov/formatters", "@markov/shell"],
     "@markov/worker": ["@markov/ui", "@markov/formatters", "@markov/shell"],
-    "@markov/cli": ["@markov/ui", "@markov/formatters", "@markov/shell"]
+    "@markov/cli": ["@markov/ui", "@markov/formatters", "@markov/shell"],
+    "@markov/docs": [
+      "@markov/db",
+      "@markov/config",
+      "@markov/solana-rpc",
+      "@markov/observability",
+      "@markov/testkit",
+      "@markov/auth",
+      "@markov/api-client",
+      "@markov/ui",
+      "@markov/shell",
+      "@markov/formatters"
+    ]
   }
 }

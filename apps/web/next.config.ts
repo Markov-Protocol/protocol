@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 import { validateWebEnv } from './src/config/web-env';
 
 // Fail the build early on an invalid or unsafe environment combination.
-validateWebEnv(process.env);
+const webEnv = validateWebEnv(process.env);
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -19,6 +19,15 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@markov/ui', '@markov/formatters', '@markov/shell', '@markov/api-client'],
   images: { remotePatterns: [] },
   headers: async () => [{ source: '/:path*', headers: securityHeaders }],
+  // markov.pet/docs: the documentation site (apps/docs) is served by its own origin and
+  // proxied here only when MARKOV_DOCS_ORIGIN is configured. Unset means /docs is not served.
+  rewrites: async () =>
+    webEnv.docsOrigin === null
+      ? []
+      : [
+          { source: '/docs', destination: `${webEnv.docsOrigin}/docs` },
+          { source: '/docs/:path*', destination: `${webEnv.docsOrigin}/docs/:path*` },
+        ],
 };
 
 export default nextConfig;

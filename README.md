@@ -96,10 +96,11 @@ different genesis hash, exits with code 78 instead of serving.
 ## Verification commands
 
 ```sh
-pnpm verify          # lint, build + typecheck, tests, boundaries, OpenAPI drift, migration drift
+pnpm verify          # lint, build + typecheck, tests, boundaries, OpenAPI drift, migration drift, web and docs builds
 pnpm test            # unit tests; integration tests run when MARKOV_TEST_DATABASE_URL / MARKOV_TEST_TEMPORAL_ADDRESS are set
 pnpm secrets:scan    # gitleaks over staged changes (scripts/dev/install-gitleaks.sh)
 bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful stop, wrong-config refusal
+pnpm docs:build && pnpm docs:e2e   # the documentation site (markov.pet/docs): generated references, broken links fail, browser checks
 ```
 
 ## Feature status
@@ -142,13 +143,20 @@ Capability verification states are recorded in the database and in
 ## Layout
 
 ```
-apps/api  apps/worker  apps/cli  apps/web
+apps/api  apps/worker  apps/cli  apps/web  apps/docs
 packages/contracts  packages/config  packages/observability  packages/solana-rpc  packages/db  packages/testkit
 packages/ui  packages/formatters
 tooling/  scripts/  docs/markov/  docs/frontend/  docs/sessions/
 ```
 
 Web app commands: `pnpm web:dev`, `pnpm web:build`, `pnpm web:e2e` (see `docs/frontend/README.md`).
+
+Documentation site (`apps/docs`, served at markov.pet/docs): `pnpm docs:start`
+(local preview on http://127.0.0.1:3200/docs/), `pnpm docs:build`,
+`pnpm docs:e2e`. The site is generated at build time from `docs/markov`,
+`docs/frontend`, `docs/sessions`, the OpenAPI document and the CLI command
+tree; generated pages are not committed (see
+`docs/markov/operations.md`, "Documentation site").
 
 Repository policy for contributors and agents: `AGENTS.md`.
 

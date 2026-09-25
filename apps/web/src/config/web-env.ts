@@ -23,6 +23,12 @@ export const webEnvSchema = z.object({
   NEXT_PUBLIC_APP_ORIGIN: z.url().optional(),
   /** Origin of the Markov API, called only from the server (route handlers, server components). */
   MARKOV_API_ORIGIN: z.url().optional(),
+  /**
+   * Origin that serves the documentation site (apps/docs) under `/docs/`. When set, the app
+   * rewrites `/docs` and `/docs/*` to it so markov.pet/docs is one origin; when unset, `/docs`
+   * is not served (never a fallback origin).
+   */
+  MARKOV_DOCS_ORIGIN: z.url().optional(),
 });
 
 export interface WebEnv {
@@ -31,6 +37,7 @@ export interface WebEnv {
   readonly fixturesEnabled: boolean;
   readonly appOrigin: string | null;
   readonly apiOrigin: string;
+  readonly docsOrigin: string | null;
 }
 
 export interface WebEnvIssue {
@@ -69,6 +76,7 @@ export function parseWebEnv(env: Readonly<Record<string, string | undefined>>): 
     fixturesEnabled: parsed.data.MARKOV_WEB_FIXTURES,
     appOrigin: parsed.data.NEXT_PUBLIC_APP_ORIGIN ?? null,
     apiOrigin: parsed.data.MARKOV_API_ORIGIN ?? LOCAL_API_ORIGIN,
+    docsOrigin: parsed.data.MARKOV_DOCS_ORIGIN ?? null,
   };
   const issues: WebEnvIssue[] = [];
   const isDev = value.markovEnv === 'local' || value.markovEnv === 'test';
@@ -93,6 +101,21 @@ export function parseWebEnv(env: Readonly<Record<string, string | undefined>>): 
       path: 'MARKOV_API_ORIGIN',
       message: 'must be an origin without a trailing slash',
     });
+  }
+  if (value.docsOrigin !== null) {
+    const docsUrl = new URL(value.docsOrigin);
+    if (docsUrl.origin !== value.docsOrigin) {
+      issues.push({
+        path: 'MARKOV_DOCS_ORIGIN',
+        message: 'must be an origin only: no path, query, fragment or trailing slash',
+      });
+    }
+    if (!isDev && docsUrl.protocol !== 'https:') {
+      issues.push({
+        path: 'MARKOV_DOCS_ORIGIN',
+        message: 'must be an https origin outside local and test',
+      });
+    }
   }
   if (value.markovEnv === 'production') {
     if (value.internalRoutesEnabled) {

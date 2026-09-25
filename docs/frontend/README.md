@@ -42,6 +42,9 @@ pnpm web:build                   # production build; fails on an unsafe MARKOV_E
 pnpm api-client:generate         # regenerate packages/api-client from docs/markov/openapi.json
 pnpm web:e2e                     # Playwright evidence (builds must exist; see docs/frontend/verification.md)
 MARKOV_TEST_DATABASE_URL=postgres://markov:markov@127.0.0.1:5432/markov_test pnpm web:e2e   # also the auth and wallet journeys against a real API (fixture RPC on 3901)
+
+pnpm docs:start                  # the documentation site (apps/docs) on http://127.0.0.1:3200/docs/
+MARKOV_DOCS_ORIGIN=http://127.0.0.1:3200 pnpm web:dev   # the app proxies /docs to it (unset: /docs is not served)
 ```
 
 ## Environment
@@ -53,6 +56,7 @@ MARKOV_TEST_DATABASE_URL=postgres://markov:markov@127.0.0.1:5432/markov_test pnp
 | `MARKOV_WEB_FIXTURES`         | server  | Enables development/test fixture adapters (none exist yet). Refused in production, staging and read-only mainnet. |
 | `NEXT_PUBLIC_APP_ORIGIN`      | public  | Public origin of the deployment; required (https) in production. Also decides the session cookie's `Secure` attribute in local mode. |
 | `MARKOV_API_ORIGIN`           | server  | Origin of the Markov API. Defaults to `http://127.0.0.1:3000` in local and test; required and https elsewhere. Never public. |
+| `MARKOV_DOCS_ORIGIN`          | server  | Origin serving the documentation site under `/docs` (`apps/docs`). A bare origin, https outside local and test. When set, `/docs` and `/docs/*` are rewritten to it; unset means `/docs` is not served. |
 
 Provider secrets, RPC credentials and signing keys never appear in this
 app's environment. `apps/web/src/config/web-env.ts` validates the

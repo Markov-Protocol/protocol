@@ -1,0 +1,8 @@
+# Docusaurus output and cache
+build/
+.docusaurus/
+# Content generated at build time from the repository (docs:sync, docs:generate)
+docs/reference/
+docs/api/
+docs/cli/
+src/css/markov-tokens.generated.css
