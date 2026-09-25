@@ -1,4 +1,5 @@
 import {
+  ACKNOWLEDGEMENT_KINDS,
   ATTEMPT_STATES,
   BUDGET_MODES,
   CAPABILITY_STATUSES,
@@ -23,8 +24,13 @@ import {
   INTENT_STATES,
   type InstrumentReference,
   ISSUERS,
+  JOURNAL_ACCOUNTS,
+  JOURNAL_ATTRIBUTIONS,
+  JOURNAL_ENTRY_KINDS,
+  JOURNAL_SOURCE_KINDS,
   JURISDICTION_EVIDENCE_KINDS,
   type JurisdictionRule,
+  LOT_STATUSES,
   type Maintenance,
   MINT_VERIFICATION_RESULTS,
   MODERATION_STATUSES,
@@ -39,9 +45,12 @@ import {
   PUBLICATION_OPERATIONS,
   PUBLICATION_STATES,
   type PublicationFailure,
+  RECEIPT_KINDS,
   REGISTRY_RECORD_STATUSES,
   REGISTRY_RELATIONS,
   RESERVATION_STATUSES,
+  type ReceiptBody,
+  type ReconciliationCheckpoint,
   type RegistrationEvidence,
   type RegistryRecord,
   type ResearchSubject,
@@ -1356,5 +1365,210 @@ export const outboxEvents = pgTable(
     index('outbox_events_pending_idx').on(table.publishedAt, table.createdAt),
     index('outbox_events_aggregate_idx').on(table.aggregateType, table.aggregateId),
     enumCheck('outbox_events_kind_check', table.kind, EXECUTION_EVENT_KINDS),
+  ],
+);
+
+/* -------------------------------------------------------------------------
+ * Accounting (B12): the append-only quantity journal (balanced per asset),
+ * lots, reconciliation checkpoints and signed receipts. Entries are never
+ * updated except for the owner's acknowledgement of an external flow; a
+ * mistake is reversed by a correction entry that names what it reverses.
+ * ---------------------------------------------------------------------- */
+
+export const journalEntries = pgTable(
+  'journal_entries',
+  {
+    id: uuid('id').primaryKey(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    walletId: uuid('wallet_id')
+      .notNull()
+      .references(() => walletLinks.id),
+    instanceId: uuid('instance_id').references(() => portfolioInstances.id),
+    kind: text('kind').notNull(),
+    sourceKind: text('source_kind').notNull(),
+    /** Idempotency key per owner: the same observation recorded twice is one entry. */
+    sourceRef: text('source_ref').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' }).notNull(),
+    recordedAt: timestamp('recorded_at', { withTimezone: true, mode: 'date' }).notNull(),
+    /** The entry a correction reverses (no foreign key: the reversed entry is never deleted). */
+    reversesEntryId: uuid('reverses_entry_id'),
+    attribution: text('attribution').notNull(),
+    acknowledgementKind: text('acknowledgement_kind'),
+    acknowledgementNote: text('acknowledgement_note'),
+    acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true, mode: 'date' }),
+    memo: text('memo').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('journal_entries_source_unique').on(table.ownerUserId, table.sourceRef),
+    index('journal_entries_wallet_idx').on(table.walletId, table.occurredAt),
+    index('journal_entries_instance_idx').on(table.instanceId),
+    enumCheck('journal_entries_kind_check', table.kind, JOURNAL_ENTRY_KINDS),
+    enumCheck('journal_entries_source_kind_check', table.sourceKind, JOURNAL_SOURCE_KINDS),
+    enumCheck('journal_entries_attribution_check', table.attribution, JOURNAL_ATTRIBUTIONS),
+    enumCheck('journal_entries_ack_kind_check', table.acknowledgementKind, [
+      ...ACKNOWLEDGEMENT_KINDS,
+    ]),
+  ],
+);
+
+export const journalLines = pgTable(
+  'journal_lines',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    entryId: uuid('entry_id')
+      .notNull()
+      .references(() => journalEntries.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    account: text('account').notNull(),
+    /** A mint address, or `SOL` for lamports. */
+    asset: text('asset').notNull(),
+    symbol: text('symbol').notNull(),
+    decimals: integer('decimals').notNull(),
+    /** Signed raw base units as a decimal string. */
+    deltaRaw: text('delta_raw').notNull(),
+    lotId: uuid('lot_id'),
+  },
+  (table) => [
+    uniqueIndex('journal_lines_entry_position_unique').on(table.entryId, table.position),
+    index('journal_lines_asset_idx').on(table.asset, table.account),
+    enumCheck('journal_lines_account_check', table.account, JOURNAL_ACCOUNTS),
+  ],
+);
+
+export const lots = pgTable(
+  'lots',
+  {
+    id: uuid('id').primaryKey(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    walletId: uuid('wallet_id')
+      .notNull()
+      .references(() => walletLinks.id),
+    instanceId: uuid('instance_id').references(() => portfolioInstances.id),
+    intentId: uuid('intent_id').references(() => intents.id),
+    asset: text('asset').notNull(),
+    symbol: text('symbol').notNull(),
+    decimals: integer('decimals').notNull(),
+    openedAt: timestamp('opened_at', { withTimezone: true, mode: 'date' }).notNull(),
+    quantityRaw: text('quantity_raw').notNull(),
+    remainingRaw: text('remaining_raw').notNull(),
+    costAsset: text('cost_asset').notNull(),
+    costRaw: text('cost_raw').notNull(),
+    feeLamports: text('fee_lamports').notNull(),
+    sourceEntryId: uuid('source_entry_id')
+      .notNull()
+      .references(() => journalEntries.id),
+    status: text('status').notNull().default('open'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('lots_wallet_asset_idx').on(table.walletId, table.asset, table.openedAt),
+    index('lots_instance_idx').on(table.instanceId),
+    enumCheck('lots_status_check', table.status, LOT_STATUSES),
+  ],
+);
+
+export const lotConsumptions = pgTable(
+  'lot_consumptions',
+  {
+    id: uuid('id').primaryKey(),
+    lotId: uuid('lot_id')
+      .notNull()
+      .references(() => lots.id, { onDelete: 'cascade' }),
+    entryId: uuid('entry_id')
+      .notNull()
+      .references(() => journalEntries.id, { onDelete: 'cascade' }),
+    quantityRaw: text('quantity_raw').notNull(),
+    costRaw: text('cost_raw').notNull(),
+    proceedsRaw: text('proceeds_raw').notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    index('lot_consumptions_lot_idx').on(table.lotId),
+    index('lot_consumptions_entry_idx').on(table.entryId),
+  ],
+);
+
+export const reconciliationCheckpoints = pgTable(
+  'reconciliation_checkpoints',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    walletId: uuid('wallet_id')
+      .notNull()
+      .references(() => walletLinks.id),
+    slot: bigint('slot', { mode: 'number' }).notNull(),
+    observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' }).notNull(),
+    commitment: text('commitment').notNull(),
+    status: text('status').notNull(),
+    assets: jsonb('assets').$type<ReconciliationCheckpoint['assets']>().notNull(),
+    /** Insertion order: the latest checkpoint is the highest sequence, whatever the clock says. */
+    sequence: bigserial('sequence', { mode: 'number' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('reconciliation_checkpoints_wallet_idx').on(table.walletId, table.sequence),
+    enumCheck('reconciliation_checkpoints_status_check', table.status, ['matched', 'needs_review']),
+  ],
+);
+
+export const receiptSigningKeys = pgTable(
+  'receipt_signing_keys',
+  {
+    keyId: text('key_id').primaryKey(),
+    algorithm: text('algorithm').notNull().default('ed25519'),
+    publicKey: text('public_key').notNull(),
+    status: text('status').notNull().default('active'),
+    validFrom: timestamp('valid_from', { withTimezone: true, mode: 'date' }).notNull(),
+    validTo: timestamp('valid_to', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [enumCheck('receipt_signing_keys_status_check', table.status, ['active', 'retired'])],
+);
+
+export const receipts = pgTable(
+  'receipts',
+  {
+    id: uuid('id').primaryKey(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    intentId: uuid('intent_id')
+      .notNull()
+      .references(() => intents.id, { onDelete: 'cascade' }),
+    planId: uuid('plan_id').notNull(),
+    intentState: text('intent_state').notNull(),
+    /** The signed body exactly as hashed. */
+    body: jsonb('body').$type<ReceiptBody>().notNull(),
+    canonicalHash: text('canonical_hash').notNull(),
+    keyId: text('key_id')
+      .notNull()
+      .references(() => receiptSigningKeys.keyId),
+    signerPublicKey: text('signer_public_key').notNull(),
+    signature: text('signature').notNull(),
+    public: boolean('public').notNull().default(false),
+    issuedAt: timestamp('issued_at', { withTimezone: true, mode: 'date' }).notNull(),
+    /** Insertion order for listings; issuedAt can tie within a burst. */
+    sequence: bigserial('sequence', { mode: 'number' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('receipts_owner_idx').on(table.ownerUserId, table.sequence),
+    uniqueIndex('receipts_intent_kind_state_unique').on(
+      table.intentId,
+      table.kind,
+      table.intentState,
+    ),
+    enumCheck('receipts_kind_check', table.kind, RECEIPT_KINDS),
+    enumCheck('receipts_intent_state_check', table.intentState, INTENT_STATES),
   ],
 );

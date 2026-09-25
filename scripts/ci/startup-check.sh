@@ -32,6 +32,10 @@ export FUNDING_STABLECOIN_MINT=GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9ts EXEC
 # Execution (B10): writes are enabled for the fixture chain; the demo wallet key lives in a temp dir for the check only.
 export EXECUTION_WRITES_ENABLED=true
 KEY_DIR=$(mktemp -d)
+# Receipts (B12): a throwaway Ed25519 receipt key for this check only (local_key is refused in production).
+export RECEIPT_SIGNING_PROVIDER=local_key RECEIPT_SIGNING_KEY_ID=startup-check-1
+RECEIPT_SIGNING_KEY=$(node -e 'console.log(require("node:crypto").generateKeyPairSync("ed25519").privateKey.export({format:"der",type:"pkcs8"}).toString("base64"))')
+export RECEIPT_SIGNING_KEY
 API_PORT=$((30000 + RANDOM % 20000)); export API_PORT API_HOST=127.0.0.1
 
 echo "== markov db migrate"
@@ -298,6 +302,62 @@ curl -fsS -X POST -H "content-type: application/json" -d '{"action":"finalize"}'
 BASKET_FINAL=$(node apps/cli/dist/main.js intents reconcile "$BASKET_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.state+":"+j.fills.map(f=>f.legIndex).join(",")+":"+j.fills.every(f=>f.withinBounds)+":"+j.batches.map(b=>b.state).join(",")+":"+j.attempts.length+":"+j.nextAction')
 echo "basket finalized state:fill-legs:within-bounds:batches:attempts:next = $BASKET_FINAL"; [ "$BASKET_FINAL" = "FINALIZED:0,1:true:finalized:1:none" ]
 rm -f "$KEY_FILE"
+
+echo "== accounting journey (B12): fills projected once -> funding reconciled as acknowledged deposits -> matched holdings -> unexplained transfer detected -> signed receipt verified offline -> public redaction"
+# The buy, the sell and the two basket legs settled above in EXEC_WALLET: four fills, three lots opened, the buy's lot consumed by the sell.
+PROJ1=$(node apps/cli/dist/main.js portfolio project --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.fillsSeen+":"+j.lotsOpened+":"+j.lotsConsumed+":"+(j.entriesAppended>=4)')
+echo "first projection fills:lots-opened:lots-consumed:entries = $PROJ1"; [ "$PROJ1" = "4:3:1:true" ]
+PROJ2=$(node apps/cli/dist/main.js portfolio project --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.fillsSeen+":"+j.entriesAppended+":"+j.lotsOpened')
+echo "duplicate projection changes nothing fills:entries:lots = $PROJ2"; [ "$PROJ2" = "0:0:0" ]
+JOURNAL_BALANCED=$(node apps/cli/dist/main.js portfolio journal "$EXEC_WALLET_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.balancing+":"+j.entries.every(e=>{const s={};for(const l of e.lines){s[l.asset]=(s[l.asset]??0n)+BigInt(l.deltaRaw)}return Object.values(s).every(v=>v===0n)})+":"+j.entries.filter(e=>e.kind==="fill").length')
+echo "journal balancing:every-entry-balanced:fill-entries = $JOURNAL_BALANCED"; [ "$JOURNAL_BALANCED" = "per_asset:true:4" ]
+# The wallet was funded before the platform recorded anything: the first reconciliation records SOL and the
+# stablecoin as external inflows to explain; the stock positions match the chain exactly.
+RECON1=$(node apps/cli/dist/main.js portfolio reconcile "$EXEC_WALLET_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+RECON1_SUMMARY=$(echo "$RECON1" | J 'j.checkpoint.status+":"+j.unexplainedEntryIds.length+":"+j.holdings.map(h=>h.symbol+"="+h.status).sort().join(",")+":"+j.checkpoint.assets.map(a=>a.outcome).sort().join(",")')
+echo "first reconciliation status:unexplained:holdings:outcomes = $RECON1_SUMMARY"; [ "$RECON1_SUMMARY" = "needs_review:2:FXAERO=matched,SOL=needs_reconciliation,USDC=needs_reconciliation,XSFXA=matched:external_inflow_recorded,external_inflow_recorded,matched,matched" ]
+for ENTRY_ID in $(echo "$RECON1" | J 'j.unexplainedEntryIds.join(" ")'); do
+  node apps/cli/dist/main.js portfolio acknowledge "$ENTRY_ID" --kind deposit --note "initial funding" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+done
+HOLDINGS=$(node apps/cli/dist/main.js portfolio holdings "$EXEC_WALLET_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.unexplainedEntryIds.length+":"+[...new Set(j.holdings.map(h=>h.status))].join(",")+":"+j.holdings.length+":"+j.lotPolicy+":"+[...new Set(j.holdings.flatMap(h=>h.attribution.map(a=>a.attribution)))].join(",")')
+echo "after acknowledgement unexplained:statuses:assets:lot-policy:attributions = $HOLDINGS"; [ "$HOLDINGS" = "0:matched:4:fifo:unassigned" ]
+# Stablecoin leaves the wallet outside the platform: the next reconciliation detects the unexplained outflow.
+WALLET_FUNDING=$(curl -fsS -H "Authorization: Bearer $SESSION_TOKEN" "http://127.0.0.1:$API_PORT/v1/me/wallets/$EXEC_WALLET_ID/funding")
+WALLET_LAMPORTS=$(echo "$WALLET_FUNDING" | J 'String(j.sol.lamports)'); WALLET_STABLE=$(echo "$WALLET_FUNDING" | J 'j.stablecoin.raw')
+WALLET_STABLE_AFTER=$(node -e 'console.log((BigInt(process.argv[1]) - 1000n).toString())' "$WALLET_STABLE")
+curl -fsS -X POST -H "content-type: application/json" -d "{\"address\":\"$EXEC_WALLET_ADDRESS\",\"lamports\":$WALLET_LAMPORTS,\"stablecoinRaw\":\"$WALLET_STABLE_AFTER\"}" "http://127.0.0.1:$RPC_PORT/fixture/funding" > /dev/null
+RECON2=$(node apps/cli/dist/main.js portfolio reconcile "$EXEC_WALLET_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+RECON2_SUMMARY=$(echo "$RECON2" | J 'j.checkpoint.status+":"+j.unexplainedEntryIds.length+":"+j.checkpoint.assets.filter(a=>a.outcome!=="matched").map(a=>a.symbol+"/"+a.outcome+"/"+a.differenceRaw).join(",")+":"+j.holdings.find(h=>h.symbol==="USDC").status')
+echo "unexplained transfer status:unexplained:flagged:holding = $RECON2_SUMMARY"; [ "$RECON2_SUMMARY" = "needs_review:1:USDC/external_outflow_recorded/-1000:needs_reconciliation" ]
+OUTFLOW_ID=$(echo "$RECON2" | J 'j.unexplainedEntryIds[0]')
+ACK=$(node apps/cli/dist/main.js portfolio acknowledge "$OUTFLOW_ID" --kind transfer --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.kind+":"+j.attribution+":"+j.acknowledgement.kind')
+echo "acknowledged kind:attribution:explanation = $ACK"; [ "$ACK" = "external_outflow:unassigned:transfer" ]
+RECON3=$(node apps/cli/dist/main.js portfolio reconcile "$EXEC_WALLET_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.checkpoint.status+":"+j.unexplainedEntryIds.length+":"+[...new Set(j.holdings.map(h=>h.status))].join(",")')
+echo "after explanation status:unexplained:statuses = $RECON3"; [ "$RECON3" = "matched:0:matched" ]
+# A signed receipt for the basket: issued once, verified by the CLI online and offline, refused when tampered with,
+# private until the owner opts it into public reading, then redacted.
+RECEIPT=$(node apps/cli/dist/main.js receipts issue "$BASKET_ID" --kind execution --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+RECEIPT_SUMMARY=$(echo "$RECEIPT" | J 'j.body.version+":"+j.body.kind+":"+j.body.chain.signatures.length+":"+j.body.chain.finality+":"+j.body.fills.length+":"+j.body.status.intentState+":"+j.signer.keyId+":"+j.signer.algorithm+":"+j.public+":"+j.body.scope.ownership')
+echo "receipt version:kind:signatures:finality:fills:state:key:algorithm:public:ownership = $RECEIPT_SUMMARY"; [ "$RECEIPT_SUMMARY" = "1:execution:1:finalized:2:FINALIZED:startup-check-1:ed25519:false:not_asserted" ]
+echo "$RECEIPT" > "$KEY_DIR/receipt.json"
+RECEIPT_ID=$(echo "$RECEIPT" | J 'j.body.receiptId')
+RECEIPT_AGAIN=$(node apps/cli/dist/main.js receipts issue "$BASKET_ID" --kind execution --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.body.receiptId')
+echo "issuing again answers the same receipt: $([ "$RECEIPT_AGAIN" = "$RECEIPT_ID" ] && echo true || echo false)"; [ "$RECEIPT_AGAIN" = "$RECEIPT_ID" ]
+VERIFY_ONLINE=$(node apps/cli/dist/main.js receipts verify --file "$KEY_DIR/receipt.json" --url "http://127.0.0.1:$API_PORT" | J 'j.valid+":"+j.keyStatus+":"+j.hashMatches+":"+j.signatureValid+":"+j.issues.length')
+echo "verify with the published keys valid:key:hash:signature:issues = $VERIFY_ONLINE"; [ "$VERIFY_ONLINE" = "true:active:true:true:0" ]
+node apps/cli/dist/main.js receipts keys --url "http://127.0.0.1:$API_PORT" > "$KEY_DIR/keys.json"
+VERIFY_OFFLINE=$(node apps/cli/dist/main.js receipts verify --file "$KEY_DIR/receipt.json" --keys-file "$KEY_DIR/keys.json" | J 'j.valid')
+echo "verify offline with a saved keys document: $VERIFY_OFFLINE"; [ "$VERIFY_OFFLINE" = "true" ]
+TAMPERED=$(node -e 'const r=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")); r.body.fills[0].outputReceivedRaw="1"; console.log(JSON.stringify(r))' "$KEY_DIR/receipt.json")
+TAMPER_EXIT=0
+node apps/cli/dist/main.js receipts verify --input "$TAMPERED" --keys-file "$KEY_DIR/keys.json" > /dev/null 2>&1 || TAMPER_EXIT=$?
+echo "tampered receipt refused with exit code: $TAMPER_EXIT"; [ "$TAMPER_EXIT" = "1" ]
+PRIVATE_READ=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$API_PORT/v1/receipts/$RECEIPT_ID")
+echo "unauthenticated read of a private receipt: $PRIVATE_READ"; [ "$PRIVATE_READ" = "404" ]
+node apps/cli/dist/main.js receipts visibility "$RECEIPT_ID" --public --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+PUBLIC_READ=$(node apps/cli/dist/main.js receipts show "$RECEIPT_ID" --url "http://127.0.0.1:$API_PORT" | J 'String(j.ownerUserId)+":"+j.public+":"+(j.canonicalHash===JSON.parse(require("node:fs").readFileSync(process.argv[2]||"'"$KEY_DIR/receipt.json"'","utf8")).canonicalHash)')
+echo "public read owner:public:same-hash = $PUBLIC_READ"; [ "$PUBLIC_READ" = "null:true:true" ]
+rm -f "$KEY_DIR/receipt.json" "$KEY_DIR/keys.json"
 
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""

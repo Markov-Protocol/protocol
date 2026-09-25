@@ -445,12 +445,13 @@ export class SolanaRpcClient {
   /** Every token account an owner holds for one mint, raw base64 data (agave `getTokenAccountsByOwner`). */
   async getTokenAccountsByOwner(
     owner: string,
-    mint: string,
+    filter: string | { readonly mint: string } | { readonly programId: string },
     commitment: 'processed' | 'confirmed' | 'finalized',
   ): Promise<SolanaTokenAccounts> {
+    const selector = typeof filter === 'string' ? { mint: filter } : filter;
     const result = await this.call(
       'getTokenAccountsByOwner',
-      [owner, { mint }, { encoding: 'base64', commitment }],
+      [owner, selector, { encoding: 'base64', commitment }],
       keyedAccountsSchema,
     );
     return {

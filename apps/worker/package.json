@@ -20,6 +20,7 @@
     "dev": "node --env-file-if-exists=../../.env --import tsx src/main.ts"
   },
   "dependencies": {
+    "@markov/accounting": "workspace:*",
     "@markov/config": "workspace:*",
     "@markov/contracts": "workspace:*",
     "@markov/db": "workspace:*",

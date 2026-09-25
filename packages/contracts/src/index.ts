@@ -9,6 +9,7 @@
  * Every schema here is a proposed Markov contract. Nothing in this file is a
  * claim about a third-party API.
  */
+export * from './accounting.js';
 export * from './capabilities.js';
 export * from './catalog.js';
 export * from './codec.js';

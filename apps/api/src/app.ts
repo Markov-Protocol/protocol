@@ -27,6 +27,7 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
+import type { AccountingService } from './accounting/service.js';
 import { authPlugin } from './auth/plugin.js';
 import type { IdentityService } from './auth/service.js';
 import type { CatalogService } from './catalog/service.js';
@@ -39,6 +40,7 @@ import type { PlanningService } from './planning/service.js';
 import type { PolicyService } from './policy/service.js';
 import type { RegistryService } from './registry/service.js';
 import type { ResearchService } from './research/service.js';
+import { accountingRoutes } from './routes/accounting.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { executionRoutes } from './routes/execution.js';
 import { followRoutes } from './routes/follows.js';
@@ -92,6 +94,7 @@ export interface AppDependencies {
   readonly follows: FollowService;
   readonly planning: PlanningService;
   readonly execution: ExecutionService;
+  readonly accounting: AccountingService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -413,6 +416,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(followRoutes, { follows: deps.follows });
   await app.register(planningRoutes, { planning: deps.planning });
   await app.register(executionRoutes, { execution: deps.execution });
+  await app.register(accountingRoutes, { accounting: deps.accounting });
 
   return app;
 }

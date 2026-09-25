@@ -5,6 +5,7 @@
  * migrations, the platform identity binding every process verifies at boot,
  * and the capability readiness record.
  */
+export * from './accounting-store.js';
 export * from './capabilities.js';
 export * from './catalog-store.js';
 export * from './client.js';

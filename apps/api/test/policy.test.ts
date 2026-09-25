@@ -16,6 +16,7 @@ import { SolanaRpcClient } from '@markov/solana-rpc';
 import { baseTestEnv, testDatabaseUrl, withTemporaryDatabase } from '@markov/testkit';
 import { describe, expect, it } from 'vitest';
 import {
+  type AccountingService,
   buildApp,
   createCatalogService,
   createIdentityService,
@@ -128,6 +129,7 @@ async function withHarness(
         follows: unavailable<FollowService>('follows'),
         planning: unavailable<PlanningService>('planning'),
         execution: unavailable<ExecutionService>('execution'),
+        accounting: unavailable<AccountingService>('accounting'),
         strategies: unavailableStrategies,
         mintTestToken: (input) =>
           issuer.mint({

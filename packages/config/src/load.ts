@@ -118,6 +118,13 @@ function structure(raw: RawEnv): MarkovConfig {
       modelProvider:
         raw.RESEARCH_MODEL_PROVIDER === 'disabled' ? null : raw.RESEARCH_MODEL_PROVIDER,
     },
+    receipts: {
+      provider: raw.RECEIPT_SIGNING_PROVIDER === 'local_key' ? 'local_key' : null,
+      signingKey:
+        raw.RECEIPT_SIGNING_PROVIDER === 'local_key' ? (raw.RECEIPT_SIGNING_KEY ?? null) : null,
+      keyId:
+        raw.RECEIPT_SIGNING_PROVIDER === 'local_key' ? (raw.RECEIPT_SIGNING_KEY_ID ?? null) : null,
+    },
     strategies: { maxLegs: raw.STRATEGY_MAX_LEGS },
     registry: {
       programId: raw.REGISTRY_PROGRAM_ID ?? null,
@@ -338,6 +345,42 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
     });
   }
 
+  // 2c. Receipt signing: a local key is a development and staging convenience, never production;
+  // the KMS-backed signer does not exist yet and is refused rather than silently substituted.
+  if (raw.RECEIPT_SIGNING_PROVIDER === 'kms') {
+    issues.push({
+      path: 'RECEIPT_SIGNING_PROVIDER',
+      message:
+        'the KMS-backed receipt signer is not implemented (OD-22); use local_key outside production or disabled',
+    });
+  }
+  if (raw.RECEIPT_SIGNING_PROVIDER === 'local_key') {
+    if (env === 'production') {
+      issues.push({
+        path: 'RECEIPT_SIGNING_PROVIDER',
+        message: 'a local receipt signing key is not allowed when MARKOV_ENV=production',
+      });
+    }
+    if (config.receipts.signingKey === null) {
+      issues.push({
+        path: 'RECEIPT_SIGNING_KEY',
+        message: 'is required when RECEIPT_SIGNING_PROVIDER=local_key',
+      });
+    }
+    if (config.receipts.keyId === null) {
+      issues.push({
+        path: 'RECEIPT_SIGNING_KEY_ID',
+        message: 'is required when RECEIPT_SIGNING_PROVIDER=local_key',
+      });
+    }
+  } else if (raw.RECEIPT_SIGNING_KEY !== undefined || raw.RECEIPT_SIGNING_KEY_ID !== undefined) {
+    issues.push({
+      path: 'RECEIPT_SIGNING_KEY',
+      message:
+        'is set but RECEIPT_SIGNING_PROVIDER is not local_key; remove it or enable the provider',
+    });
+  }
+
   if (config.research.modelProvider === 'fixture' && !isDev) {
     issues.push({
       path: 'RESEARCH_MODEL_PROVIDER',
@@ -524,6 +567,7 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
     },
     funding: config.funding,
     research: config.research,
+    receipts: { provider: config.receipts.provider, keyId: config.receipts.keyId },
     strategies: config.strategies,
     registry: config.registry,
     identity: config.identity,

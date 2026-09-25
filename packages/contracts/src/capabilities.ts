@@ -39,6 +39,8 @@ export const CAPABILITY_IDS = [
   'execution.jupiter.quote',
   'execution.jupiter.build',
   'execution.spot.submit',
+  'accounting.journal',
+  'receipts.signing',
   'registry.strategy.publish',
   'research.model.generate',
   'notifications.email',

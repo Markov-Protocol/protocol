@@ -226,6 +226,15 @@ export async function applyIngestion(
   });
 }
 
+/** The admitted or known instrument minted at `mint`, or null; mints are unique per verified instrument. */
+export async function findInstrumentByMint(
+  db: Database,
+  mint: string,
+): Promise<InstrumentRow | null> {
+  const rows = await db.select().from(instruments).where(eq(instruments.mint, mint)).limit(1);
+  return rows[0] ?? null;
+}
+
 export async function findInstrument(
   db: Database,
   instrumentId: string,

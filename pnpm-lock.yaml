@@ -44,6 +44,9 @@ importers:
       '@fastify/swagger':
         specifier: 9.9.0
         version: 9.9.0
+      '@markov/accounting':
+        specifier: workspace:*
+        version: link:../../packages/accounting
       '@markov/amounts':
         specifier: workspace:*
         version: link:../../packages/amounts
@@ -117,6 +120,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@markov/accounting':
+        specifier: workspace:*
+        version: link:../../packages/accounting
       '@markov/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -270,6 +276,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@markov/accounting':
+        specifier: workspace:*
+        version: link:../../packages/accounting
       '@markov/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -307,6 +316,18 @@ importers:
       '@markov/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
+
+  packages/accounting:
+    dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@markov/planning':
+        specifier: workspace:*
+        version: link:../planning
+      '@markov/solana-codec':
+        specifier: workspace:*
+        version: link:../solana-codec
 
   packages/amounts: {}
 

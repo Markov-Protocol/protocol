@@ -1,4 +1,5 @@
-import { generateKeyPairSync } from 'node:crypto';
+import { createPrivateKey, generateKeyPairSync } from 'node:crypto';
+import type { ReceiptSigner } from '@markov/accounting';
 import { createIdentityVerifier, createTestIdentityIssuer, generateCredential } from '@markov/auth';
 import { loadConfig, type MarkovConfig } from '@markov/config';
 import {
@@ -26,6 +27,7 @@ import { createFixtureVenue } from '@markov/venue-jupiter';
 import { expect } from 'vitest';
 import {
   buildApp,
+  createAccountingService,
   createCatalogService,
   createExecutionService,
   createFundingService,
@@ -113,6 +115,12 @@ export async function withHarness(
         FUNDING_STABLECOIN_MINT: STABLECOIN,
         ...(options.venue === 'fixture' ? { EXECUTION_VENUE_PROVIDER: 'fixture' } : {}),
         ...(options.writes ? { EXECUTION_WRITES_ENABLED: 'true' } : {}),
+        // Receipts (B12): a throwaway Ed25519 key per harness run; never a real key.
+        RECEIPT_SIGNING_PROVIDER: 'local_key',
+        RECEIPT_SIGNING_KEY: generateKeyPairSync('ed25519')
+          .privateKey.export({ format: 'der', type: 'pkcs8' })
+          .toString('base64'),
+        RECEIPT_SIGNING_KEY_ID: 'api-test-key-1',
       }),
     );
     const client = createDbClient({
@@ -197,6 +205,15 @@ export async function withHarness(
           : null;
       const venue =
         baseVenue !== null && options.wrapVenue ? options.wrapVenue(baseVenue) : baseVenue;
+      const accounting = createAccountingService({
+        config,
+        db: client.db,
+        policy,
+        rpcClients: [rpc],
+        genesisHash: GENESIS,
+        signer: receiptSignerOf(config),
+        now,
+      });
       const app = await buildApp({
         config,
         logger: createSilentLogger(),
@@ -241,8 +258,10 @@ export async function withHarness(
           genesisHash: GENESIS,
           now,
         }),
+        accounting,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
+      await accounting.registerSigningKey();
       await app.ready();
       const credential = async (
         principalClass: 'operator' | 'agent',
@@ -420,4 +439,19 @@ export async function withHarness(
       await client.close();
     }
   });
+}
+
+/** The test receipt signer from the harness environment (an Ed25519 PKCS#8 key generated per run). */
+function receiptSignerOf(config: MarkovConfig): ReceiptSigner | null {
+  if (config.receipts.provider !== 'local_key' || config.receipts.signingKey === null) {
+    return null;
+  }
+  const signer = signerFromPrivateKey(
+    createPrivateKey({
+      key: Buffer.from(config.receipts.signingKey, 'base64'),
+      format: 'der',
+      type: 'pkcs8',
+    }),
+  );
+  return { keyId: config.receipts.keyId ?? 'test', publicKey: signer.publicKey, sign: signer.sign };
 }

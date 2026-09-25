@@ -288,6 +288,53 @@ intents means the venue's prices move faster than the plan validity, which
 is a product or venue question, never a reason to loosen bounds. Contract:
 `docs/markov/execution-state-machine.md`.
 
+## Accounting and receipts
+
+```
+markov portfolio project --token <session> --url …                      # project settled fills into the journal now (idempotent)
+markov portfolio holdings <walletId> --token <session|agent> --url …    # journal against the last chain observation, attribution per asset
+markov portfolio reconcile <walletId> --token <session> --url …         # read the chain, record a checkpoint, flag unexplained flows
+markov portfolio journal <walletId> --token <session|agent> --url …
+markov portfolio acknowledge <entryId> --kind deposit|withdrawal|transfer|other [--note …] --token <session> --url …
+markov portfolio instance-holdings <instanceId> --token <session|agent> --url …
+markov receipts issue <intentId> [--kind decision|execution] --token <session> --url …
+markov receipts list|show|keys …
+markov receipts visibility <receiptId> --public|--private --token <session> --url …
+markov receipts verify --file <receipt.json> [--keys-file <keys.json> | --url …]   # offline with a saved keys document
+```
+
+Migration `0013_accounting` adds `journal_entries` and `journal_lines`
+(append-only; `(owner_user_id, source_ref)` unique), `lots` and
+`lot_consumptions`, `reconciliation_checkpoints`, `receipt_signing_keys` and
+`receipts` (one per intent, kind and intent state). The worker projects
+fills in its reconciliation round (`projectJournal`); the API projects the
+caller's fills before every holdings, journal and reconciliation answer.
+Receipts need `RECEIPT_SIGNING_PROVIDER=local_key` with
+`RECEIPT_SIGNING_KEY` (Ed25519 PKCS#8, base64) and `RECEIPT_SIGNING_KEY_ID`
+outside production; production refuses a local key and the KMS signer is
+OD-22, so production issues no receipts until then (the routes answer
+`PROVIDER_UNAVAILABLE`, nothing else changes). At boot the configured key is
+recorded as active in `receipt_signing_keys` and any other key is retired;
+retired keys keep verifying the receipts they signed, so never delete a key
+row. Rotating: start the API with the new key and id; the old key's row
+turns `retired` with `valid_to` set. Audit actions:
+`accounting.wallet.reconciled` (checkpoint, slot, status, flagged entries),
+`accounting.flow.acknowledged`, `accounting.receipt.issued`,
+`accounting.receipt.visibility`.
+
+Operating: a wallet whose holdings show `needs_reconciliation` has an
+external flow waiting for the person's explanation, which only they can
+give (an operator never attributes a flow to a strategy). A checkpoint with
+`unassigned_asset` means the wallet holds a mint the catalog does not know;
+it is shown, never journaled. `stale` means fills settled after the last
+observation and the next reconciliation will normally match. A lot
+consumption shortfall in the worker log (`sell consumed more than the
+attributed lots hold`) means the person sold tokens the platform did not
+buy for them; the shortfall is recorded, nothing is invented. A receipt
+whose verification fails against the published keys is an incident:
+receipts are never re-signed in place; a corrected record is a new receipt
+for the changed intent state.
+
 ## Readiness and monitoring
 
 - Liveness (`/healthz`) restarts a hung process; readiness (`/readyz`) removes

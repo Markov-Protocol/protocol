@@ -4,6 +4,7 @@
  * Fastify domain API. Exported for tests and tooling; the process entry point
  * is main.ts.
  */
+export * from './accounting/service.js';
 export * from './app.js';
 export * from './auth/service.js';
 export * from './boot.js';

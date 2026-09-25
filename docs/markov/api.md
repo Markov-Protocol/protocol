@@ -299,10 +299,30 @@ Error code added in B10: `TRANSACTION_REFUSED` (409). Capability rows:
 `execution.jupiter.build` and `execution.spot.submit` are FIXTURE_VERIFIED
 (B10 single legs, B11 composed and staged baskets).
 
+## Endpoints (B12)
+
+| Method | Path                                          | Principal                    | Purpose |
+| ------ | --------------------------------------------- | ---------------------------- | ------- |
+| GET    | /v1/me/wallets/{walletId}/holdings            | user, agent `portfolio:read` | Wallet holdings after projecting any settled fill not yet journaled: per asset the journal's wallet balance, the chain balance at the latest checkpoint, the difference, the status (`matched`, `unobserved`, `stale`, `needs_reconciliation`, `unassigned_asset`) and the attribution (open lots per instance, awaiting reconciliation, wallet level); the checkpoint, the unexplained entry ids, `lotPolicy: fifo`. Raw units only; nothing valued |
+| POST   | /v1/me/wallets/{walletId}/reconciliations     | user (30/min)                | Read lamports and every SPL and Token-2022 balance from the node, compare with the journal, record a checkpoint and an `external_inflow`/`external_outflow` entry per unexplained difference in a known asset (`PROVIDER_UNAVAILABLE` when the node does not answer; nothing recorded then). Answers the holdings |
+| GET    | /v1/me/wallets/{walletId}/journal             | user, agent `portfolio:read` | The append-only journal, oldest first (at most 200): balanced entries with lines per account and asset, source kind and reference, attribution, acknowledgement |
+| POST   | /v1/me/journal/{entryId}/acknowledgements     | user                         | Explain an external flow (`deposit`, `withdrawal`, `transfer`, `other`, note): `needs_reconciliation` becomes `unassigned`; `VALIDATION_FAILED` for any other entry |
+| POST   | /v1/me/journal/projections                    | user                         | Project the caller's settled fills into the journal now; the report counts fills seen, entries appended and existing, lots opened and consumed. Idempotent |
+| GET    | /v1/me/instances/{instanceId}/holdings        | user, agent `portfolio:read` | Open lots attributed to the instance per asset, cost basis in the stablecoin and fees paid (bookkeeping, not a valuation), reconciliation status |
+| POST   | /v1/me/intents/{intentId}/receipts            | user (60/min)                | Issue a signed `decision` or `execution` receipt (body `{kind}`; 201 new, 200 existing for the same intent, kind and state). `VALIDATION_FAILED` without an acknowledged plan or, for `execution`, without a submitted attempt; `PROVIDER_UNAVAILABLE` without a signing key |
+| GET    | /v1/me/intents/{intentId}/receipts            | user, agent `portfolio:read` | Receipts of an intent, oldest first |
+| GET    | /v1/me/receipts                               | user, agent `portfolio:read` | The caller's receipts, newest first (at most 100) |
+| POST   | /v1/me/receipts/{receiptId}/visibility        | user                         | `{public}`: opt a receipt into or out of public reading |
+| GET    | /v1/receipts/keys                             | public                       | Verification keys (key id, algorithm, public key, status, validity) and the signing domain |
+| GET    | /v1/receipts/{receiptId}                      | public / user / agent        | The complete receipt for its owner and read-scoped agents; a public receipt with the owner id omitted for anyone else; `NOT_FOUND` otherwise (private receipts are not revealed) |
+
+Capability rows: `accounting.journal` and `receipts.signing` are
+FIXTURE_VERIFIED (B12). Contract: `docs/markov/accounting-methodology.md`.
+
 ## Planned surface
 
-Discovery, portfolio,
-staged basket execution, receipts, maintenance, agents and operations routes
-are specified in the build document and arrive with sessions B12 to B18. Authentication,
+Discovery, valuation and rankings, maintenance, agents and operations
+routes are specified in the build document and arrive with sessions B13 to
+B18. Authentication,
 idempotency keys, cursor pagination and streaming are introduced with the
 first routes that need them (B02, B07, B10).

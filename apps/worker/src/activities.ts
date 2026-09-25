@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { projectFills } from '@markov/accounting';
 import type { MarkovConfig } from '@markov/config';
 import {
   type ExecutionReconciliationInput,
@@ -11,6 +13,7 @@ import {
 } from '@markov/contracts';
 import {
   createExecutionStorePort,
+  createProjectionStorePort,
   type DbClient,
   listLiveAttemptContexts,
   liveAttemptRowsOf,
@@ -33,6 +36,12 @@ export interface PlatformActivities {
   reconcileLiveAttempts(
     input: Pick<ExecutionReconciliationInput, 'batchSize'>,
   ): Promise<ExecutionReconciliationRound>;
+  /** Projects settled fills of every owner into the accounting journal (idempotent; B12). */
+  projectJournal(input: { readonly limit: number }): Promise<{
+    readonly fillsSeen: number;
+    readonly entriesAppended: number;
+    readonly entriesExisting: number;
+  }>;
 }
 
 export interface ActivityDependencies {
@@ -68,6 +77,28 @@ export function createPlatformActivities(deps: ActivityDependencies): PlatformAc
         checkedAt: new Date().toISOString(),
         requestedBy: input.requestedBy,
       });
+    },
+
+    async projectJournal(input) {
+      const limit = Math.min(Math.max(Math.trunc(input.limit), 1), 1000);
+      const report = await projectFills(
+        {
+          store: createProjectionStorePort(deps.dbClient.db),
+          newId: randomUUID,
+          now,
+          onShortfall: (shortfall) =>
+            log.warn(shortfall, 'a sell consumed more than its attributed lots hold'),
+        },
+        { ownerUserId: null, limit },
+      );
+      if (report.entriesAppended > 0) {
+        log.info(report, 'journal projection appended entries');
+      }
+      return {
+        fillsSeen: report.fillsSeen,
+        entriesAppended: report.entriesAppended,
+        entriesExisting: report.entriesExisting,
+      };
     },
 
     async reconcileLiveAttempts(rawInput) {

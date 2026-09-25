@@ -2421,5 +2421,263 @@ export function buildProgram(io: CliIo = stdio): Command {
       },
     );
 
+  const portfolio = program
+    .command('portfolio')
+    .description('the quantity journal, reconciled wallet holdings and strategy attribution (B12)');
+  portfolio
+    .command('holdings <walletId>')
+    .description(
+      'wallet holdings: the journal against the last chain observation, with attribution',
+    )
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (walletId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/wallets/${encodeURIComponent(walletId)}/holdings`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  portfolio
+    .command('reconcile <walletId>')
+    .description(
+      'read the wallet from the chain now, record a checkpoint and flag any unexplained external flow',
+    )
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (walletId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/me/wallets/${encodeURIComponent(walletId)}/reconciliations`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  portfolio
+    .command('journal <walletId>')
+    .description('the append-only quantity journal of a wallet, oldest first')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (walletId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/wallets/${encodeURIComponent(walletId)}/journal`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  portfolio
+    .command('project')
+    .description('project your settled fills into the journal now (idempotent)')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            '/v1/me/journal/projections',
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  portfolio
+    .command('acknowledge <entryId>')
+    .description('explain an external flow: deposit | withdrawal | transfer | other')
+    .requiredOption('--kind <kind>', 'deposit | withdrawal | transfer | other')
+    .option('--note <text>', 'a short note kept with the entry')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        entryId: string,
+        options: { kind: string; note?: string; token: string; url: string },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/journal/${encodeURIComponent(entryId)}/acknowledgements`,
+              { kind: options.kind, note: options.note ?? null },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  portfolio
+    .command('instance-holdings <instanceId>')
+    .description('the open lots attributed to a strategy instance (FIFO bookkeeping)')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (instanceId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/instances/${encodeURIComponent(instanceId)}/holdings`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+
+  const receipts = program
+    .command('receipts')
+    .description(
+      'signed receipts for reviewed decisions and executions, and their verification (B12)',
+    );
+  receipts
+    .command('issue <intentId>')
+    .description('issue (or fetch) the receipt of an intent: --kind decision | execution')
+    .option('--kind <kind>', 'decision | execution', 'execution')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (intentId: string, options: { kind: string; token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/me/intents/${encodeURIComponent(intentId)}/receipts`,
+            { kind: options.kind },
+            options.token,
+          ),
+        ),
+      );
+    });
+  receipts
+    .command('list')
+    .description('your receipts, newest first')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/me/receipts', undefined, options.token)));
+    });
+  receipts
+    .command('show <receiptId>')
+    .description('one receipt: complete with a token of its owner, redacted when public')
+    .option('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (receiptId: string, options: { token?: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/receipts/${encodeURIComponent(receiptId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  receipts
+    .command('visibility <receiptId>')
+    .description('opt a receipt into (--public) or out of (--private) public reading')
+    .option('--public', 'readable by anyone with the id, owner and actor redacted')
+    .option('--private', 'readable by you and your read-scoped agents only')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        receiptId: string,
+        options: { public?: boolean; private?: boolean; token: string; url: string },
+      ) => {
+        if (options.public === options.private) {
+          throw new CliExit('pass exactly one of --public or --private', EXIT_USAGE);
+        }
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/receipts/${encodeURIComponent(receiptId)}/visibility`,
+              { public: options.public === true },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  receipts
+    .command('keys')
+    .description('the public verification keys (no token needed)')
+    .option(...apiUrlOption)
+    .action(async (options: { url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/receipts/keys')));
+    });
+  receipts
+    .command('verify')
+    .description(
+      'verify a receipt against the verification keys: --keys-file for an offline check, otherwise the keys are fetched from the API',
+    )
+    .option('--file <path>', 'receipt JSON file')
+    .option('--input <json>', 'receipt JSON inline')
+    .option('--keys-file <path>', 'a saved GET /v1/receipts/keys answer (offline)')
+    .option(...apiUrlOption)
+    .action(async (options: { file?: string; input?: string; keysFile?: string; url: string }) => {
+      const { receiptKeysResponseSchema, receiptSchema } = await import('@markov/contracts');
+      const { verifyReceipt } = await import('@markov/accounting');
+      const receipt = receiptSchema.safeParse(await readContent(options));
+      if (!receipt.success) {
+        throw new CliExit(
+          `not a receipt: ${receipt.error.issues
+            .slice(0, 5)
+            .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+            .join('; ')}`,
+          65,
+        );
+      }
+      let keysDocument: unknown;
+      if (options.keysFile) {
+        const { readFile } = await import('node:fs/promises');
+        keysDocument = JSON.parse(await readFile(options.keysFile, 'utf8'));
+      } else {
+        keysDocument = await apiCall(options.url, 'GET', '/v1/receipts/keys');
+      }
+      const keys = receiptKeysResponseSchema.safeParse(keysDocument);
+      if (!keys.success) {
+        throw new CliExit('the verification keys document is not in the expected shape', 65);
+      }
+      const result = verifyReceipt(receipt.data, keys.data.keys);
+      io.out(
+        json({
+          receiptId: receipt.data.body.receiptId,
+          kind: receipt.data.body.kind,
+          intentId: receipt.data.body.subject.intentId,
+          planHash: receipt.data.body.hashes.planHash,
+          canonicalHash: receipt.data.canonicalHash,
+          signatures: receipt.data.body.chain.signatures,
+          ...result,
+        }),
+      );
+      if (!result.valid) {
+        throw new CliExit(`receipt verification failed: ${result.issues.join(', ')}`, 1);
+      }
+    });
+
   return program;
 }

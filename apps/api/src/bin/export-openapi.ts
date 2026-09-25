@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { loadConfig } from '@markov/config';
 import { createSilentLogger } from '@markov/observability';
+import type { AccountingService } from '../accounting/service.js';
 import { buildApp } from '../app.js';
 import type { IdentityService } from '../auth/service.js';
 import type { CatalogService } from '../catalog/service.js';
@@ -75,6 +76,11 @@ const unavailableExecution = new Proxy({} as ExecutionService, {
     throw new Error('execution service is unavailable in export mode');
   },
 });
+const unavailableAccounting = new Proxy({} as AccountingService, {
+  get: () => () => {
+    throw new Error('accounting service is unavailable in export mode');
+  },
+});
 
 async function generate(): Promise<string> {
   const config = loadConfig({
@@ -116,6 +122,7 @@ async function generate(): Promise<string> {
     follows: unavailableFollows,
     planning: unavailablePlanning,
     execution: unavailableExecution,
+    accounting: unavailableAccounting,
     mintTestToken: null,
   });
   await app.ready();

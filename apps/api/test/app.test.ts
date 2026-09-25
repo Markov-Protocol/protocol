@@ -3,6 +3,7 @@ import { createSilentLogger } from '@markov/observability';
 import { baseTestEnv } from '@markov/testkit';
 import { describe, expect, it } from 'vitest';
 import {
+  type AccountingService,
   type ApiProbes,
   buildApp,
   type CatalogService,
@@ -122,6 +123,7 @@ async function makeApp(
     follows: unavailable<FollowService>('follows'),
     planning: unavailable<PlanningService>('planning'),
     execution: unavailable<ExecutionService>('execution'),
+    accounting: unavailable<AccountingService>('accounting'),
     strategies: unavailableStrategies,
     mintTestToken: null,
   });

@@ -110,6 +110,20 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
       evidence: { sessions: ['B10', 'B11'] },
     },
     {
+      capability: 'accounting.journal',
+      status: 'FIXTURE_VERIFIED',
+      summary:
+        'Append-only quantity journal (B12) balanced per asset in raw units: settled fills, network fees and rent projected once per signature and leg, FIFO lots attributed to the one matching strategy instance or kept at wallet level, external flows recorded against the chain with owner acknowledgement, corrections by reversal. Verified against the fixture chain; no live balance has been reconciled.',
+      evidence: { session: 'B12' },
+    },
+    {
+      capability: 'receipts.signing',
+      status: 'FIXTURE_VERIFIED',
+      summary:
+        'Canonical execution and decision receipts (B12) signed with a versioned Ed25519 key from configuration (local_key, refused in production) and verified offline by the CLI against the published keys; the KMS-backed signer is not implemented (OD-22). A signature attests to the record; settlement is the chain evidence it references.',
+      evidence: { session: 'B12', openDecision: 'OD-22' },
+    },
+    {
       capability: 'registry.strategy.publish',
       status: 'FIXTURE_VERIFIED',
       summary:

@@ -76,6 +76,11 @@ not claimed here.
 | Reservations of a multi-leg transaction left held, double-counted or colliding across rebuilds | One reservation per leg keyed by intent, transaction and leg; every hold released on a denial; the attempt settles all of them together on evidence | basket execution API test (held, consumed, released), `packages/db` store |
 | Explorer links or program ids pointing at another chain; publication from a read-only or unreviewed deployment | Links only for public clusters from validated results; `REGISTRY_PROGRAM_ID` unset disables publication; mainnet publication requires production mode and release evidence; the wallet must be verified on the deployment's genesis | `packages/config/test/config.test.ts`, registry API tests |
 
+| Journal rewritten or totals changed by replayed observations (a fill projected twice, a reconciliation repeated, an entry edited) | Append-only tables with a unique `(owner, source_ref)`; corrections only by reversal entries; every entry balanced per asset before insertion; duplicate projections counted as existing | `packages/accounting/test`, `apps/api/test/accounting.test.ts`, `scripts/ci/startup-check.sh` |
+| Tokens leaving or entering a wallet outside the platform silently changing a strategy's holdings, or one token counted towards two portfolios | Chain reconciliation records every unexplained difference as an external flow needing the owner's explanation; attribution only to the one matching instance from the record; wallet totals and instance totals shown separately, a negative wallet-level remainder shown rather than lots reduced | `apps/api/test/accounting.test.ts` (unexplained transfer detected, lots untouched) |
+| A receipt passed off as proof of ownership, of settlement or of policy enforcement, or forged, altered or re-signed | Canonical bytes with a domain prefix, Ed25519 signature over them, published versioned keys with retirement, offline verification with explicit issues, the scope statement inside the signed body, receipts idempotent per intent, kind and state, the signing key never in production unless KMS-backed (OD-22) | `packages/accounting/test`, `apps/api/test/accounting.test.ts`, `markov receipts verify` in the startup check |
+| Private accounting data exposed through public receipts or foreign reads | Owner-scoped stores; receipts private by default; public reads only after the owner's opt-in and with the owner id omitted; the signed body carries commitments, never raw account or actor ids; foreign reads answer NOT_FOUND | `apps/api/test/accounting.test.ts` |
+
 ## Residual risks after B01
 
 - Genesis constants are live-verified (SR-SOL-01), but the platform's own RPC
@@ -92,6 +97,15 @@ not claimed here.
   (OD-21). Policy decisions taken at plan time are re-evaluated at
   submission (B10); a plan is evidence of what was checked, not a
   guarantee of what will execute.
+- Journal balances rest on fills observed from the fixture chain's
+  transaction meta and on balances read from the fixture node; no live
+  wallet has been reconciled, and Token-2022 mints with transfer fees or
+  interest-bearing extensions may show differences the current
+  reconciliation attributes to external flows (an owner explanation, never
+  a silent adjustment) until B13 models them. Receipts are signed with a
+  configured local key outside production only; the KMS signer, its
+  rotation and the accountable owner of the verification keys are open
+  (OD-22).
 - The research retriever's `node:https` transport is exercised only through
   its in-memory stand-in (the policy, classification, pinning and caps are
   tested; the socket path is not); no live page has been retrieved. No

@@ -53,6 +53,9 @@
       "path": "packages/execution"
     },
     {
+      "path": "packages/accounting"
+    },
+    {
       "path": "packages/db"
     },
     {

@@ -61,6 +61,8 @@ export async function executionReconciliationWorkflow(
   try {
     while (input.rounds === null || progress.rounds < input.rounds) {
       const round = await reconciliation.reconcileLiveAttempts({ batchSize: input.batchSize });
+      // Settled fills reach the accounting journal in the same round (idempotent; B12).
+      await reconciliation.projectJournal({ limit: input.batchSize * 4 });
       progress.rounds += 1;
       roundsThisRun += 1;
       progress.attemptsSeen += round.attempts;

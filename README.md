@@ -26,7 +26,10 @@ plans),
 **B10** (validated single-stock execution and recovery against the fixture
 chain),
 **B11** (atomic and staged basket execution with partial completion and
-reviewed continuation, fixture-verified) and
+reviewed continuation, fixture-verified),
+**B12** (reconciled quantity journal, FIFO lots and attribution, chain
+reconciliation with acknowledged external flows, signed verifiable
+receipts) and
 frontend sessions **F01** (shared design system), **F02** (Mark I shell) and
 **F03** (app sessions and account recovery) are complete. Backend sessions B02 to B18 and
 frontend sessions F02 to F20 follow in dependency order; see
@@ -112,7 +115,8 @@ bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful s
 | Execution planning: intents with idempotency, largest-remainder base-unit allocation with conservation and explicit cash and dust, separate bounded SOL fee budget, per-constituent venue quotes checked against the request, owner limits and a reviewed program matrix, per-constituent policy decisions, immutable hashed plans with executable bounds and validity, atomic or explicitly staged grouping, owner acknowledgement by hash | implemented, tested (B09) with the fixture venue; live Jupiter interface BLOCKED (OD-21); nothing signs or submits |
 | Execution: transactions built from the acknowledged plan's quote, decoded and validated against the plan (signer, accounts, mints, bounds, fees, reviewed programs), simulated, signed by the owner wallet, persisted before the one broadcast, reconciled from chain evidence to finality with fills from transaction meta, the same bytes resent while the blockhash lives, expiry and cancellation on evidence; buys and sells; durable worker reconciliation | implemented, tested (B10) against the fixture chain and fixture route program; no live venue builds (OD-21), nothing sent to a cluster; baskets are B11 |
 | Basket execution: whole-basket composition measured and simulated at plan time (atomic only with that evidence, staged with the reason otherwise), one composed transaction validated leg by leg with a fill per leg, staged runs built one transaction at a time with later legs quoted again against the approved bounds, partial completion on failure, expiry, stale terms or cancel after a fill, reviewed completion of exactly the unfilled legs at their original targets, batch states in the execution status | implemented, tested (B11) against the fixture chain and fixture venue; no live venue composes (OD-21) |
-| Accounting, discovery, agents, maintenance | not started (B12 onward) |
+| Accounting: append-only quantity journal balanced per asset in raw units, settled fills, fees and rent projected once, FIFO lots attributed to the matching instance or kept at wallet level, chain reconciliation with checkpoints that turns every unexplained difference into an external flow the owner acknowledges, wallet and instance holdings without valuation, canonical Ed25519-signed decision and execution receipts with published keys, offline CLI verification and opt-in redacted public reading | implemented, tested (B12) against the fixture chain; local signing key only, KMS signer open (OD-22); no live wallet reconciled |
+| Valuation and rankings, discovery, agents, maintenance | not started (B13 onward) |
 | Web design system, exact formatters, internal component reference, production guards | implemented, tested (F01) |
 | Mark I shell, companion home, navigation with honest placeholder routes | implemented, tested (F02) |
 | App sessions: server-verified HttpOnly cookie, sign-in, expiry recovery, sign-out, account switch isolation, generated API client | implemented, tested against the local API (F03); hosted identity provider adapter BLOCKED (OD-05) |

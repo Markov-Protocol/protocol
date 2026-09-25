@@ -101,6 +101,18 @@ export const rawEnvSchema = z.object({
   EXECUTION_VENUE_FIXTURE_COMPOSE_MAX_LEGS: intFromEnv(1, 10).optional(),
   /** Bearer token for the configured gateway; never logged, never part of a plan. */
   EXECUTION_VENUE_API_KEY: z.string().min(1).max(4000).optional(),
+  /**
+   * Receipt signing (B12): `local_key` signs with RECEIPT_SIGNING_KEY (an Ed25519 PKCS#8 key,
+   * base64; never in production); `kms` names the planned KMS-backed signer and is refused until
+   * it exists (OD-22); `disabled` issues no receipts.
+   */
+  RECEIPT_SIGNING_PROVIDER: z.enum(['disabled', 'local_key', 'kms']).default('disabled'),
+  RECEIPT_SIGNING_KEY: z.string().min(1).max(4000).optional(),
+  /** Versioned identifier of the signing key; published with the verification keys. */
+  RECEIPT_SIGNING_KEY_ID: z
+    .string()
+    .regex(/^[A-Za-z0-9._-]{1,64}$/)
+    .optional(),
   /** Product complexity limit on recipe legs (B07), tightened downward for a beta; never raised above 10. */
   STRATEGY_MAX_LEGS: intFromEnv(1, 10).default(10),
   /** Strategy registry program (B08). Unset keeps publication disabled and the indexer idle. */
@@ -197,6 +209,13 @@ export interface MarkovConfig {
   readonly research: {
     /** Null when no model provider is configured; manual research works without one. */
     readonly modelProvider: 'fixture' | null;
+  };
+  readonly receipts: {
+    /** Null when receipts are disabled; issuing then answers PROVIDER_UNAVAILABLE. */
+    readonly provider: 'local_key' | null;
+    /** Base64 PKCS#8 Ed25519 private key (local_key only); never logged or described. */
+    readonly signingKey: string | null;
+    readonly keyId: string | null;
   };
   readonly strategies: {
     /** At most this many constituent legs per recipe (default and maximum 10). */

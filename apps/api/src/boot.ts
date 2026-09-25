@@ -1,3 +1,5 @@
+import { createPrivateKey } from 'node:crypto';
+import type { ReceiptSigner } from '@markov/accounting';
 import {
   createIdentityVerifier,
   createTestIdentityIssuer,
@@ -14,8 +16,10 @@ import {
 } from '@markov/db';
 import { createLogger, type Logger } from '@markov/observability';
 import { createFixtureModelAdapter } from '@markov/research';
+import { signerFromPrivateKey } from '@markov/solana-codec';
 import { SolanaRpcClient } from '@markov/solana-rpc';
 import { createConfiguredUrlVenue, createFixtureVenue } from '@markov/venue-jupiter';
+import { createAccountingService } from './accounting/service.js';
 import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
 import { createIdentityService } from './auth/service.js';
 import { createCatalogService } from './catalog/service.js';
@@ -339,6 +343,29 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     logger.info('no research model provider is configured; research runs answer 503');
   }
 
+  const receiptSigner = receiptSignerOf(config);
+  if (receiptSigner === null) {
+    logger.info('no receipt signing key is configured; receipts answer 503');
+  }
+  const accountingService = createAccountingService({
+    config,
+    db: dbClient.db,
+    policy: policyService,
+    rpcClients: clients,
+    genesisHash: expectedGenesisHash,
+    signer: receiptSigner,
+  });
+  try {
+    await accountingService.registerSigningKey();
+  } catch (error) {
+    return fail(
+      new BootError(
+        `could not record the receipt signing key: ${error instanceof Error ? error.message : 'unknown error'}`,
+        EXIT_UNAVAILABLE,
+      ),
+    );
+  }
+
   const app = await buildApp({
     config,
     logger,
@@ -382,6 +409,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
       rpcClients: clients,
       genesisHash: expectedGenesisHash,
     }),
+    accounting: accountingService,
     mintTestToken,
   });
 
@@ -437,4 +465,29 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
   };
 
   return { app, config, address, expectedGenesisHash, shutdown };
+}
+
+/**
+ * The receipt signer: a local PKCS#8 Ed25519 key outside production (the
+ * config layer refuses it there), nothing when receipts are disabled. A KMS
+ * signer is open decision OD-22.
+ */
+function receiptSignerOf(config: MarkovConfig): ReceiptSigner | null {
+  if (
+    config.receipts.provider !== 'local_key' ||
+    config.receipts.signingKey === null ||
+    config.receipts.keyId === null
+  ) {
+    return null;
+  }
+  const privateKey = createPrivateKey({
+    key: Buffer.from(config.receipts.signingKey, 'base64'),
+    format: 'der',
+    type: 'pkcs8',
+  });
+  if (privateKey.asymmetricKeyType !== 'ed25519') {
+    throw new BootError('RECEIPT_SIGNING_KEY must be an Ed25519 PKCS#8 key', EXIT_CONFIG);
+  }
+  const signer = signerFromPrivateKey(privateKey);
+  return { keyId: config.receipts.keyId, publicKey: signer.publicKey, sign: signer.sign };
 }
