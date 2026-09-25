@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Principal } from '@markov/auth';
 import type { MarkovConfig } from '@markov/config';
 import {
@@ -13,6 +13,7 @@ import {
   type PlanAcknowledgementRequest,
   type PlanSide,
   type PolicyDecision,
+  type SimulationEvidence,
   type VenueQuote,
 } from '@markov/contracts';
 import {
@@ -30,8 +31,10 @@ import {
   insertPlan,
   insertVenueQuotes,
   listCurrentPreparedTransactions,
+  listFills,
   listIntents,
   listWallets,
+  markIntentContinued,
   markPlanStatus,
   recordAuditEvent,
   type StrategyVersionRow,
@@ -45,12 +48,23 @@ import {
   checkQuote,
   networkFeeBudget,
   PLANNABLE_STATES,
+  type PlanComposition,
   type PlanLegInput,
   protocolFeeRaw,
   sha256Hex,
   type VenueAdapter,
+  type VenueComposeLeg,
   VenueQuoteError,
 } from '@markov/planning';
+import {
+  associatedTokenAddress,
+  base64ToBytes,
+  MAX_TRANSACTION_BYTES,
+  parseTransaction,
+  SPL_TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+} from '@markov/solana-codec';
+import { type SolanaRpcClient, SolanaRpcError } from '@markov/solana-rpc';
 import type { CatalogService } from '../catalog/service.js';
 import { ApiError } from '../errors.js';
 import type { FundingService } from '../funding/service.js';
@@ -72,8 +86,23 @@ export interface PlanningServiceDeps {
   readonly funding: FundingService;
   /** Null when no venue is configured: every plan build then fails closed with PROVIDER_UNAVAILABLE. */
   readonly venue: VenueAdapter | null;
+  /** Node access for the whole-basket composition check (blockhash, token accounts, simulation). */
+  readonly rpcClients: readonly SolanaRpcClient[];
   readonly genesisHash: string;
   readonly now?: () => Date;
+}
+
+/** Compute units the composed whole-basket transaction asks for when it is measured and simulated. */
+export const COMPOSITION_COMPUTE_UNIT_LIMIT = 400_000;
+/** Priority fee price the composition is measured with; the execution build sets the real one under the plan's cap. */
+export const COMPOSITION_COMPUTE_UNIT_PRICE_MICRO_LAMPORTS = 1_000n;
+
+function tokenProgramOf(program: InstrumentDetail['tokenProgram']): string {
+  return program === 'token-2022' ? TOKEN_2022_PROGRAM_ID : SPL_TOKEN_PROGRAM_ID;
+}
+
+function logsHash(lines: readonly string[]): string {
+  return createHash('sha256').update(lines.join('\n')).digest('hex');
 }
 
 export interface PlanningService {
@@ -119,6 +148,138 @@ const OPEN_STATES: readonly IntentState[] = ['DRAFT', 'QUOTED', 'AWAITING_APPROV
 export function createPlanningService(deps: PlanningServiceDeps): PlanningService {
   const { config, db, catalog, policy, funding } = deps;
   const now = deps.now ?? (() => new Date());
+  const rpc = deps.rpcClients[0] ?? null;
+
+  /**
+   * Whole-basket composition (B11): every leg in one transaction from the
+   * venue, measured against the packet limit and simulated on the node as it
+   * stands now. Only "fits and passes" makes a plan atomic; a venue or node
+   * that cannot answer is not evidence of anything, so the plan stays staged
+   * with `composition_unavailable` and nothing is inferred.
+   */
+  const composeBasket = async (
+    legs: readonly { readonly instrument: InstrumentDetail; readonly quote: VenueQuote }[],
+    owner: string,
+    at: Date,
+  ): Promise<PlanComposition | null> => {
+    const venue = deps.venue;
+    if (venue === null || venue.compose === null || rpc === null) {
+      return null;
+    }
+    const composeLegs: VenueComposeLeg[] = [];
+    let recentBlockhash: string;
+    try {
+      recentBlockhash = (await rpc.getLatestBlockhash('finalized')).blockhash;
+      for (const leg of legs) {
+        const instrumentProgram = tokenProgramOf(leg.instrument.tokenProgram);
+        const destination = associatedTokenAddress(
+          owner,
+          leg.instrument.mint,
+          instrumentProgram,
+        ).address;
+        const info = await rpc.getAccountInfo(destination, config.solana.readCommitment);
+        composeLegs.push({
+          quote: leg.quote,
+          inputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+          outputTokenProgram: instrumentProgram,
+          createOutputAccount: !(info.account !== null && info.account.data.length > 0),
+        });
+      }
+    } catch (error) {
+      if (error instanceof SolanaRpcError) {
+        return null;
+      }
+      throw error;
+    }
+    let unsignedTransaction: string;
+    try {
+      unsignedTransaction = (
+        await venue.compose({
+          legs: composeLegs,
+          owner,
+          recentBlockhash,
+          computeUnitLimit: COMPOSITION_COMPUTE_UNIT_LIMIT,
+          computeUnitPriceMicroLamports: COMPOSITION_COMPUTE_UNIT_PRICE_MICRO_LAMPORTS,
+        })
+      ).unsignedTransaction;
+    } catch (error) {
+      if (error instanceof VenueQuoteError) {
+        return null;
+      }
+      throw error;
+    }
+    let sizeBytes: number;
+    try {
+      const bytes = base64ToBytes(unsignedTransaction);
+      parseTransaction(bytes);
+      sizeBytes = bytes.length;
+    } catch {
+      return null;
+    }
+    if (sizeBytes > MAX_TRANSACTION_BYTES) {
+      return {
+        fits: false,
+        reason: 'composition_too_large',
+        sizeBytes,
+        maxBytes: MAX_TRANSACTION_BYTES,
+        simulation: null,
+      };
+    }
+    let simulation: SimulationEvidence;
+    try {
+      const simulated = await rpc.simulateTransaction(unsignedTransaction, {
+        sigVerify: false,
+        replaceRecentBlockhash: false,
+        commitment: 'confirmed',
+      });
+      simulation = {
+        status: simulated.err === null ? 'ok' : 'failed',
+        unitsConsumed: simulated.unitsConsumed,
+        err: simulated.err === null ? null : JSON.stringify(simulated.err).slice(0, 300),
+        logsHash: logsHash(simulated.logs),
+        slot: simulated.slot,
+        observedAt: at.toISOString(),
+      };
+    } catch (error) {
+      if (error instanceof SolanaRpcError) {
+        return {
+          fits: false,
+          reason: 'composition_unavailable',
+          sizeBytes,
+          maxBytes: MAX_TRANSACTION_BYTES,
+          simulation: null,
+        };
+      }
+      throw error;
+    }
+    return {
+      fits: simulation.status === 'ok',
+      reason: simulation.status === 'ok' ? 'composition_fits' : 'composition_simulation_failed',
+      sizeBytes,
+      maxBytes: MAX_TRANSACTION_BYTES,
+      simulation,
+    };
+  };
+
+  /**
+   * The legs a partially completed basket left unfilled, at their original
+   * targets: what a reviewed completion buys, and nothing else. Null when the
+   * intent is not partially completed or has no plan.
+   */
+  const remainingLegsOf = async (
+    userId: string,
+    original: IntentRow,
+  ): Promise<{ plan: ExecutionPlanRow; legs: ExecutionPlan['legs'] } | null> => {
+    if (original.state !== 'PARTIALLY_COMPLETED' || original.latestPlanId === null) {
+      return null;
+    }
+    const plan = await findPlan(db, userId, original.latestPlanId);
+    if (!plan) {
+      return null;
+    }
+    const filled = new Set((await listFills(db, original.id)).map((fill) => fill.legIndex));
+    return { plan, legs: plan.plan.legs.filter((leg) => !filled.has(leg.legIndex)) };
+  };
 
   const strategyRef = (version: StrategyVersionRow | null): Intent['strategy'] =>
     version === null
@@ -154,6 +315,15 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
       slippageBps: row.slippageBps,
       latestPlanId: row.latestPlanId,
       latestPlanHash: row.latestPlanHash,
+      continuation:
+        row.continuationOfIntentId && row.continuationOfPlanId && row.continuationLegIndexes
+          ? {
+              ofIntentId: row.continuationOfIntentId,
+              ofPlanId: row.continuationOfPlanId,
+              legIndexes: [...row.continuationLegIndexes],
+            }
+          : null,
+      continuedByIntentId: row.continuedByIntentId,
       idempotencyKey: row.idempotencyKey,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -261,6 +431,68 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         symbol: stablecoin.symbol,
         decimals: stablecoin.decimals,
       };
+      // A reviewed completion (B11): the same wallet and version, the unfilled legs of the named
+      // partially completed intent at their original targets, and a budget equal to their sum.
+      let continuation: { ofIntentId: string; ofPlanId: string; legIndexes: number[] } | null =
+        null;
+      if (request.continuationOfIntentId !== null) {
+        const original = await findIntent(db, userId, request.continuationOfIntentId);
+        if (!original) {
+          throw new ApiError('NOT_FOUND', 'no intent with that id to continue');
+        }
+        if (original.state !== 'PARTIALLY_COMPLETED') {
+          throw new ApiError(
+            'VALIDATION_FAILED',
+            `the intent to continue is ${original.state}; only a partially completed basket is continued`,
+            [{ path: 'continuationOfIntentId', message: 'the intent is not PARTIALLY_COMPLETED' }],
+          );
+        }
+        if (original.continuedByIntentId !== null) {
+          throw new ApiError(
+            'VALIDATION_FAILED',
+            `the intent is already continued by ${original.continuedByIntentId}`,
+            [{ path: 'continuationOfIntentId', message: 'already continued' }],
+          );
+        }
+        const remaining = await remainingLegsOf(userId, original);
+        if (remaining === null || remaining.legs.length === 0) {
+          throw new ApiError('VALIDATION_FAILED', 'the intent has no unfilled legs to complete', [
+            { path: 'continuationOfIntentId', message: 'nothing remains' },
+          ]);
+        }
+        const issues: { path: string; message: string }[] = [];
+        if (request.walletId !== original.walletId) {
+          issues.push({ path: 'walletId', message: 'a continuation uses the original wallet' });
+        }
+        if (request.strategyVersionId !== original.versionId) {
+          issues.push({
+            path: 'strategyVersionId',
+            message: 'a continuation pins the original version',
+          });
+        }
+        const remainingRaw = remaining.legs.reduce(
+          (sum, leg) => sum + BigInt(leg.targetInputRaw),
+          0n,
+        );
+        if (BigInt(request.budget.rawAmount) !== remainingRaw) {
+          issues.push({
+            path: 'budget.rawAmount',
+            message: `the remaining legs total ${remainingRaw} raw ${stablecoin.symbol}; a continuation neither adds to nor moves budget between constituents`,
+          });
+        }
+        if (issues.length > 0) {
+          throw new ApiError(
+            'VALIDATION_FAILED',
+            'a reviewed completion buys exactly the unfilled legs at their original targets',
+            issues,
+          );
+        }
+        continuation = {
+          ofIntentId: original.id,
+          ofPlanId: remaining.plan.id,
+          legIndexes: remaining.legs.map((leg) => leg.legIndex),
+        };
+      }
       if (request.kind === 'basket_investment') {
         const versionId = request.strategyVersionId as string;
         const found = await findVersionById(db, versionId);
@@ -312,6 +544,7 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
           executionPreference: request.executionPreference,
           approvalMode: request.approvalMode,
           slippageBps: request.slippageBps,
+          continuationOfIntentId: request.continuationOfIntentId,
         }),
       );
       const outcome = await createIntentRow(db, {
@@ -335,6 +568,7 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         executionPreference: request.executionPreference,
         approvalMode: request.approvalMode,
         slippageBps,
+        continuation,
         now: at,
         expiresAt: new Date(at.getTime() + INTENT_TTL_SECONDS * 1000),
       });
@@ -347,11 +581,29 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         }
         return { intent: await toIntent(outcome.row), created: false };
       }
+      if (continuation !== null) {
+        const marked = await markIntentContinued(db, continuation.ofIntentId, outcome.row.id, at);
+        if (!marked) {
+          await transitionIntent(db, {
+            intentId: outcome.row.id,
+            from: ['DRAFT'],
+            to: 'CANCELLED',
+            reason: 'another continuation of the same basket was created first',
+            now: at,
+          });
+          throw new ApiError(
+            'VALIDATION_FAILED',
+            'another continuation of the same basket was created first',
+            [{ path: 'continuationOfIntentId', message: 'already continued' }],
+          );
+        }
+      }
       await audit(principal, 'planning.intent.created', 'intent', outcome.row.id, requestId, {
         kind: request.kind,
         budgetRaw: request.budget.rawAmount,
         budgetMode: request.budgetMode,
         walletId: wallet.id,
+        continuationOfIntentId: continuation?.ofIntentId ?? null,
       });
       return { intent: await toIntent(outcome.row), created: true };
     },
@@ -401,16 +653,46 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
       let version: StrategyVersionRow | null = null;
       let recipe: readonly { instrumentId: string; weightBps: number }[];
       let cashWeightBps = 0;
+      /** A continuation's fixed targets: the original plan's unfilled legs, never re-weighted. */
+      let fixedTargets: ReadonlyMap<string, bigint> | null = null;
       if (intent.kind === 'basket_investment') {
         version = await findVersionById(db, intent.versionId as string);
         if (!version) {
           throw new ApiError('NOT_FOUND', 'the pinned version no longer exists');
         }
-        recipe = version.legs.map((leg: FrozenLeg) => ({
-          instrumentId: leg.instrumentId,
-          weightBps: leg.weightBps,
-        }));
-        cashWeightBps = version.cashWeightBps;
+        if (intent.continuationOfIntentId !== null) {
+          const original = await findIntent(db, userId, intent.continuationOfIntentId);
+          const remaining = original === null ? null : await remainingLegsOf(userId, original);
+          if (
+            remaining === null ||
+            remaining.plan.id !== intent.continuationOfPlanId ||
+            remaining.legs.length === 0
+          ) {
+            throw new ApiError(
+              'PLAN_CHANGED',
+              'the basket this intent completes no longer has unfilled legs; create a new intent',
+            );
+          }
+          const wanted = new Set(intent.continuationLegIndexes ?? []);
+          const legs = remaining.legs.filter((leg) => wanted.has(leg.legIndex));
+          if (legs.length !== wanted.size) {
+            throw new ApiError(
+              'PLAN_CHANGED',
+              'a leg this intent was to complete has since filled; create a new intent',
+            );
+          }
+          recipe = legs.map((leg) => ({
+            instrumentId: leg.instrumentId,
+            weightBps: leg.weightBps,
+          }));
+          fixedTargets = new Map(legs.map((leg) => [leg.instrumentId, BigInt(leg.targetInputRaw)]));
+        } else {
+          recipe = version.legs.map((leg: FrozenLeg) => ({
+            instrumentId: leg.instrumentId,
+            weightBps: leg.weightBps,
+          }));
+          cashWeightBps = version.cashWeightBps;
+        }
       } else {
         recipe = [{ instrumentId: intent.instrumentId as string, weightBps: 10_000 }];
       }
@@ -448,18 +730,46 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
       // 3. Integer allocation, refused (not reshaped) when a route minimum is not met.
       const budgetRaw = BigInt(intent.budgetRaw);
       const budgetMode = intent.budgetMode as Intent['budgetMode'];
-      const allocation = allocateBudget({
-        budgetRaw,
-        mode: budgetMode,
-        legs: recipe.map((leg) => ({
-          key: leg.instrumentId,
-          weightBps: leg.weightBps,
-          // Route minimums are documented in stablecoin units; a sell's input is the instrument.
-          minimumInputRaw: side === 'buy' ? venue.minimumInputRaw : null,
-        })),
-        cashWeightBps,
-        feeReserveRaw: side === 'buy' ? protocolFeeRaw(budgetRaw) : 0n,
-      });
+      // A continuation keeps the original targets exactly: no re-weighting, no fee reserve (the
+      // original plan reserved it on the whole basket) and no cash remainder.
+      const allocation: ReturnType<typeof allocateBudget> =
+        fixedTargets === null
+          ? allocateBudget({
+              budgetRaw,
+              mode: budgetMode,
+              legs: recipe.map((leg) => ({
+                key: leg.instrumentId,
+                weightBps: leg.weightBps,
+                // Route minimums are documented in stablecoin units; a sell's input is the instrument.
+                minimumInputRaw: side === 'buy' ? venue.minimumInputRaw : null,
+              })),
+              cashWeightBps,
+              feeReserveRaw: side === 'buy' ? protocolFeeRaw(budgetRaw) : 0n,
+            })
+          : {
+              ok: true,
+              investableRaw: budgetRaw,
+              totalSpendRaw: budgetRaw,
+              feeReserveRaw: 0n,
+              legs: recipe.map((leg) => {
+                const targetRaw = fixedTargets?.get(leg.instrumentId) ?? 0n;
+                return {
+                  key: leg.instrumentId,
+                  weightBps: leg.weightBps,
+                  exactFloorRaw: targetRaw,
+                  roundingRaw: 0n,
+                  targetRaw,
+                };
+              }),
+              cash: {
+                key: 'cash',
+                weightBps: 0,
+                exactFloorRaw: 0n,
+                roundingRaw: 0n,
+                targetRaw: 0n,
+              },
+              sumRaw: budgetRaw,
+            };
       if (!allocation.ok) {
         await audit(principal, 'planning.plan.refused', 'intent', intent.id, requestId, {
           code: allocation.code,
@@ -645,6 +955,20 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         });
       }
 
+      // 5b. Several legs: the whole basket is composed, measured and simulated now. It is atomic only
+      // when it fits and passes; otherwise the plan is staged, one transaction per leg, with the reason.
+      const composition =
+        planLegs.length > 1
+          ? await composeBasket(
+              planLegs.map((leg, index) => ({
+                instrument: instruments[index] as InstrumentDetail,
+                quote: leg.quote,
+              })),
+              intent.walletAddress,
+              at,
+            )
+          : null;
+
       // 6. The immutable plan, hashed over its binding fields.
       const first = decisions[0] as PolicyDecision;
       const plan = assemblePlan({
@@ -678,6 +1002,7 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         },
         allocation,
         legs: planLegs,
+        composition,
         fees: {
           feePayer: intent.walletAddress,
           rentExemptTokenAccountLamports: rentExempt,
@@ -736,6 +1061,9 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         mode,
         legs: plan.legs.length,
         grouping: plan.grouping.mode,
+        groupingReason: plan.grouping.reason,
+        composition: plan.grouping.composition,
+        continuationOfIntentId: intent.continuationOfIntentId,
         totalSpendRaw: plan.input.totalSpendRaw,
         expiresAt: plan.validity.expiresAt,
       });
@@ -838,12 +1166,17 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         return toIntent(intent);
       }
       if (intent.state === 'AUTHORIZED') {
-        // A prepared, unsigned transaction is withdrawn; nothing was broadcast.
+        // A prepared, unsigned transaction is withdrawn; nothing was broadcast. A staged basket
+        // that already filled earlier legs is partially completed, not cancelled: what landed stays.
+        const filled = await listFills(db, intent.id);
         const moved = await transitionIntent(db, {
           intentId: intent.id,
           from: ['AUTHORIZED'],
-          to: 'CANCELLED',
-          reason: 'cancelled by the owner before any signature was submitted',
+          to: filled.length > 0 ? 'PARTIALLY_COMPLETED' : 'CANCELLED',
+          reason:
+            filled.length > 0
+              ? `cancelled by the owner after ${filled.length} leg${filled.length === 1 ? '' : 's'} filled; the remaining legs were not built and the basket stays partial until a reviewed completion or exit`
+              : 'cancelled by the owner before any signature was submitted',
           now: at,
         });
         if (!moved) {
@@ -857,15 +1190,17 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
           }
         }
         await insertOutboxEvent(db, {
-          kind: 'execution.cancelled',
+          kind: moved.state === 'PARTIALLY_COMPLETED' ? 'execution.partial' : 'execution.cancelled',
           aggregateType: 'intent',
           aggregateId: intent.id,
           ownerUserId: userId,
-          payload: { fromState: intent.state },
+          payload: { fromState: intent.state, filledLegs: filled.length },
           now: at,
         });
         await audit(principal, 'planning.intent.cancelled', 'intent', intent.id, requestId, {
           fromState: intent.state,
+          toState: moved.state,
+          filledLegs: filled.length,
         });
         return toIntent(moved);
       }

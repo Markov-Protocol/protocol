@@ -1,4 +1,12 @@
-import type { ExecutionPlan, IntentKind, PlanMode, PlanSide, VenueQuote } from '@markov/contracts';
+import type {
+  ExecutionPlan,
+  GroupingReason,
+  IntentKind,
+  PlanMode,
+  PlanSide,
+  SimulationEvidence,
+  VenueQuote,
+} from '@markov/contracts';
 import type { Allocation } from './allocate.js';
 import { canonicalJson, sha256Hex } from './canonical.js';
 import {
@@ -69,12 +77,26 @@ export interface PlanAssemblyInput {
     readonly inputRaw: bigint;
     readonly lamports: bigint;
   };
+  /**
+   * The whole-basket composition attempted for several legs (B11): atomic
+   * only when it fits the packet and simulated successfully on the node.
+   * Null for one leg, or when the venue cannot compose.
+   */
+  readonly composition: PlanComposition | null;
   readonly evidence: {
     readonly eligibilityDecisionId: string | null;
     readonly policyVersion: string | null;
     readonly instrumentUpdatedAt: readonly string[];
   };
   readonly createdAt: Date;
+}
+
+export interface PlanComposition {
+  readonly fits: boolean;
+  readonly reason: Exclude<GroupingReason, 'single_leg'>;
+  readonly sizeBytes: number | null;
+  readonly maxBytes: number;
+  readonly simulation: SimulationEvidence | null;
 }
 
 const str = (value: bigint): string => value.toString();
@@ -95,10 +117,17 @@ function latest(instants: readonly string[]): string {
  * simulation exist (B11). Every bound is an integer in raw base units.
  */
 export function assemblePlan(input: PlanAssemblyInput): ExecutionPlan {
-  const staged = input.legs.length > 1;
-  if (input.side === 'sell' && staged) {
+  const multi = input.legs.length > 1;
+  if (input.side === 'sell' && multi) {
     throw new Error('a sell plan has exactly one leg');
   }
+  const composition = multi ? input.composition : null;
+  const staged = multi && !(composition?.fits === true);
+  const reason: GroupingReason = !multi
+    ? 'single_leg'
+    : composition === null
+      ? 'composition_unavailable'
+      : composition.reason;
   const legs: ExecutionPlan['legs'] = input.legs.map((leg, index) => ({
     legIndex: index,
     instrumentId: leg.instrumentId,
@@ -198,6 +227,15 @@ export function assemblePlan(input: PlanAssemblyInput): ExecutionPlan {
     warnings.push(
       `Staged execution: ${legs.length} separate transactions land one by one; a later batch can fail or expire after earlier ones filled, and no budget is moved between constituents on its own.`,
     );
+    if (reason === 'composition_too_large') {
+      warnings.push(
+        `The whole basket does not fit one transaction (${composition?.sizeBytes ?? '?'} of at most ${composition?.maxBytes ?? '?'} bytes).`,
+      );
+    } else if (reason === 'composition_simulation_failed') {
+      warnings.push(
+        `The whole basket failed simulation as one transaction (${composition?.simulation?.err ?? 'no detail'}); legs land one by one.`,
+      );
+    }
   }
   for (const leg of legs) {
     if (leg.priceImpactBps !== null && leg.priceImpactBps > PRICE_IMPACT_WARNING_BPS) {
@@ -275,11 +313,20 @@ export function assemblePlan(input: PlanAssemblyInput): ExecutionPlan {
     },
     grouping: {
       mode: staged ? 'staged' : 'atomic',
+      reason,
+      composition:
+        composition === null
+          ? null
+          : { sizeBytes: composition.sizeBytes, maxBytes: composition.maxBytes, legs: legs.length },
       batches: groupingBatches,
       acknowledgementRequired: staged,
       note: staged
-        ? 'Whole-basket composition and simulation arrive with B11; until then a basket is a sequence of single-constituent transactions, each reviewed against the approved bounds before it is built.'
-        : 'One transaction: it lands entirely or not at all. It is simulated before submission (B10); no simulation has happened yet.',
+        ? reason === 'composition_unavailable'
+          ? 'The venue cannot compose several constituents into one transaction, so this basket is a sequence of single-constituent transactions; before each one is built its terms are checked again against the approved bounds, and the run stops as partially completed when they no longer hold.'
+          : 'This basket is a sequence of single-constituent transactions; before each one is built its terms are checked again against the approved bounds, and the run stops as partially completed when they no longer hold. No budget moves between constituents on its own.'
+        : multi
+          ? `One transaction for all ${legs.length} constituents: it lands entirely or not at all. The composed transaction was simulated on the node when this plan was built and is simulated again before it is shown for signing.`
+          : 'One transaction: it lands entirely or not at all. It is simulated before it is shown for signing.',
     },
     bounds: {
       maxTotalInputRaw: str(maxTotalInputRaw),
@@ -296,7 +343,7 @@ export function assemblePlan(input: PlanAssemblyInput): ExecutionPlan {
       quotesExpireAt,
       policyExpiresAt,
       expiresAt,
-      simulation: null,
+      simulation: staged ? null : (composition?.simulation ?? null),
       evidence: {
         eligibilityDecisionId: input.evidence.eligibilityDecisionId,
         policyVersion: input.evidence.policyVersion,
@@ -362,7 +409,11 @@ export function planBinding(plan: Omit<ExecutionPlan, 'planHash'>): Record<strin
       batch: leg.batch,
     })),
     fees: plan.fees,
-    grouping: { mode: plan.grouping.mode, batches: plan.grouping.batches },
+    grouping: {
+      mode: plan.grouping.mode,
+      reason: plan.grouping.reason,
+      batches: plan.grouping.batches,
+    },
     bounds: plan.bounds,
     validity: {
       quotesExpireAt: plan.validity.quotesExpireAt,

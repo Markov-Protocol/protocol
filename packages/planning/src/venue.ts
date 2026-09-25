@@ -30,6 +30,27 @@ export interface VenueBuild {
   readonly sourceRef: string;
 }
 
+/** One leg of a whole-basket composition. */
+export interface VenueComposeLeg {
+  readonly quote: VenueQuote;
+  readonly inputTokenProgram: string;
+  readonly outputTokenProgram: string;
+  readonly createOutputAccount: boolean;
+}
+
+/**
+ * Every leg in one transaction: account creations first, then the swaps in
+ * leg order, sharing the owner's input account. The result is measured and
+ * simulated as a whole before a plan is called atomic.
+ */
+export interface VenueComposeRequest {
+  readonly legs: readonly VenueComposeLeg[];
+  readonly owner: string;
+  readonly recentBlockhash: string;
+  readonly computeUnitLimit: number;
+  readonly computeUnitPriceMicroLamports: bigint;
+}
+
 export interface VenueAdapter {
   readonly venue: 'jupiter';
   readonly mode: VenueQuoteMode;
@@ -40,6 +61,8 @@ export interface VenueAdapter {
   quote(request: VenueQuoteRequest): Promise<VenueQuote>;
   /** Null when this adapter cannot build transactions (a quote-only gateway): execution stays unavailable. */
   readonly build: ((request: VenueBuildRequest) => Promise<VenueBuild>) | null;
+  /** Null when this adapter cannot compose several legs into one transaction: baskets stay staged. */
+  readonly compose: ((request: VenueComposeRequest) => Promise<VenueBuild>) | null;
 }
 
 export type VenueQuoteFailureKind =

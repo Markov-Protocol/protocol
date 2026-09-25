@@ -302,7 +302,10 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     venueConfig.provider === null || config.funding.stablecoin === null
       ? null
       : venueConfig.provider === 'fixture'
-        ? createFixtureVenue({ stablecoin: config.funding.stablecoin })
+        ? createFixtureVenue({
+            stablecoin: config.funding.stablecoin,
+            composeMaxLegs: () => venueConfig.fixtureComposeMaxLegs,
+          })
         : createConfiguredUrlVenue({
             url: venueConfig.quoteUrl as string,
             apiKey: venueConfig.apiKey,
@@ -368,6 +371,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
       policy: policyService,
       funding: fundingService,
       venue,
+      rpcClients: clients,
       genesisHash: expectedGenesisHash,
     }),
     execution: createExecutionService({

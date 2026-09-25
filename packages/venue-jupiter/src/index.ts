@@ -16,6 +16,7 @@ import {
   type VenueAdapter,
   type VenueBuild,
   type VenueBuildRequest,
+  type VenueComposeRequest,
   VenueQuoteError,
 } from '@markov/planning';
 import {
@@ -125,6 +126,10 @@ export interface FixtureVenueOptions {
   readonly now?: () => Date;
   /** Test control: answer as if the venue were unreachable. */
   readonly outage?: () => boolean;
+  /** Test control: shifts every quote's output by this many basis points (negative worsens the terms). */
+  readonly quoteShiftBps?: () => number;
+  /** Test control: the most legs `compose` puts in one transaction; more answers `no_route` so plans stay staged. */
+  readonly composeMaxLegs?: () => number | null;
 }
 
 function pow10(exponent: number): bigint {
@@ -241,7 +246,9 @@ export function createFixtureVenue(options: FixtureVenueOptions): VenueAdapter {
       if (!priced) {
         throw new VenueQuoteError('no_route', 'the fixture venue has no route for this pair');
       }
-      const { outAmountRaw: outAmount, impactBps } = priced;
+      const shift = BigInt(options.quoteShiftBps?.() ?? 0);
+      const outAmount = (priced.outAmountRaw * (10_000n + shift)) / 10_000n;
+      const { impactBps } = priced;
       if (outAmount === 0n) {
         throw new VenueQuoteError('no_route', 'the input is too small for one output unit');
       }
@@ -275,6 +282,19 @@ export function createFixtureVenue(options: FixtureVenueOptions): VenueAdapter {
         throw new VenueQuoteError('unreachable', 'the fixture venue is in a simulated outage');
       }
       return buildFixtureSwapTransaction(request);
+    },
+    async compose(request) {
+      if (options.outage?.()) {
+        throw new VenueQuoteError('unreachable', 'the fixture venue is in a simulated outage');
+      }
+      const limit = options.composeMaxLegs?.() ?? null;
+      if (limit !== null && request.legs.length > limit) {
+        throw new VenueQuoteError(
+          'no_route',
+          `the fixture venue composes at most ${limit} legs into one transaction`,
+        );
+      }
+      return composeFixtureSwapTransaction(request);
     },
   };
 }
@@ -335,6 +355,83 @@ export function buildFixtureSwapTransaction(request: VenueBuildRequest): VenueBu
       },
     ),
   );
+  const message = compileLegacyMessage({
+    feePayer: owner,
+    instructions,
+    recentBlockhash: request.recentBlockhash,
+  });
+  return {
+    unsignedTransaction: bytesToBase64(unsignedTransaction(message)),
+    version: 'legacy',
+    sourceRef: 'fixture:venue',
+  };
+}
+
+/**
+ * Every leg of a basket in one legacy transaction: compute budget, then
+ * the idempotent creations of the owner's output token accounts that are
+ * missing, then one swap per leg in leg order. The swaps share the owner's
+ * input account, so the fixture chain executes them sequentially over one
+ * state and the whole message is measured and simulated before a plan
+ * calls itself atomic. Nothing is closed afterwards: there is no wrapped
+ * SOL and no temporary account in this route.
+ */
+export function composeFixtureSwapTransaction(request: VenueComposeRequest): VenueBuild {
+  const { owner } = request;
+  const limit = new Uint8Array(5);
+  limit[0] = 2;
+  new DataView(limit.buffer).setUint32(1, request.computeUnitLimit, true);
+  const price = new Uint8Array(9);
+  price[0] = 3;
+  new DataView(price.buffer).setBigUint64(1, request.computeUnitPriceMicroLamports, true);
+  const instructions: Instruction[] = [
+    { programId: COMPUTE_BUDGET_PROGRAM_ID, accounts: [], data: limit },
+    { programId: COMPUTE_BUDGET_PROGRAM_ID, accounts: [], data: price },
+  ];
+  const created = new Set<string>();
+  for (const leg of request.legs) {
+    const destination = associatedTokenAddress(
+      owner,
+      leg.quote.outputMint,
+      leg.outputTokenProgram,
+    ).address;
+    if (leg.createOutputAccount && !created.has(destination)) {
+      created.add(destination);
+      instructions.push({
+        programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+        accounts: [
+          { pubkey: owner, isSigner: true, isWritable: true },
+          { pubkey: destination, isSigner: false, isWritable: true },
+          { pubkey: owner, isSigner: false, isWritable: false },
+          { pubkey: leg.quote.outputMint, isSigner: false, isWritable: false },
+          { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+          { pubkey: leg.outputTokenProgram, isSigner: false, isWritable: false },
+        ],
+        data: Uint8Array.of(1),
+      });
+    }
+  }
+  for (const leg of request.legs) {
+    instructions.push(
+      fixtureSwapInstruction(
+        {
+          owner,
+          source: associatedTokenAddress(owner, leg.quote.inputMint, leg.inputTokenProgram).address,
+          destination: associatedTokenAddress(owner, leg.quote.outputMint, leg.outputTokenProgram)
+            .address,
+          inputMint: leg.quote.inputMint,
+          outputMint: leg.quote.outputMint,
+          inputTokenProgram: leg.inputTokenProgram,
+          outputTokenProgram: leg.outputTokenProgram,
+        },
+        {
+          inAmountRaw: BigInt(leg.quote.inAmountRaw),
+          minimumOutRaw: BigInt(leg.quote.otherAmountThresholdRaw),
+          slippageBps: leg.quote.slippageBps,
+        },
+      ),
+    );
+  }
   const message = compileLegacyMessage({
     feePayer: owner,
     instructions,
@@ -463,6 +560,8 @@ export function createConfiguredUrlVenue(options: ConfiguredUrlVenueOptions): Ve
       }
       return { ...parsed.data, sourceRef };
     },
+    // Whole-basket composition through a gateway is not part of the build contract yet (OD-21): baskets stay staged.
+    compose: null,
     build:
       buildUrl === null
         ? null

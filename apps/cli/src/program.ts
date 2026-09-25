@@ -1724,6 +1724,10 @@ export function buildProgram(io: CliIo = stdio): Command {
       '--slippage-bps <n>',
       'slippage in basis points (default: platform default within your limit)',
     )
+    .option(
+      '--continue-intent <intentId>',
+      'a reviewed completion: buy the legs this partially completed basket left unfilled, at their original targets (same wallet and version; the budget must equal their sum)',
+    )
     .option('--idempotency-key <key>', 'client key scoped to you (default: a random key)')
     .requiredOption('--token <token>', 'user session token')
     .option(...apiUrlOption)
@@ -1736,6 +1740,7 @@ export function buildProgram(io: CliIo = stdio): Command {
         sell?: boolean;
         mode: string;
         slippageBps?: string;
+        continueIntent?: string;
         idempotencyKey?: string;
         token: string;
         url: string;
@@ -1767,6 +1772,7 @@ export function buildProgram(io: CliIo = stdio): Command {
                 budget: { rawAmount: options.budget },
                 budgetMode: options.mode,
                 ...(options.slippageBps ? { slippageBps: Number(options.slippageBps) } : {}),
+                continuationOfIntentId: options.continueIntent ?? null,
                 idempotencyKey: options.idempotencyKey ?? `cli-${randomUUID()}`,
               },
               options.token,

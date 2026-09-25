@@ -3,6 +3,7 @@ import type {
   ExecutionPlan,
   PlanLeg,
   TransactionEffects,
+  TransactionLegEffect,
 } from '@markov/contracts';
 import { routeProgramVerdict } from '@markov/planning';
 import {
@@ -26,11 +27,14 @@ import { type DecodedEntry, decodeInstruction, summarize } from './decode.js';
  * Validation of a built transaction against the approved plan. The venue's
  * bytes are untrusted: every instruction is decoded and compared with what
  * the plan allows (fee payer, the one signer, the token accounts of the
- * owner, the mints, the exact input and the minimum output, compute budget
- * bounds, account creation only for the owner), and anything else is a
- * refusal. Fail closed: a program the matrix has not reviewed for the plan's
- * mode, an instruction the decoder cannot name, or an account that could be
- * written for no explained reason all refuse the transaction.
+ * owner, the mints, the exact input and the minimum output of every leg,
+ * compute budget bounds, account creation only for the owner), and anything
+ * else is a refusal. A transaction carries one leg (B10) or every leg of an
+ * atomic basket (B11): each swap must match exactly one leg and every leg
+ * must be swapped exactly once. Fail closed: a program the matrix has not
+ * reviewed for the plan's mode, an instruction the decoder cannot name, or
+ * an account that could be written for no explained reason all refuse the
+ * transaction.
  */
 
 export type ValidationCode =
@@ -65,11 +69,14 @@ export interface ValidationRefusal {
 
 export interface SwapExpectation {
   readonly plan: ExecutionPlan;
-  readonly leg: PlanLeg;
-  /** The wallet that pays, signs and owns both token accounts. */
+  /** The legs this transaction carries: one for a single-leg plan or a staged batch, all of them for an atomic basket. */
+  readonly legs: readonly PlanLeg[];
+  /** The wallet that pays, signs and owns every token account. */
   readonly owner: string;
-  readonly inputTokenProgram: string;
-  readonly outputTokenProgram: string;
+  /** Token program of the platform stablecoin. */
+  readonly stablecoinTokenProgram: string;
+  /** Token program of each instrument mint (the leg's `tokenProgram` mapped to a program id). */
+  readonly instrumentTokenProgram: (leg: PlanLeg) => string;
   /** Addresses of every lookup table the message names (versioned messages only). */
   readonly lookupTables?: ReadonlyMap<string, readonly string[]>;
 }
@@ -95,13 +102,39 @@ export function priorityFeeLamports(unitLimit: number, unitPriceMicroLamports: b
   return (BigInt(unitLimit) * unitPriceMicroLamports + 999_999n) / 1_000_000n;
 }
 
+interface LegAccounts {
+  readonly leg: PlanLeg;
+  readonly inputTokenProgram: string;
+  readonly outputTokenProgram: string;
+  readonly source: string;
+  readonly destination: string;
+}
+
+/** The token programs and the owner's associated token accounts of a leg. */
+export function legTokenAccounts(
+  leg: PlanLeg,
+  owner: string,
+  stablecoinTokenProgram: string,
+  instrumentTokenProgram: string,
+): LegAccounts {
+  const inputTokenProgram = leg.side === 'buy' ? stablecoinTokenProgram : instrumentTokenProgram;
+  const outputTokenProgram = leg.side === 'buy' ? instrumentTokenProgram : stablecoinTokenProgram;
+  return {
+    leg,
+    inputTokenProgram,
+    outputTokenProgram,
+    source: associatedTokenAddress(owner, leg.inputMint, inputTokenProgram).address,
+    destination: associatedTokenAddress(owner, leg.outputMint, outputTokenProgram).address,
+  };
+}
+
 export function validateSwapTransaction(
   transaction: Transaction,
   expectation: SwapExpectation,
 ): ValidationResult {
   const refusals: ValidationRefusal[] = [];
   const { message } = transaction;
-  const { plan, leg, owner } = expectation;
+  const { plan, owner } = expectation;
 
   let accounts: readonly ResolvedAccount[];
   try {
@@ -165,25 +198,38 @@ export function validateSwapTransaction(
     );
   }
 
-  // The owner's token accounts for the leg's mints.
-  const sourceAta = associatedTokenAddress(
-    owner,
-    leg.inputMint,
-    expectation.inputTokenProgram,
-  ).address;
-  const destinationAta = associatedTokenAddress(
-    owner,
-    leg.outputMint,
-    expectation.outputTokenProgram,
-  ).address;
-  const allowedWritable = new Set([owner, sourceAta, destinationAta]);
+  // The owner's token accounts for every leg's mints.
+  const legs = expectation.legs.map((leg) =>
+    legTokenAccounts(
+      leg,
+      owner,
+      expectation.stablecoinTokenProgram,
+      expectation.instrumentTokenProgram(leg),
+    ),
+  );
+  if (legs.length === 0) {
+    refusals.push(refusal('ROUTE_MISSING', 'the transaction carries no leg of the plan'));
+  }
+  const allowedWritable = new Set([owner, ...legs.flatMap((l) => [l.source, l.destination])]);
+  const allowedCreations = new Map<
+    string,
+    LegAccounts & { readonly mint: string; readonly program: string }
+  >();
+  for (const l of legs) {
+    allowedCreations.set(l.source, { ...l, mint: l.leg.inputMint, program: l.inputTokenProgram });
+    allowedCreations.set(l.destination, {
+      ...l,
+      mint: l.leg.outputMint,
+      program: l.outputTokenProgram,
+    });
+  }
   const accountsCreated: string[] = [];
   let unitLimit: number | null = null;
   let unitPrice = 0n;
   let limitCount = 0;
   let priceCount = 0;
-  let swap: Extract<DecodedEntry['decoded'], { kind: 'route_swap' }> | null = null;
-  let swapCount = 0;
+  const matched = new Map<number, TransactionLegEffect>();
+  const swapsSeen: number[] = [];
 
   for (const entry of entries) {
     const d = entry.decoded;
@@ -236,23 +282,20 @@ export function validateSwapTransaction(
         refusals.push(refusal('ACCOUNT_CLOSURE', summarize(entry), at));
         break;
       case 'ata_create': {
-        const expectedMint = d.mint === leg.inputMint || d.mint === leg.outputMint;
-        const expectedProgram =
-          (d.mint === leg.inputMint && d.tokenProgram === expectation.inputTokenProgram) ||
-          (d.mint === leg.outputMint && d.tokenProgram === expectation.outputTokenProgram);
-        const expectedAta = d.mint === leg.inputMint ? sourceAta : destinationAta;
+        const expected = allowedCreations.get(d.ata);
         if (
+          !expected ||
           d.owner !== owner ||
           d.payer !== owner ||
-          !expectedMint ||
-          !expectedProgram ||
-          d.ata !== expectedAta ||
-          !d.idempotent
+          d.mint !== expected.mint ||
+          d.tokenProgram !== expected.program ||
+          !d.idempotent ||
+          accountsCreated.includes(d.ata)
         ) {
           refusals.push(
             refusal(
               'ACCOUNT_CREATION_NOT_ALLOWED',
-              'only an idempotent creation of the owner’s own token account for one of the plan’s mints, paid by the owner, is allowed',
+              'only one idempotent creation of the owner’s own token account for one of the plan’s mints, paid by the owner, is allowed',
               at,
             ),
           );
@@ -262,7 +305,7 @@ export function validateSwapTransaction(
         break;
       }
       case 'route_swap': {
-        swapCount += 1;
+        swapsSeen.push(at);
         if (routeProgramVerdict(d.programId, plan.mode) !== 'allowed') {
           refusals.push(
             refusal(
@@ -272,16 +315,43 @@ export function validateSwapTransaction(
             ),
           );
         }
+        // The leg this swap serves: same mints, not yet matched.
+        const candidate = legs.find(
+          (l) =>
+            l.leg.inputMint === d.inputMint &&
+            l.leg.outputMint === d.outputMint &&
+            !matched.has(l.leg.legIndex),
+        );
+        if (!candidate) {
+          const duplicate = legs.find(
+            (l) => l.leg.inputMint === d.inputMint && l.leg.outputMint === d.outputMint,
+          );
+          refusals.push(
+            duplicate
+              ? refusal(
+                  'ROUTE_DUPLICATED',
+                  `a second swap of ${d.inputMint} for ${d.outputMint}; the plan has one leg for that pair`,
+                  at,
+                )
+              : refusal('MINT_MISMATCH', 'the swap’s mints match no leg of this transaction', at),
+          );
+          break;
+        }
+        const leg = candidate.leg;
         if (!leg.quote.routePlan.some((step) => step.programId === d.programId)) {
           refusals.push(
             refusal(
               'PROGRAM_NOT_ALLOWED',
-              `route program ${d.programId} is not on the quoted route`,
+              `route program ${d.programId} is not on the quoted route of ${leg.symbol}`,
               at,
             ),
           );
         }
-        if (d.owner !== owner || d.source !== sourceAta || d.destination !== destinationAta) {
+        if (
+          d.owner !== owner ||
+          d.source !== candidate.source ||
+          d.destination !== candidate.destination
+        ) {
           refusals.push(
             refusal(
               'ROUTE_ACCOUNTS_MISMATCH',
@@ -290,14 +360,9 @@ export function validateSwapTransaction(
             ),
           );
         }
-        if (d.inputMint !== leg.inputMint || d.outputMint !== leg.outputMint) {
-          refusals.push(
-            refusal('MINT_MISMATCH', 'the swap’s mints differ from the plan’s leg', at),
-          );
-        }
         if (
-          d.inputTokenProgram !== expectation.inputTokenProgram ||
-          d.outputTokenProgram !== expectation.outputTokenProgram
+          d.inputTokenProgram !== candidate.inputTokenProgram ||
+          d.outputTokenProgram !== candidate.outputTokenProgram
         ) {
           refusals.push(
             refusal('MINT_MISMATCH', 'the swap names another token program than the mints use', at),
@@ -307,7 +372,7 @@ export function validateSwapTransaction(
           refusals.push(
             refusal(
               'INPUT_ABOVE_BOUND',
-              `input ${d.inAmountRaw} exceeds the approved maximum ${leg.maxInputRaw}`,
+              `${leg.symbol}: input ${d.inAmountRaw} exceeds the approved maximum ${leg.maxInputRaw}`,
               at,
             ),
           );
@@ -316,7 +381,7 @@ export function validateSwapTransaction(
           refusals.push(
             refusal(
               'OUTPUT_BELOW_BOUND',
-              `minimum output ${d.minimumOutRaw} is below the approved ${leg.minimumOutputRaw}`,
+              `${leg.symbol}: minimum output ${d.minimumOutRaw} is below the approved ${leg.minimumOutputRaw}`,
               at,
             ),
           );
@@ -325,12 +390,21 @@ export function validateSwapTransaction(
           refusals.push(
             refusal(
               'SLIPPAGE_ABOVE_LIMIT',
-              `slippage ${d.slippageBps} bps exceeds the approved ${leg.slippageBps} bps`,
+              `${leg.symbol}: slippage ${d.slippageBps} bps exceeds the approved ${leg.slippageBps} bps`,
               at,
             ),
           );
         }
-        swap = d;
+        matched.set(leg.legIndex, {
+          legIndex: leg.legIndex,
+          side: leg.side,
+          inputMint: d.inputMint,
+          outputMint: d.outputMint,
+          maxInputRaw: d.inAmountRaw.toString(),
+          minimumOutputRaw: d.minimumOutRaw.toString(),
+          sourceTokenAccount: candidate.source,
+          destinationTokenAccount: candidate.destination,
+        });
         break;
       }
       case 'unknown_program':
@@ -338,12 +412,12 @@ export function validateSwapTransaction(
         break;
     }
   }
-  if (swapCount === 0) {
-    refusals.push(refusal('ROUTE_MISSING', 'no reviewed swap instruction is present'));
-  } else if (swapCount > 1) {
-    refusals.push(
-      refusal('ROUTE_DUPLICATED', `${swapCount} swap instructions; the plan has one leg`),
-    );
+  for (const l of legs) {
+    if (!matched.has(l.leg.legIndex)) {
+      refusals.push(
+        refusal('ROUTE_MISSING', `no reviewed swap instruction serves ${l.leg.symbol}`),
+      );
+    }
   }
   if (limitCount > 1 || priceCount > 1) {
     refusals.push(
@@ -351,7 +425,7 @@ export function validateSwapTransaction(
     );
   }
 
-  // Writable accounts: only the owner and the owner's two token accounts.
+  // Writable accounts: only the owner and the owner's token accounts of the legs.
   for (const account of accounts) {
     if (account.isWritable && !allowedWritable.has(account.pubkey)) {
       refusals.push(
@@ -390,21 +464,18 @@ export function validateSwapTransaction(
   const baseFee =
     LAMPORTS_PER_SIGNATURE * BigInt(Math.max(1, message.header.numRequiredSignatures));
 
+  const legEffects = [...matched.values()].sort((a, b) => a.legIndex - b.legIndex);
+  const first = legs[0];
   const effects: TransactionEffects | null =
-    swap === null
+    legEffects.length === 0 || !first
       ? null
       : {
-          side: leg.side,
-          inputMint: (swap as Extract<DecodedEntry['decoded'], { kind: 'route_swap' }>).inputMint,
-          outputMint: (swap as Extract<DecodedEntry['decoded'], { kind: 'route_swap' }>).outputMint,
-          maxInputRaw: (
-            swap as Extract<DecodedEntry['decoded'], { kind: 'route_swap' }>
-          ).inAmountRaw.toString(),
-          minimumOutputRaw: (
-            swap as Extract<DecodedEntry['decoded'], { kind: 'route_swap' }>
-          ).minimumOutRaw.toString(),
-          sourceTokenAccount: sourceAta,
-          destinationTokenAccount: destinationAta,
+          side: first.leg.side,
+          inputMint: first.leg.inputMint,
+          maxInputRaw: legEffects
+            .reduce((sum, effect) => sum + BigInt(effect.maxInputRaw), 0n)
+            .toString(),
+          legs: legEffects,
           accountsCreated,
           computeUnitLimit: unitLimit,
           computeUnitPriceMicroLamports: unitPrice.toString(),
@@ -413,9 +484,9 @@ export function validateSwapTransaction(
           rentLamports: rent.toString(),
           totalLamportsMax: (baseFee + priority + rent).toString(),
           signers: [owner],
-          routeProgramIds: [
-            (swap as Extract<DecodedEntry['decoded'], { kind: 'route_swap' }>).programId,
-          ],
+          routeProgramIds: [...new Set(swapsSeen.map((index) => entries[index]?.programId ?? ''))]
+            .filter((id) => id !== '')
+            .slice(0, 8),
         };
 
   return {

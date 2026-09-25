@@ -91,6 +91,7 @@ function structure(raw: RawEnv): MarkovConfig {
         provider: raw.EXECUTION_VENUE_PROVIDER === 'disabled' ? null : raw.EXECUTION_VENUE_PROVIDER,
         quoteUrl: raw.EXECUTION_VENUE_QUOTE_URL ?? null,
         buildUrl: raw.EXECUTION_VENUE_BUILD_URL ?? null,
+        fixtureComposeMaxLegs: raw.EXECUTION_VENUE_FIXTURE_COMPOSE_MAX_LEGS ?? null,
         apiKey: raw.EXECUTION_VENUE_API_KEY ?? null,
       },
     },
@@ -327,6 +328,16 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
     }
   }
 
+  if (
+    config.execution.venue.fixtureComposeMaxLegs !== null &&
+    config.execution.venue.provider !== 'fixture'
+  ) {
+    issues.push({
+      path: 'EXECUTION_VENUE_FIXTURE_COMPOSE_MAX_LEGS',
+      message: 'is a fixture venue control; set EXECUTION_VENUE_PROVIDER=fixture or unset it',
+    });
+  }
+
   if (config.research.modelProvider === 'fixture' && !isDev) {
     issues.push({
       path: 'RESEARCH_MODEL_PROVIDER',
@@ -507,6 +518,7 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
           config.execution.venue.buildUrl === null
             ? null
             : redactUrl(config.execution.venue.buildUrl),
+        fixtureComposeMaxLegs: config.execution.venue.fixtureComposeMaxLegs,
         apiKeyConfigured: config.execution.venue.apiKey !== null,
       },
     },

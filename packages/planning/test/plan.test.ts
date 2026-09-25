@@ -12,6 +12,7 @@ import {
   minimumOutputFor,
   networkFeeBudget,
   PLANNABLE_STATES,
+  type PlanComposition,
   PRIORITY_FEE_CAP_LAMPORTS_PER_BATCH,
   planHashOf,
   routeProgramVerdict,
@@ -149,7 +150,7 @@ describe('fees', () => {
   });
 });
 
-function buildPlan(legCount: 1 | 2): ExecutionPlan {
+function buildPlan(legCount: 1 | 2, composition: PlanComposition | null = null): ExecutionPlan {
   const legs =
     legCount === 1
       ? [{ key: 'aero', weightBps: 10_000, minimumInputRaw: null }]
@@ -223,9 +224,19 @@ function buildPlan(legCount: 1 | 2): ExecutionPlan {
       policyVersion: 'policy-1',
       instrumentUpdatedAt: [NOW.toISOString()],
     },
+    composition,
     createdAt: NOW,
   });
 }
+
+const SIMULATION = {
+  status: 'ok' as const,
+  unitsConsumed: 40_300,
+  err: null,
+  logsHash: 'a'.repeat(64),
+  slot: 1000,
+  observedAt: NOW.toISOString(),
+};
 
 describe('assemblePlan', () => {
   it('produces a valid, conserved, atomic single-leg plan with a verifiable hash', () => {
@@ -249,10 +260,62 @@ describe('assemblePlan', () => {
     expect(verifyPlanHash(plan)).toBe(true);
   });
 
+  it('groups a multi-leg plan atomically only when the composed transaction fits and simulated', () => {
+    const atomic = buildPlan(2, {
+      fits: true,
+      reason: 'composition_fits',
+      sizeBytes: 612,
+      maxBytes: 1232,
+      simulation: SIMULATION,
+    });
+    expect(executionPlanSchema.safeParse(atomic).success).toBe(true);
+    expect(atomic.grouping).toMatchObject({
+      mode: 'atomic',
+      reason: 'composition_fits',
+      composition: { sizeBytes: 612, maxBytes: 1232, legs: 2 },
+      acknowledgementRequired: false,
+    });
+    expect(atomic.grouping.batches).toHaveLength(1);
+    expect(atomic.grouping.batches[0]?.legIndexes).toEqual([0, 1]);
+    expect(atomic.legs.map((leg) => leg.batch)).toEqual([0, 0]);
+    expect(atomic.fees.network.batches).toBe(1);
+    expect(atomic.validity.simulation).toEqual(SIMULATION);
+    expect(atomic.warnings.some((warning) => warning.startsWith('Staged execution'))).toBe(false);
+    expect(verifyPlanHash(atomic)).toBe(true);
+    // The same legs staged because the composition is too large: the hash differs (grouping binds).
+    const tooLarge = buildPlan(2, {
+      fits: false,
+      reason: 'composition_too_large',
+      sizeBytes: 1300,
+      maxBytes: 1232,
+      simulation: null,
+    });
+    expect(tooLarge.grouping.mode).toBe('staged');
+    expect(tooLarge.grouping.reason).toBe('composition_too_large');
+    expect(tooLarge.validity.simulation).toBeNull();
+    expect(
+      tooLarge.warnings.some((warning) => warning.includes('does not fit one transaction')),
+    ).toBe(true);
+    expect(tooLarge.planHash).not.toBe(atomic.planHash);
+    const failed = buildPlan(2, {
+      fits: false,
+      reason: 'composition_simulation_failed',
+      sizeBytes: 612,
+      maxBytes: 1232,
+      simulation: { ...SIMULATION, status: 'failed', err: 'custom program error: 0x1770' },
+    });
+    expect(failed.grouping.reason).toBe('composition_simulation_failed');
+    expect(failed.warnings.some((warning) => warning.includes('failed simulation'))).toBe(true);
+    expect(buildPlan(1).grouping.reason).toBe('single_leg');
+    expect(buildPlan(2).grouping.reason).toBe('composition_unavailable');
+  });
+
   it('stages a multi-leg plan one batch per constituent with worst-case spend per batch', () => {
     const plan = buildPlan(2);
     expect(executionPlanSchema.safeParse(plan).success).toBe(true);
     expect(plan.grouping.mode).toBe('staged');
+    expect(plan.grouping.reason).toBe('composition_unavailable');
+    expect(plan.grouping.composition).toBeNull();
     expect(plan.grouping.acknowledgementRequired).toBe(true);
     expect(plan.grouping.batches.map((batch) => batch.legIndexes)).toEqual([[0], [1]]);
     expect(plan.grouping.batches[0]?.worstCaseSpentRaw).toBe('499999997');
@@ -319,6 +382,7 @@ describe('assemblePlan', () => {
         cashWeightBps: 0,
         feeReserveRaw: 0n,
       }) as Parameters<typeof assemblePlan>[0]['allocation'],
+      composition: null,
       legs: [
         {
           instrumentId: plan.legs[0]?.instrumentId as string,

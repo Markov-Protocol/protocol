@@ -209,17 +209,19 @@ echo "plan refused while the wallet is empty: $UNFUNDED"; [ "$UNFUNDED" = "1" ]
 curl -fsS -X POST -H "content-type: application/json" -d "{\"address\":\"$WALLET_ADDRESS\",\"lamports\":50000000,\"stablecoinRaw\":\"2500000000\"}" "http://127.0.0.1:$RPC_PORT/fixture/funding" > /dev/null
 PLAN_JSON=$(node apps/cli/dist/main.js intents plan "$INTENT_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
 PLAN=$(echo "$PLAN_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);const sum=j.allocation.legs.reduce((s,l)=>s+BigInt(l.targetRaw),0n)+BigInt(j.allocation.cash.targetRaw);const spend=j.legs.reduce((s,l)=>s+BigInt(l.maxInputRaw),0n)+BigInt(j.bounds.residualCashRaw);console.log(j.mode+":"+j.grouping.mode+":"+j.legs.length+":"+(sum===BigInt(j.allocation.investableRaw))+":"+(spend===BigInt(j.input.totalSpendRaw))+":"+j.status+":"+j.funds.sufficient+":"+j.legs.every(l=>l.policyDecision.outcome==="allow"&&BigInt(l.minimumOutputRaw)<=BigInt(l.expectedOutputRaw)))})')
-echo "plan mode:grouping:legs:conserved:bounded:status:funded:legs-ok = $PLAN"; [ "$PLAN" = "fixture:staged:2:true:true:valid:true:true" ]
+echo "plan mode:grouping:legs:conserved:bounded:status:funded:legs-ok = $PLAN"; [ "$PLAN" = "fixture:atomic:2:true:true:valid:true:true" ]
+# Two constituents composed into one transaction at plan time (B11): the reason, the measured size and the simulation are in the plan.
+COMPOSED=$(echo "$PLAN_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.grouping.reason+":"+j.grouping.batches.length+":"+(j.grouping.composition.sizeBytes>0&&j.grouping.composition.sizeBytes<=j.grouping.composition.maxBytes)+":"+j.validity.simulation.status+":"+j.grouping.acknowledgementRequired)})')
+echo "composition reason:batches:fits:simulation:staged-ack-required = $COMPOSED"; [ "$COMPOSED" = "composition_fits:1:true:ok:false" ]
 PLAN_ID=$(echo "$PLAN_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).planId))')
 PLAN_HASH=$(echo "$PLAN_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).planHash))')
 VERIFY=$(node apps/cli/dist/main.js intents verify-plan --input "$PLAN_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.matches+":"+j.conserved+":"+j.bounded)})')
 echo "offline plan verification matches:conserved:bounded = $VERIFY"; [ "$VERIFY" = "true:true:true" ]
-NO_STAGED=$(node apps/cli/dist/main.js intents acknowledge "$INTENT_ID" "$PLAN_ID" --plan-hash "$PLAN_HASH" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "VALIDATION_FAILED" || true)
-echo "staged plan without acknowledgement refused: $NO_STAGED"; [ "$NO_STAGED" = "1" ]
-WRONG_HASH=$(node apps/cli/dist/main.js intents acknowledge "$INTENT_ID" "$PLAN_ID" --plan-hash "$(printf '0%.0s' $(seq 1 64))" --staged --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "PLAN_CHANGED" || true)
+WRONG_HASH=$(node apps/cli/dist/main.js intents acknowledge "$INTENT_ID" "$PLAN_ID" --plan-hash "$(printf '0%.0s' $(seq 1 64))" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "PLAN_CHANGED" || true)
 echo "other hash refused: $WRONG_HASH"; [ "$WRONG_HASH" = "1" ]
-ACK=$(node apps/cli/dist/main.js intents acknowledge "$INTENT_ID" "$PLAN_ID" --plan-hash "$PLAN_HASH" --staged --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.review.stagedAcknowledged+":"+(j.review.acknowledgedHash===j.planHash))})')
-echo "acknowledged staged:hash-bound = $ACK"; [ "$ACK" = "true:true" ]
+# An atomic plan needs no staged acknowledgement (the staged rule is covered by apps/api/test/planning.test.ts with the venue limited to one leg).
+ACK=$(node apps/cli/dist/main.js intents acknowledge "$INTENT_ID" "$PLAN_ID" --plan-hash "$PLAN_HASH" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.review.stagedAcknowledged+":"+(j.review.acknowledgedHash===j.planHash))})')
+echo "acknowledged staged:hash-bound = $ACK"; [ "$ACK" = "false:true" ]
 INTENT_STATE=$(node apps/cli/dist/main.js intents show "$INTENT_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.state+":"+(j.latestPlanId===process.argv[1]))})' "$PLAN_ID")
 echo "intent state:latest-plan = $INTENT_STATE"; [ "$INTENT_STATE" = "AWAITING_APPROVAL:true" ]
 CANCELLED=$(node apps/cli/dist/main.js intents cancel "$INTENT_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).state))')
@@ -277,6 +279,24 @@ SELL_FINAL=$(node apps/cli/dist/main.js intents reconcile "$SELL_ID" --token "$S
 echo "sell finalized state:fills:side:spent-all:attempts = $SELL_FINAL"; [ "$SELL_FINAL" = "FINALIZED:1:sell:true:1" ]
 EXEC_FUNDING=$(curl -fsS -H "Authorization: Bearer $SESSION_TOKEN" "http://127.0.0.1:$API_PORT/v1/me/wallets/$EXEC_WALLET_ID/funding" | J '(BigInt(j.stablecoin.raw) < 1000000000n && BigInt(j.stablecoin.raw) > 990000000n)+":"+(Number(j.sol.lamports) < 50000000)')
 echo "wallet after buy and sell: stablecoin within the round trip, SOL paid fees = $EXEC_FUNDING"; [ "$EXEC_FUNDING" = "true:true" ]
+
+echo "== basket journey (B11): two-constituent version composed into one atomic transaction -> one signature -> finality with a fill per leg"
+# V1 (6000 FXAERO / 3000 XSFXA / 1000 cash, one underlying company across two issuers) was frozen by the strategy journey
+# above; the wallet holds ~1e9 raw stablecoin, so a 2e8 budget keeps the company concentration within the beta limit.
+BASKET_ID=$(node apps/cli/dist/main.js intents create --version-id "$V1_ID" --wallet "$EXEC_WALLET_ID" --budget 200000000 --idempotency-key startup-basket-1 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.intentId')
+BASKET_PLAN=$(node apps/cli/dist/main.js intents plan "$BASKET_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+BASKET_PLAN_SUMMARY=$(echo "$BASKET_PLAN" | J 'j.legs.length+":"+j.grouping.mode+":"+j.grouping.reason+":"+j.grouping.composition.legs+":"+(j.grouping.composition.sizeBytes<=j.grouping.composition.maxBytes)+":"+j.validity.simulation.status+":"+j.grouping.acknowledgementRequired')
+echo "basket plan legs:mode:reason:composed-legs:fits:simulation:staged-ack = $BASKET_PLAN_SUMMARY"; [ "$BASKET_PLAN_SUMMARY" = "2:atomic:composition_fits:2:true:ok:false" ]
+node apps/cli/dist/main.js intents acknowledge "$BASKET_ID" "$(echo "$BASKET_PLAN" | J 'j.planId')" --plan-hash "$(echo "$BASKET_PLAN" | J 'j.planHash')" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+BASKET_TX=$(node apps/cli/dist/main.js intents build "$BASKET_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+BASKET_TX_SUMMARY=$(echo "$BASKET_TX" | J 'j.batch+":"+j.legIndexes.join(",")+":"+j.effects.legs.length+":"+(new Set(j.effects.legs.map(l=>l.sourceTokenAccount)).size)+":"+j.instructions.map(i=>i.kind).join(",")')
+echo "basket transaction batch:legs:effect-legs:source-accounts:instructions = $BASKET_TX_SUMMARY"; [ "$BASKET_TX_SUMMARY" = "0:0,1:2:1:compute_unit_limit,compute_unit_price,ata_create,route_swap,route_swap" ]
+BASKET_SIGNED=$(node apps/cli/dist/main.js intents sign --key-file "$KEY_FILE" --input "$BASKET_TX" | J 'j.signedTransaction')
+BASKET_SUBMIT=$(node apps/cli/dist/main.js intents submit "$BASKET_ID" --signed "$BASKET_SIGNED" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.state+":"+j.batches.map(b=>b.state).join(",")')
+echo "basket submitted state:batches = $BASKET_SUBMIT"; [ "$BASKET_SUBMIT" = "SUBMITTED:submitted" ]
+curl -fsS -X POST -H "content-type: application/json" -d '{"action":"finalize"}' "http://127.0.0.1:$RPC_PORT/fixture/chain" > /dev/null
+BASKET_FINAL=$(node apps/cli/dist/main.js intents reconcile "$BASKET_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.state+":"+j.fills.map(f=>f.legIndex).join(",")+":"+j.fills.every(f=>f.withinBounds)+":"+j.batches.map(b=>b.state).join(",")+":"+j.attempts.length+":"+j.nextAction')
+echo "basket finalized state:fill-legs:within-bounds:batches:attempts:next = $BASKET_FINAL"; [ "$BASKET_FINAL" = "FINALIZED:0,1:true:finalized:1:none" ]
 rm -f "$KEY_FILE"
 
 echo "== graceful shutdown"

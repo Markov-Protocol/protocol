@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { base58AddressSchema, idSchema } from './identity.js';
-import { intentStateSchema, planSideSchema } from './planning.js';
+import { intentStateSchema, planSideSchema, simulationEvidenceSchema } from './planning.js';
 import { rawAmountSchema } from './price.js';
 import { networkIdentitySchema, sha256HexSchema } from './registry.js';
 
@@ -48,19 +48,31 @@ export const decodedInstructionSchema = z.object({
 });
 export type DecodedInstruction = z.infer<typeof decodedInstructionSchema>;
 
-/** What the validated transaction can do, decoded from its instructions and checked against the plan. */
-export const transactionEffectsSchema = z.object({
+/** One leg's validated swap: the exact input and the minimum output its instruction enforces. */
+export const transactionLegEffectSchema = z.object({
+  legIndex: z.number().int().nonnegative(),
   side: planSideSchema,
   inputMint: base58AddressSchema,
   outputMint: base58AddressSchema,
-  /** The exact input the route instruction spends; never above the plan's bound. */
+  /** The exact input the route instruction spends; never above the leg's bound. */
   maxInputRaw: rawAmountSchema,
-  /** The minimum output the route instruction enforces; never below the plan's bound. */
+  /** The minimum output the route instruction enforces; never below the leg's bound. */
   minimumOutputRaw: rawAmountSchema,
   sourceTokenAccount: base58AddressSchema,
   destinationTokenAccount: base58AddressSchema,
+});
+export type TransactionLegEffect = z.infer<typeof transactionLegEffectSchema>;
+
+/** What the validated transaction can do, decoded from its instructions and checked against the plan. */
+export const transactionEffectsSchema = z.object({
+  side: planSideSchema,
+  /** The mint every leg of this transaction spends (the stablecoin for buys, the instrument for a sell). */
+  inputMint: base58AddressSchema,
+  /** The exact input across every leg; never above the sum of the legs' bounds. */
+  maxInputRaw: rawAmountSchema,
+  legs: z.array(transactionLegEffectSchema).min(1).max(10),
   /** Token accounts this transaction creates for the owner (rent paid by the owner). */
-  accountsCreated: z.array(base58AddressSchema).max(4),
+  accountsCreated: z.array(base58AddressSchema).max(10),
   computeUnitLimit: z.number().int().positive().nullable(),
   computeUnitPriceMicroLamports: rawAmountSchema,
   baseFeeLamports: rawAmountSchema,
@@ -73,16 +85,8 @@ export const transactionEffectsSchema = z.object({
 });
 export type TransactionEffects = z.infer<typeof transactionEffectsSchema>;
 
-export const simulationEvidenceSchema = z.object({
-  status: z.enum(['ok', 'failed', 'unavailable']),
-  unitsConsumed: z.number().int().nonnegative().nullable(),
-  err: z.string().max(300).nullable(),
-  /** SHA-256 over the simulation's log lines; the lines themselves are not stored. */
-  logsHash: sha256HexSchema.nullable(),
-  slot: z.number().int().nonnegative().nullable(),
-  observedAt: z.iso.datetime(),
-});
-export type SimulationEvidence = z.infer<typeof simulationEvidenceSchema>;
+export type { SimulationEvidence } from './planning.js';
+export { simulationEvidenceSchema } from './planning.js';
 
 export const executionAttemptSchema = z.object({
   attemptId: idSchema,
@@ -169,12 +173,46 @@ export type ExecutionFill = z.infer<typeof executionFillSchema>;
 export const NEXT_ACTIONS = ['build', 'sign', 'wait', 'reconcile', 'review', 'none'] as const;
 export const nextActionSchema = z.enum(NEXT_ACTIONS);
 
+export const BATCH_STATES = [
+  /** No transaction built yet. */
+  'pending',
+  'prepared',
+  'submitting',
+  'submitted',
+  'confirmed',
+  'finalized',
+  'failed',
+  'expired',
+  'cancelled',
+  /** The node gave no answer after the broadcast; reconciliation decides from chain evidence. */
+  'unknown',
+  /** Not built: the run stopped before this batch (stale later-leg terms, a failure, an exit); a reviewed completion is needed. */
+  'stale',
+] as const;
+export const batchStateSchema = z.enum(BATCH_STATES);
+export type BatchState = z.infer<typeof batchStateSchema>;
+
+/** One batch of the plan as execution sees it: which legs, which transaction, how far it got. */
+export const executionBatchSchema = z.object({
+  batch: z.number().int().nonnegative(),
+  legIndexes: z.array(z.number().int().nonnegative()).min(1),
+  state: batchStateSchema,
+  transactionId: idSchema.nullable(),
+  attemptId: idSchema.nullable(),
+  signature: z.string().min(80).max(90).nullable(),
+  /** Why the batch is stale, failed or expired, when there is a reason worth telling. */
+  reason: z.string().max(500).nullable(),
+});
+export type ExecutionBatch = z.infer<typeof executionBatchSchema>;
+
 export const executionStatusSchema = z.object({
   intentId: idSchema,
   state: intentStateSchema,
   stateReason: z.string().max(500).nullable(),
   planId: idSchema.nullable(),
   planHash: sha256HexSchema.nullable(),
+  /** Every batch of the plan in order with its state; an atomic plan has one. */
+  batches: z.array(executionBatchSchema).max(32),
   /** The current prepared transaction per batch (older prepared ones are superseded). */
   transactions: z.array(preparedTransactionSchema).max(32),
   attempts: z.array(executionAttemptSchema).max(64),
@@ -202,9 +240,16 @@ export const TRANSACTION_REFUSAL_CODES = [
   'VALIDATION_FAILED',
   'SIMULATION_FAILED',
   'ATTEMPT_IN_FLIGHT',
+  /** Retired with B11 (baskets execute); kept so B10 clients still parse it, never answered. */
   'STAGED_NOT_SUPPORTED',
   /** The prepared transaction's blockhash can no longer land; build it again. */
   'TRANSACTION_EXPIRED',
+  /** A staged plan's next batch cannot be built before the previous one is finalized. */
+  'BATCH_NOT_READY',
+  /** A later leg's fresh quote cannot meet the approved bounds; the run stops as partially completed. */
+  'LEG_TERMS_CHANGED',
+  /** Every batch of the plan is finalized; nothing is left to build. */
+  'PLAN_COMPLETED',
 ] as const;
 export const transactionRefusalCodeSchema = z.enum(TRANSACTION_REFUSAL_CODES);
 
@@ -218,6 +263,8 @@ export const EXECUTION_EVENT_KINDS = [
   'execution.expired',
   'execution.unknown',
   'execution.cancelled',
+  /** A staged basket stopped after at least one leg filled (a later leg failed, expired, went stale or was cancelled). */
+  'execution.partial',
 ] as const;
 export const executionEventKindSchema = z.enum(EXECUTION_EVENT_KINDS);
 export type ExecutionEventKind = z.infer<typeof executionEventKindSchema>;

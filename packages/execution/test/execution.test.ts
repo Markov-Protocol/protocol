@@ -149,6 +149,8 @@ function plan(overrides: Partial<PlanLeg> = {}): ExecutionPlan {
     },
     grouping: {
       mode: 'atomic',
+      reason: 'single_leg',
+      composition: null,
       batches: [
         {
           batch: 0,
@@ -263,10 +265,10 @@ function message(instructions: readonly Instruction[], feePayer = owner.publicKe
 
 const expectation = () => ({
   plan: plan(),
-  leg: plan().legs[0] as PlanLeg,
+  legs: plan().legs,
   owner: owner.publicKey,
-  inputTokenProgram: SPL_TOKEN_PROGRAM_ID,
-  outputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+  stablecoinTokenProgram: SPL_TOKEN_PROGRAM_ID,
+  instrumentTokenProgram: () => SPL_TOKEN_PROGRAM_ID,
 });
 
 function validate(instructions: readonly Instruction[]) {
@@ -339,11 +341,19 @@ describe('validation against the plan', () => {
     expect(result.effects).toMatchObject({
       side: 'buy',
       inputMint: STABLECOIN,
-      outputMint: AERO,
       maxInputRaw: '100000000',
-      minimumOutputRaw: '5435685',
-      sourceTokenAccount: source,
-      destinationTokenAccount: destination,
+      legs: [
+        {
+          legIndex: 0,
+          side: 'buy',
+          inputMint: STABLECOIN,
+          outputMint: AERO,
+          maxInputRaw: '100000000',
+          minimumOutputRaw: '5435685',
+          sourceTokenAccount: source,
+          destinationTokenAccount: destination,
+        },
+      ],
       accountsCreated: [destination],
       computeUnitLimit: 400_000,
       computeUnitPriceMicroLamports: '250',
@@ -534,6 +544,116 @@ describe('validation against the plan', () => {
     });
   }
 
+  it('validates an atomic basket: every leg swapped exactly once, creations first, shared writable set', () => {
+    const XSA = 'GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9tt';
+    const second: PlanLeg = {
+      ...(plan().legs[0] as PlanLeg),
+      legIndex: 1,
+      symbol: 'XSFXA',
+      mint: XSA,
+      outputMint: XSA,
+      targetInputRaw: '50000000',
+      maxInputRaw: '50000000',
+      expectedOutputRaw: '10',
+      minimumOutputRaw: '9',
+      quote: {
+        ...(plan().legs[0] as PlanLeg).quote,
+        outputMint: XSA,
+        inAmountRaw: '50000000',
+        outAmountRaw: '10',
+        otherAmountThresholdRaw: '9',
+      },
+    };
+    const basketPlan: ExecutionPlan = {
+      ...plan(),
+      legs: [plan().legs[0] as PlanLeg, second],
+      fees: {
+        ...plan().fees,
+        network: { ...plan().fees.network, newTokenAccounts: 2, rentLamports: '4078560' },
+      },
+    };
+    const xsaDestination = associatedTokenAddress(
+      owner.publicKey,
+      XSA,
+      SPL_TOKEN_PROGRAM_ID,
+    ).address;
+    const xsaCreate: Instruction = {
+      ...ataCreate(),
+      accounts: ataCreate().accounts.map((account, index) =>
+        index === 1
+          ? { ...account, pubkey: xsaDestination }
+          : index === 3
+            ? { ...account, pubkey: XSA }
+            : account,
+      ),
+    };
+    const xsaSwap = fixtureSwapInstruction(
+      {
+        owner: owner.publicKey,
+        source,
+        destination: xsaDestination,
+        inputMint: STABLECOIN,
+        outputMint: XSA,
+        inputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+        outputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+      },
+      { inAmountRaw: 50_000_000n, minimumOutRaw: 9n, slippageBps: 50 },
+    );
+    const basketExpectation = { ...expectation(), plan: basketPlan, legs: basketPlan.legs };
+    const composed = validateSwapTransaction(
+      parseTransaction(
+        unsignedTransaction(
+          message([...computeBudget(400_000, 250n), ataCreate(), xsaCreate, swap(), xsaSwap]),
+        ),
+      ),
+      basketExpectation,
+    );
+    expect(composed.refusals).toEqual([]);
+    expect(
+      composed.effects?.legs.map((leg) => [leg.legIndex, leg.outputMint, leg.maxInputRaw]),
+    ).toEqual([
+      [0, AERO, '100000000'],
+      [1, XSA, '50000000'],
+    ]);
+    expect(composed.effects?.maxInputRaw).toBe('150000000');
+    expect(composed.effects?.accountsCreated).toEqual([destination, xsaDestination]);
+    expect(composed.effects?.rentLamports).toBe('4078560');
+    // A leg without its swap, and a leg swapped twice.
+    const missing = validateSwapTransaction(
+      parseTransaction(
+        unsignedTransaction(message([...computeBudget(400_000, 250n), ataCreate(), swap()])),
+      ),
+      basketExpectation,
+    );
+    expect(missing.refusals.map((refusal) => refusal.code)).toContain('ROUTE_MISSING');
+    const twice = validateSwapTransaction(
+      parseTransaction(
+        unsignedTransaction(
+          message([
+            ...computeBudget(400_000, 250n),
+            ataCreate(),
+            xsaCreate,
+            swap(),
+            xsaSwap,
+            xsaSwap,
+          ]),
+        ),
+      ),
+      basketExpectation,
+    );
+    expect(twice.refusals.map((refusal) => refusal.code)).toContain('ROUTE_DUPLICATED');
+    // A batch of a staged plan carries one leg: the other leg's swap is a mint mismatch.
+    const batch = validateSwapTransaction(
+      parseTransaction(
+        unsignedTransaction(message([...computeBudget(400_000, 250n), xsaCreate, xsaSwap])),
+      ),
+      { ...basketExpectation, legs: [plan().legs[0] as PlanLeg] },
+    );
+    expect(batch.refusals.map((refusal) => refusal.code)).toEqual(
+      expect.arrayContaining(['MINT_MISMATCH', 'ROUTE_MISSING', 'ACCOUNT_CREATION_NOT_ALLOWED']),
+    );
+  });
+
   it('refuses another fee payer, an unreviewed route in live mode and a swap of the wrong mints', () => {
     const foreign = validateSwapTransaction(
       parseTransaction(unsignedTransaction(message(honest(), stranger.publicKey))),
@@ -549,10 +669,11 @@ describe('validation against the plan', () => {
       parseTransaction(unsignedTransaction(message(honest()))),
       {
         ...expectation(),
-        leg: { ...(plan().legs[0] as PlanLeg), outputMint: STABLECOIN, inputMint: AERO },
+        legs: [{ ...(plan().legs[0] as PlanLeg), outputMint: STABLECOIN, inputMint: AERO }],
       },
     );
     expect(otherMint.refusals.map((refusal) => refusal.code)).toContain('MINT_MISMATCH');
+    expect(otherMint.refusals.map((refusal) => refusal.code)).toContain('ROUTE_MISSING');
   });
 });
 
@@ -764,16 +885,26 @@ describe('reconciliation decisions', () => {
       },
       transaction: {
         feePayer: owner.publicKey,
-        legIndexes: [0],
+        batch: 0,
         effects: {
-          side: 'buy',
-          inputMint: STABLECOIN,
-          outputMint: AERO,
-          maxInputRaw: '100000000',
-          minimumOutputRaw: '5435685',
+          legs: [
+            {
+              legIndex: 0,
+              side: 'buy',
+              inputMint: STABLECOIN,
+              outputMint: AERO,
+              maxInputRaw: '100000000',
+              minimumOutputRaw: '5435685',
+            },
+          ],
         },
       },
       intent: { state: 'SUBMITTED' },
+      plan: {
+        batchCount: 1,
+        legs: [{ legIndex: 0, maxInputRaw: '100000000', minimumOutputRaw: '5435685' }],
+      },
+      earlierFills: false,
     });
     expect(attempt).not.toBeNull();
     const live = attempt as NonNullable<typeof attempt>;
@@ -814,19 +945,45 @@ describe('reconciliation decisions', () => {
           },
           transaction: {
             feePayer: owner.publicKey,
-            legIndexes: [0],
+            batch: 0,
             effects: {
-              side: 'buy',
-              inputMint: STABLECOIN,
-              outputMint: AERO,
-              maxInputRaw: '1',
-              minimumOutputRaw: '1',
+              legs: [
+                {
+                  legIndex: 0,
+                  side: 'buy',
+                  inputMint: STABLECOIN,
+                  outputMint: AERO,
+                  maxInputRaw: '1',
+                  minimumOutputRaw: '1',
+                },
+              ],
             },
           },
           intent: { state: 'FINALIZED' },
+          plan: { batchCount: 1, legs: [] },
+          earlierFills: false,
         },
       }),
     ).toBeNull();
+    // A non-final batch that finalizes returns the intent to AUTHORIZED; a later failure after fills is partial.
+    const staged = { ...live, batch: 0, batchCount: 2 };
+    transitions.length = 0;
+    await reconcileAttempt({ rpc, store, now: () => new Date('2026-09-25T00:00:30.000Z') }, staged);
+    expect(transitions.at(-1)).toBe('AUTHORIZED');
+    statuses = [
+      {
+        slot: 13,
+        confirmationStatus: 'confirmed',
+        err: { InstructionError: [3, { Custom: 6000 }] } as unknown as null,
+      },
+    ];
+    const failing = { ...live, batch: 1, batchCount: 2, earlierFills: true };
+    await reconcileAttempt(
+      { rpc, store, now: () => new Date('2026-09-25T00:00:40.000Z') },
+      failing,
+    );
+    expect(transitions.at(-1)).toBe('PARTIALLY_COMPLETED');
+    expect(events.at(-2)).toBe('reservation:released');
   });
 });
 
@@ -835,8 +992,15 @@ describe('fills from transaction meta', () => {
     const input = {
       owner: owner.publicKey,
       feePayerIndex: 0,
-      inputMint: STABLECOIN,
-      outputMint: AERO,
+      legs: [
+        {
+          legIndex: 0,
+          inputMint: STABLECOIN,
+          outputMint: AERO,
+          inputRaw: 100_000_000n,
+          bounds: { maxInputRaw: 100_000_000n, minimumOutputRaw: 5_435_685n },
+        },
+      ],
       preTokenBalances: [
         { accountIndex: 1, mint: STABLECOIN, owner: owner.publicKey, amount: '500000000' },
       ],
@@ -848,22 +1012,79 @@ describe('fills from transaction meta', () => {
       preBalances: [10_000_000, 0, 0, 0],
       postBalances: [7_955_720, 0, 0, 0],
       fee: 5_000,
-      bounds: { maxInputRaw: 100_000_000n, minimumOutputRaw: 5_435_685n },
     };
     const fill = fillsFromMeta(input);
     expect(fill).toMatchObject({
       inputSpentRaw: 100_000_000n,
-      outputReceivedRaw: 5_463_000n,
       feeLamports: 5_000n,
       lamportsSpent: 2_044_280n,
       withinBounds: true,
       notes: [],
     });
+    expect(fill.legs).toEqual([
+      {
+        legIndex: 0,
+        inputSpentRaw: 100_000_000n,
+        outputReceivedRaw: 5_463_000n,
+        withinBounds: true,
+        notes: [],
+      },
+    ]);
     const violated = fillsFromMeta({
       ...input,
-      bounds: { maxInputRaw: 99_999_999n, minimumOutputRaw: 5_463_001n },
+      legs: [
+        {
+          ...(input.legs[0] as (typeof input.legs)[number]),
+          bounds: { maxInputRaw: 99_999_999n, minimumOutputRaw: 5_463_001n },
+        },
+      ],
     });
     expect(violated.withinBounds).toBe(false);
     expect(violated.notes).toHaveLength(2);
+    // Two legs sharing the stablecoin input: each leg's input is its validated exact amount, and the
+    // observed total must equal their sum; a mismatch marks the whole fill uncertain.
+    const XSA = 'GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9tt';
+    const twoLegs = {
+      ...input,
+      legs: [
+        {
+          legIndex: 0,
+          inputMint: STABLECOIN,
+          outputMint: AERO,
+          inputRaw: 60_000_000n,
+          bounds: { maxInputRaw: 60_000_000n, minimumOutputRaw: 1n },
+        },
+        {
+          legIndex: 1,
+          inputMint: STABLECOIN,
+          outputMint: XSA,
+          inputRaw: 40_000_000n,
+          bounds: { maxInputRaw: 40_000_000n, minimumOutputRaw: 7n },
+        },
+      ],
+      postTokenBalances: [
+        { accountIndex: 1, mint: STABLECOIN, owner: owner.publicKey, amount: '400000000' },
+        { accountIndex: 2, mint: AERO, owner: owner.publicKey, amount: '3000000' },
+        { accountIndex: 3, mint: XSA, owner: owner.publicKey, amount: '8' },
+      ],
+    };
+    const basket = fillsFromMeta(twoLegs);
+    expect(basket.withinBounds).toBe(true);
+    expect(
+      basket.legs.map((leg) => [leg.legIndex, leg.inputSpentRaw, leg.outputReceivedRaw]),
+    ).toEqual([
+      [0, 60_000_000n, 3_000_000n],
+      [1, 40_000_000n, 8n],
+    ]);
+    const short = fillsFromMeta({
+      ...twoLegs,
+      postTokenBalances: [
+        { accountIndex: 1, mint: STABLECOIN, owner: owner.publicKey, amount: '450000000' },
+        { accountIndex: 2, mint: AERO, owner: owner.publicKey, amount: '3000000' },
+        { accountIndex: 3, mint: XSA, owner: owner.publicKey, amount: '8' },
+      ],
+    });
+    expect(short.withinBounds).toBe(false);
+    expect(short.notes.join(' ')).toMatch(/attribution is uncertain/);
   });
 });

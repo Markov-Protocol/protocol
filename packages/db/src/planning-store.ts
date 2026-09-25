@@ -7,7 +7,7 @@ import type {
   PlanStatus,
   VenueQuote,
 } from '@markov/contracts';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { Database } from './client.js';
 import { executionPlans, intents, venueQuotes } from './schema.js';
 
@@ -43,6 +43,12 @@ export interface NewIntent {
   readonly executionPreference: string;
   readonly approvalMode: string;
   readonly slippageBps: number;
+  /** A reviewed completion of a partially completed intent (B11), or null. */
+  readonly continuation: {
+    readonly ofIntentId: string;
+    readonly ofPlanId: string;
+    readonly legIndexes: readonly number[];
+  } | null;
   readonly now: Date;
   readonly expiresAt: Date;
 }
@@ -83,6 +89,9 @@ export async function createIntent(db: Database, input: NewIntent): Promise<Crea
       executionPreference: input.executionPreference,
       approvalMode: input.approvalMode,
       slippageBps: input.slippageBps,
+      continuationOfIntentId: input.continuation?.ofIntentId ?? null,
+      continuationOfPlanId: input.continuation?.ofPlanId ?? null,
+      continuationLegIndexes: input.continuation ? [...input.continuation.legIndexes] : null,
       createdAt: input.now,
       updatedAt: input.now,
       expiresAt: input.expiresAt,
@@ -103,6 +112,21 @@ export async function createIntent(db: Database, input: NewIntent): Promise<Crea
     )
     .limit(1);
   return { kind: 'existing', row: one(existing, 'intent lookup after conflict') };
+}
+
+/** Links a partially completed intent to the intent that continues it (once). */
+export async function markIntentContinued(
+  db: Database,
+  intentId: string,
+  continuedByIntentId: string,
+  now: Date,
+): Promise<boolean> {
+  const rows = await db
+    .update(intents)
+    .set({ continuedByIntentId, updatedAt: now })
+    .where(and(eq(intents.id, intentId), isNull(intents.continuedByIntentId)))
+    .returning({ id: intents.id });
+  return rows.length > 0;
 }
 
 export async function findIntent(

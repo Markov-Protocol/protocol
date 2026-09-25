@@ -199,9 +199,17 @@ describe.skipIf(adminUrl === null)('execution API', () => {
       expect(prepared.effects).toMatchObject({
         side: 'buy',
         inputMint: STABLECOIN,
-        outputMint: AERO_MINT,
         maxInputRaw: leg.maxInputRaw,
-        minimumOutputRaw: leg.minimumOutputRaw,
+        legs: [
+          {
+            legIndex: 0,
+            side: 'buy',
+            inputMint: STABLECOIN,
+            outputMint: AERO_MINT,
+            maxInputRaw: leg.maxInputRaw,
+            minimumOutputRaw: leg.minimumOutputRaw,
+          },
+        ],
         signers: [owner],
         routeProgramIds: [FIXTURE_ROUTE_PROGRAM_ID],
         computeUnitLimit: 400_000,
@@ -339,9 +347,11 @@ describe.skipIf(adminUrl === null)('execution API', () => {
           })
         ).json() as { reservations: SpendReservation[] }
       ).reservations;
-      expect(reservations.map((row) => [row.intentId, row.status])).toEqual([
+      // One reservation per submission, keyed by intent and transaction; consumed once finalized.
+      expect(reservations.map((row) => [row.intentId.split(':')[0], row.status])).toEqual([
         [intent.intentId, 'consumed'],
       ]);
+      expect(reservations[0]?.intentId).toBe(`${intent.intentId}:${prepared.transactionId}`);
       // Terminal: the same bytes again create nothing, and the intent cannot be cancelled.
       const late = await submit(h, alice, intent.intentId, signed);
       expect(late.statusCode).toBe(200);
@@ -385,7 +395,7 @@ describe.skipIf(adminUrl === null)('execution API', () => {
       expect(sellPrepared.effects).toMatchObject({
         side: 'sell',
         inputMint: AERO_MINT,
-        outputMint: STABLECOIN,
+        legs: [{ legIndex: 0, side: 'sell', inputMint: AERO_MINT, outputMint: STABLECOIN }],
         accountsCreated: [],
       });
       const stablecoinBefore = h.chain.tokenBalance(owner, STABLECOIN);
@@ -410,7 +420,8 @@ describe.skipIf(adminUrl === null)('execution API', () => {
         stablecoinBefore + BigInt(sellLeg.expectedOutputRaw),
       );
 
-      // A basket plan is staged: nothing of it is built here.
+      // A basket plan composes into one atomic transaction here (B11); its lifecycle is
+      // `basket-execution.test.ts`. The build carries both legs and nothing is signed or sent.
       const version = await h.freezeVersion(alice, basket(ids));
       const basketIntent = (
         await h.app.inject({
@@ -439,9 +450,13 @@ describe.skipIf(adminUrl === null)('execution API', () => {
         headers: bearer(alice),
         payload: { planHash: basketPlan.planHash, stagedAcknowledged: true },
       });
-      const staged = await build(h, alice, basketIntent.intentId);
-      expect(staged.statusCode, staged.body).toBe(409);
-      expect(refusalCodes(staged.json() as ErrorResponse)).toContain('STAGED_NOT_SUPPORTED');
+      expect(basketPlan.grouping).toMatchObject({ mode: 'atomic', reason: 'composition_fits' });
+      const composed = await build(h, alice, basketIntent.intentId);
+      expect(composed.statusCode, composed.body).toBe(201);
+      expect((composed.json() as PreparedTransaction).legIndexes).toEqual([0, 1]);
+      expect(h.chain.tokenBalance(owner, STABLECOIN)).toBe(
+        stablecoinBefore + BigInt(sellLeg.expectedOutputRaw),
+      );
     });
   }, 120_000);
 
@@ -808,9 +823,10 @@ describe.skipIf(adminUrl === null)('execution API', () => {
           })
         ).json() as { reservations: SpendReservation[] }
       ).reservations;
-      expect(reservations.find((row) => row.intentId === expired.intent.intentId)?.status).toBe(
-        'released',
-      );
+      // Reservations are keyed per intent and transaction; the expired attempt's hold was released.
+      expect(
+        reservations.find((row) => row.intentId.startsWith(`${expired.intent.intentId}:`))?.status,
+      ).toBe('released');
 
       // Landed with an error: FAILED with the chain's error, no fill, reservation released.
       const erroring = await approvedSingle(h, alice, {

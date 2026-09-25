@@ -93,6 +93,10 @@ export interface HarnessOptions {
   readonly writes?: boolean;
   /** Test control read by the fixture route program on every execution. */
   readonly fillShiftBps?: () => number;
+  /** Test control: the most legs the fixture venue composes into one transaction (null: no limit). */
+  readonly composeMaxLegs?: () => number | null;
+  /** Test control: shifts every fixture quote's output by this many basis points (negative: worse). */
+  readonly quoteShiftBps?: () => number;
 }
 
 export async function withHarness(
@@ -183,7 +187,14 @@ export async function withHarness(
         throw new Error('the harness configures a stablecoin');
       }
       const baseVenue =
-        options.venue === 'fixture' ? createFixtureVenue({ stablecoin, now }) : null;
+        options.venue === 'fixture'
+          ? createFixtureVenue({
+              stablecoin,
+              now,
+              ...(options.composeMaxLegs ? { composeMaxLegs: options.composeMaxLegs } : {}),
+              ...(options.quoteShiftBps ? { quoteShiftBps: options.quoteShiftBps } : {}),
+            })
+          : null;
       const venue =
         baseVenue !== null && options.wrapVenue ? options.wrapVenue(baseVenue) : baseVenue;
       const app = await buildApp({
@@ -217,6 +228,7 @@ export async function withHarness(
           policy,
           funding,
           venue,
+          rpcClients: [rpc],
           genesisHash: GENESIS,
           now,
         }),

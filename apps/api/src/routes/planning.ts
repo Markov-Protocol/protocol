@@ -53,7 +53,7 @@ export const planningRoutes: FastifyPluginAsyncZod<PlanningRoutesOptions> = asyn
         tags: ['execution'],
         summary: 'Create an investment intent (idempotent per key)',
         description:
-          'A basket investment names a pinned version you own or a public one; a single buy names an admitted instrument. The budget is raw units of the platform stablecoin from one of your verified wallets. 201 for a new intent, 200 when the key was already used with the same request; IDEMPOTENCY_CONFLICT when it was used with another. Nothing is quoted or reserved here.',
+          'A basket investment names a pinned version you own or a public one; a single buy names an admitted instrument; a single sell names an admitted instrument and a budget in its raw units. The budget is raw units of the platform stablecoin from one of your verified wallets. A reviewed completion sets continuationOfIntentId to one of your PARTIALLY_COMPLETED baskets: the same wallet and version, and a budget equal to the sum of the legs it left unfilled at their original targets (VALIDATION_FAILED names the field otherwise); the original records continuedByIntentId. 201 for a new intent, 200 when the key was already used with the same request; IDEMPOTENCY_CONFLICT when it was used with another. Nothing is quoted or reserved here.',
         body: intentCreateRequestSchema,
         response: { 200: intentSchema, 201: intentSchema, ...errorResponses },
       },

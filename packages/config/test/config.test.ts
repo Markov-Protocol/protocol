@@ -265,6 +265,7 @@ describe('identity and credential configuration', () => {
       provider: null,
       quoteUrl: null,
       buildUrl: null,
+      fixtureComposeMaxLegs: null,
       apiKey: null,
     });
     expect(

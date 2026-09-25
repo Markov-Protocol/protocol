@@ -539,7 +539,7 @@ export const CONTRACT_MATRIX: readonly ContractMatrixEntry[] = [
   },
   {
     consumer:
-      'Execute: build, validate and simulate the transaction of the acknowledged plan (single leg)',
+      'Execute: build, validate and simulate the next transaction of the acknowledged plan (one composed transaction for an atomic plan, one batch at a time for a staged one)',
     method: 'post',
     path: '/v1/me/intents/{intentId}/transactions',
     status: 201,
@@ -574,7 +574,8 @@ export const CONTRACT_MATRIX: readonly ContractMatrixEntry[] = [
     ],
   },
   {
-    consumer: 'Execute: execution status with attempts, fills and reconciliation evidence',
+    consumer:
+      'Execute: execution status with batches, attempts, fills and reconciliation evidence (partially completed baskets ask for review)',
     method: 'get',
     path: '/v1/me/intents/{intentId}/execution',
     status: 200,

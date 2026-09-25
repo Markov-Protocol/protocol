@@ -5,11 +5,12 @@ import type {
   SimulationEvidence,
   TransactionEffects,
 } from '@markov/contracts';
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Database } from './client.js';
 import {
   executionAttempts,
   executionFills,
+  executionPlans,
   intents,
   outboxEvents,
   preparedTransactions,
@@ -483,7 +484,22 @@ export async function markOutboxPublished(
     .where(inArray(outboxEvents.id, [...ids]));
 }
 
-/** Settles the policy reservation an attempt holds, when it holds one. */
+/** The reservation key of a submission: one per leg, all sharing the attempt's `<intent>:<transaction>` prefix. */
+export function reservationKey(
+  intentId: string,
+  transactionId: string,
+  legIndex: number | null,
+): string {
+  return legIndex === null
+    ? `${intentId}:${transactionId}`
+    : `${intentId}:${transactionId}:${legIndex}`;
+}
+
+/**
+ * Settles every held policy reservation an attempt holds: the one it records
+ * and, for a multi-leg transaction, the per-leg ones keyed under the same
+ * intent and transaction prefix.
+ */
 export async function settleAttemptReservation(
   db: Database,
   attemptId: string,
@@ -491,25 +507,48 @@ export async function settleAttemptReservation(
   now: Date,
 ): Promise<void> {
   const rows = await db
-    .select({ reservationId: executionAttempts.reservationId })
+    .select({
+      reservationId: executionAttempts.reservationId,
+      intentId: executionAttempts.intentId,
+      transactionId: executionAttempts.transactionId,
+      ownerUserId: executionAttempts.ownerUserId,
+    })
     .from(executionAttempts)
     .where(eq(executionAttempts.id, attemptId))
     .limit(1);
-  const reservationId = rows[0]?.reservationId ?? null;
-  if (reservationId === null) {
+  const attempt = rows[0];
+  if (!attempt || attempt.reservationId === null) {
     return;
   }
+  const prefix = reservationKey(attempt.intentId, attempt.transactionId, null);
   await db
     .update(spendReservations)
     .set({ status: outcome, releasedAt: now })
-    .where(and(eq(spendReservations.id, reservationId), eq(spendReservations.status, 'held')));
+    .where(
+      and(
+        eq(spendReservations.status, 'held'),
+        or(
+          eq(spendReservations.id, attempt.reservationId),
+          and(
+            eq(spendReservations.userId, attempt.ownerUserId),
+            sql`${spendReservations.intentId} LIKE ${`${prefix.replaceAll('%', '')}%`}`,
+          ),
+        ),
+      ),
+    );
 }
 
-/** An attempt with the prepared transaction it signed and the intent it belongs to. */
+/**
+ * An attempt with the prepared transaction it signed, the intent and plan it
+ * belongs to, and whether an earlier transaction of the same intent already
+ * filled (a staged basket whose later batch fails is then partial, not failed).
+ */
 export interface AttemptContext {
   readonly attempt: ExecutionAttemptRow;
   readonly transaction: PreparedTransactionRow;
   readonly intent: typeof intents.$inferSelect;
+  readonly plan: typeof executionPlans.$inferSelect;
+  readonly earlierFills: boolean;
 }
 
 async function contextsFor(db: Database, rows: ExecutionAttemptRow[]): Promise<AttemptContext[]> {
@@ -525,9 +564,25 @@ async function contextsFor(db: Database, rows: ExecutionAttemptRow[]): Promise<A
       .from(intents)
       .where(eq(intents.id, attempt.intentId))
       .limit(1);
-    if (transaction && intent) {
-      out.push({ attempt, transaction, intent });
+    const [plan] = await db
+      .select()
+      .from(executionPlans)
+      .where(eq(executionPlans.id, attempt.planId))
+      .limit(1);
+    if (!transaction || !intent || !plan) {
+      continue;
     }
+    const earlier = await db
+      .select({ id: executionFills.id })
+      .from(executionFills)
+      .where(
+        and(
+          eq(executionFills.intentId, attempt.intentId),
+          sql`${executionFills.attemptId} <> ${attempt.id}`,
+        ),
+      )
+      .limit(1);
+    out.push({ attempt, transaction, intent, plan, earlierFills: earlier.length > 0 });
   }
   return out;
 }
@@ -624,3 +679,25 @@ export function createExecutionStorePort(db: Database) {
   };
 }
 export type ExecutionStorePort = ReturnType<typeof createExecutionStorePort>;
+
+/** The rows the execution lifecycle assembles a live attempt from (structurally typed for `liveAttemptFromRows`). */
+export function liveAttemptRowsOf(context: AttemptContext) {
+  return {
+    attempt: context.attempt,
+    transaction: {
+      feePayer: context.transaction.feePayer,
+      batch: context.transaction.batch,
+      effects: context.transaction.effects,
+    },
+    intent: { state: context.intent.state },
+    plan: {
+      batchCount: context.plan.plan.grouping.batches.length,
+      legs: context.plan.plan.legs.map((leg) => ({
+        legIndex: leg.legIndex,
+        maxInputRaw: leg.maxInputRaw,
+        minimumOutputRaw: leg.minimumOutputRaw,
+      })),
+    },
+    earlierFills: context.earlierFills,
+  };
+}

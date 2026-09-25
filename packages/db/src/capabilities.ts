@@ -99,15 +99,15 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
       capability: 'execution.jupiter.build',
       status: 'FIXTURE_VERIFIED',
       summary:
-        'Transactions (B10) are built from the acknowledged plan by the fixture venue (local/test) or a configured gateway build URL, decoded instruction by instruction, validated against the plan and simulated before they are stored; no live route builds (OD-21) and the route matrix reviews no live program.',
-      evidence: { session: 'B10', openDecision: 'OD-21' },
+        'Transactions (B10) are built from the acknowledged plan by the fixture venue (local/test) or a configured gateway build URL, decoded instruction by instruction, validated against the plan and simulated before they are stored; baskets (B11) are composed into one transaction at plan time and atomic only when the composition fits the packet and passes simulation, staged otherwise; no live route builds or composes (OD-21) and the route matrix reviews no live program.',
+      evidence: { sessions: ['B10', 'B11'], openDecision: 'OD-21' },
     },
     {
       capability: 'execution.spot.submit',
       status: 'FIXTURE_VERIFIED',
       summary:
-        'Owner-signed submission and recovery (B10) verified against the fixture chain: signature over the exact prepared message, policy with a reservation at submission, attempt persisted before the one broadcast, chain-derived states to finality with fills from transaction meta, resend of the same bytes, expiry and cancellation on evidence. Nothing has been sent to a live cluster.',
-      evidence: { session: 'B10' },
+        'Owner-signed submission and recovery (B10) verified against the fixture chain: signature over the exact prepared message, policy with a reservation per leg at submission, attempt persisted before the one broadcast, chain-derived states to finality with fills from transaction meta, resend of the same bytes, expiry and cancellation on evidence; baskets (B11) atomic in one transaction or staged one leg at a time with re-quoted later legs, partial completion on evidence and reviewed completion of the unfilled legs. Nothing has been sent to a live cluster.',
+      evidence: { sessions: ['B10', 'B11'] },
     },
     {
       capability: 'registry.strategy.publish',

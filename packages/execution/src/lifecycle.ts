@@ -15,13 +15,28 @@ import {
  * to a terminal state only on evidence.
  */
 
+/** One leg the attempt's transaction carries, with the exact input its validated swap spends and the approved bounds. */
+export interface LiveAttemptLeg {
+  readonly legIndex: number;
+  readonly side: 'buy' | 'sell';
+  readonly inputMint: string;
+  readonly outputMint: string;
+  readonly inputRaw: bigint;
+  readonly maxInputRaw: bigint;
+  readonly minimumOutputRaw: bigint;
+}
+
 export interface LiveAttempt {
   readonly attemptId: string;
   readonly intentId: string;
   readonly planId: string;
   readonly ownerUserId: string;
   readonly transactionIndex: number;
-  readonly legIndex: number;
+  /** The batch of the plan this transaction is, and how many the plan has (one for an atomic plan). */
+  readonly batch: number;
+  readonly batchCount: number;
+  /** Whether an earlier batch of this intent already filled: a failure now leaves the intent partially completed. */
+  readonly earlierFills: boolean;
   readonly signature: string;
   readonly signedTransaction: string;
   readonly state: 'submitting' | 'submitted' | 'confirmed' | 'unknown';
@@ -30,11 +45,7 @@ export interface LiveAttempt {
   readonly resendCount: number;
   readonly intentState: IntentState;
   readonly owner: string;
-  readonly side: 'buy' | 'sell';
-  readonly inputMint: string;
-  readonly outputMint: string;
-  readonly maxInputRaw: bigint;
-  readonly minimumOutputRaw: bigint;
+  readonly legs: readonly LiveAttemptLeg[];
 }
 
 export interface ExecutionRpc {
@@ -112,7 +123,8 @@ export interface ExecutionStore {
       | 'execution.finalized'
       | 'execution.failed'
       | 'execution.expired'
-      | 'execution.unknown';
+      | 'execution.unknown'
+      | 'execution.partial';
     readonly intentId: string;
     readonly ownerUserId: string;
     readonly payload: Record<string, unknown>;
@@ -346,14 +358,21 @@ export async function reconcileAttempt(
         now,
       );
       await deps.store.settleReservation(attempt.attemptId, 'consumed', now);
+      const lastBatch = attempt.batch + 1 >= attempt.batchCount;
       const target: IntentState =
-        fill === 'violated' ? 'UNKNOWN_REQUIRES_RECONCILIATION' : 'FINALIZED';
+        fill === 'violated'
+          ? 'UNKNOWN_REQUIRES_RECONCILIATION'
+          : lastBatch
+            ? 'FINALIZED'
+            : 'AUTHORIZED';
       const reason =
         fill === 'violated'
           ? 'the landed transaction moved amounts outside the approved bounds; frozen for review'
           : fill === 'unavailable'
             ? 'finalized; the fill could not be read yet and will be read on the next check'
-            : null;
+            : lastBatch
+              ? null
+              : `transaction ${attempt.batch + 1} of ${attempt.batchCount} finalized; transaction ${attempt.batch + 2} awaits its build and the owner's signature`;
       const moved = await deps.store.transitionIntent({
         intentId: attempt.intentId,
         from: [...OPEN_INTENT_STATES, 'FINALIZED'],
@@ -361,7 +380,7 @@ export async function reconcileAttempt(
         reason,
         now,
       });
-      if (moved && target === 'FINALIZED') {
+      if (moved && target !== 'UNKNOWN_REQUIRES_RECONCILIATION') {
         await deps.store.writeOutbox({
           kind: 'execution.finalized',
           intentId: attempt.intentId,
@@ -370,6 +389,9 @@ export async function reconcileAttempt(
             attemptId: attempt.attemptId,
             signature: attempt.signature,
             slot: decision.slot,
+            batch: attempt.batch,
+            batchCount: attempt.batchCount,
+            complete: lastBatch,
           },
           now,
         });
@@ -393,19 +415,23 @@ export async function reconcileAttempt(
       const moved = await deps.store.transitionIntent({
         intentId: attempt.intentId,
         from: OPEN_INTENT_STATES,
-        to: 'FAILED',
-        reason: `${decision.reason}: ${decision.err}`,
+        to: attempt.earlierFills ? 'PARTIALLY_COMPLETED' : 'FAILED',
+        reason: attempt.earlierFills
+          ? `transaction ${attempt.batch + 1} of ${attempt.batchCount} failed after earlier ones filled (${decision.err}); the basket stays partial until a reviewed completion or exit`
+          : `${decision.reason}: ${decision.err}`,
         now,
       });
       if (moved) {
         await deps.store.writeOutbox({
-          kind: 'execution.failed',
+          kind: attempt.earlierFills ? 'execution.partial' : 'execution.failed',
           intentId: attempt.intentId,
           ownerUserId: attempt.ownerUserId,
           payload: {
             attemptId: attempt.attemptId,
             signature: attempt.signature,
             error: decision.err,
+            batch: attempt.batch,
+            batchCount: attempt.batchCount,
           },
           now,
         });
@@ -423,19 +449,24 @@ export async function reconcileAttempt(
       const moved = await deps.store.transitionIntent({
         intentId: attempt.intentId,
         from: OPEN_INTENT_STATES,
-        to: cancelled ? 'CANCELLED' : 'FAILED',
-        reason: decision.reason,
+        to: attempt.earlierFills ? 'PARTIALLY_COMPLETED' : cancelled ? 'CANCELLED' : 'FAILED',
+        reason: attempt.earlierFills
+          ? `transaction ${attempt.batch + 1} of ${attempt.batchCount} expired unseen after earlier ones filled${cancelled ? ' (cancellation requested)' : ''}; the basket stays partial until a reviewed completion or exit`
+          : decision.reason,
         now,
       });
       if (moved) {
         await deps.store.writeOutbox({
-          kind: cancelled ? 'execution.expired' : 'execution.expired',
+          kind: attempt.earlierFills ? 'execution.partial' : 'execution.expired',
           intentId: attempt.intentId,
           ownerUserId: attempt.ownerUserId,
           payload: {
             attemptId: attempt.attemptId,
             signature: attempt.signature,
             blockHeight: decision.blockHeight,
+            batch: attempt.batch,
+            batchCount: attempt.batchCount,
+            cancelled,
           },
           now,
         });
@@ -472,40 +503,54 @@ async function readFill(
   const fill = fillsFromMeta({
     owner: attempt.owner,
     feePayerIndex,
-    inputMint: attempt.inputMint,
-    outputMint: attempt.outputMint,
+    legs: attempt.legs.map((leg) => ({
+      legIndex: leg.legIndex,
+      inputMint: leg.inputMint,
+      outputMint: leg.outputMint,
+      inputRaw: leg.inputRaw,
+      bounds: { maxInputRaw: leg.maxInputRaw, minimumOutputRaw: leg.minimumOutputRaw },
+    })),
     preTokenBalances: landed.preTokenBalances,
     postTokenBalances: landed.postTokenBalances,
     preBalances: landed.preBalances,
     postBalances: landed.postBalances,
     fee: landed.fee,
-    bounds: { maxInputRaw: attempt.maxInputRaw, minimumOutputRaw: attempt.minimumOutputRaw },
   });
   evidence.push(
-    `fill from transaction meta: spent ${fill.inputSpentRaw} raw, received ${fill.outputReceivedRaw} raw, fee ${fill.feeLamports} lamports`,
+    `fill from transaction meta: spent ${fill.inputSpentRaw} raw across ${fill.legs.length} leg${fill.legs.length === 1 ? '' : 's'}, fee ${fill.feeLamports} lamports`,
   );
   for (const note of fill.notes) {
     evidence.push(note);
   }
-  await deps.store.recordFill({
-    attemptId: attempt.attemptId,
-    intentId: attempt.intentId,
-    planId: attempt.planId,
-    ownerUserId: attempt.ownerUserId,
-    legIndex: attempt.legIndex,
-    signature: attempt.signature,
-    slot: landed.slot,
-    blockTime: landed.blockTime === null ? null : new Date(landed.blockTime * 1000),
-    side: attempt.side,
-    inputMint: attempt.inputMint,
-    outputMint: attempt.outputMint,
-    inputSpentRaw: fill.inputSpentRaw.toString(),
-    outputReceivedRaw: fill.outputReceivedRaw.toString(),
-    feeLamports: fill.feeLamports.toString(),
-    lamportsSpent: fill.lamportsSpent.toString(),
-    withinBounds: fill.withinBounds,
-    observedAt: now,
-  });
+  // The transaction's fee and lamports are recorded once, on its first leg's fill.
+  for (const [position, legFill] of fill.legs.entries()) {
+    const leg = attempt.legs.find((entry) => entry.legIndex === legFill.legIndex);
+    if (!leg) {
+      continue;
+    }
+    evidence.push(
+      `leg ${legFill.legIndex}: received ${legFill.outputReceivedRaw} raw of ${leg.outputMint} for ${legFill.inputSpentRaw} raw`,
+    );
+    await deps.store.recordFill({
+      attemptId: attempt.attemptId,
+      intentId: attempt.intentId,
+      planId: attempt.planId,
+      ownerUserId: attempt.ownerUserId,
+      legIndex: legFill.legIndex,
+      signature: attempt.signature,
+      slot: landed.slot,
+      blockTime: landed.blockTime === null ? null : new Date(landed.blockTime * 1000),
+      side: leg.side,
+      inputMint: leg.inputMint,
+      outputMint: leg.outputMint,
+      inputSpentRaw: legFill.inputSpentRaw.toString(),
+      outputReceivedRaw: legFill.outputReceivedRaw.toString(),
+      feeLamports: position === 0 ? fill.feeLamports.toString() : '0',
+      lamportsSpent: position === 0 ? fill.lamportsSpent.toString() : '0',
+      withinBounds: legFill.withinBounds && fill.withinBounds,
+      observedAt: now,
+    });
+  }
   return fill.withinBounds ? 'recorded' : 'violated';
 }
 
@@ -526,16 +571,30 @@ export interface LiveAttemptRows {
   };
   readonly transaction: {
     readonly feePayer: string;
-    readonly legIndexes: readonly number[];
+    readonly batch: number;
     readonly effects: {
-      readonly side: 'buy' | 'sell';
-      readonly inputMint: string;
-      readonly outputMint: string;
-      readonly maxInputRaw: string;
-      readonly minimumOutputRaw: string;
+      readonly legs: readonly {
+        readonly legIndex: number;
+        readonly side: 'buy' | 'sell';
+        readonly inputMint: string;
+        readonly outputMint: string;
+        readonly maxInputRaw: string;
+        readonly minimumOutputRaw: string;
+      }[];
     };
   };
   readonly intent: { readonly state: string };
+  /** The plan's batch count and the leg bounds the approval fixed (the validated swap never exceeds them). */
+  readonly plan: {
+    readonly batchCount: number;
+    readonly legs: readonly {
+      readonly legIndex: number;
+      readonly maxInputRaw: string;
+      readonly minimumOutputRaw: string;
+    }[];
+  };
+  /** Whether an earlier batch of this intent already filled. */
+  readonly earlierFills: boolean;
 }
 
 const LIVE_STATES: ReadonlySet<string> = new Set([
@@ -556,7 +615,6 @@ export function liveAttemptFromRows(rows: LiveAttemptRows): LiveAttempt | null {
     planId: rows.attempt.planId,
     ownerUserId: rows.attempt.ownerUserId,
     transactionIndex: rows.attempt.transactionIndex,
-    legIndex: rows.transaction.legIndexes[0] ?? 0,
     signature: rows.attempt.signature,
     signedTransaction: rows.attempt.signedTransaction,
     state: rows.attempt.state as LiveAttempt['state'],
@@ -565,10 +623,20 @@ export function liveAttemptFromRows(rows: LiveAttemptRows): LiveAttempt | null {
     resendCount: rows.attempt.resendCount,
     intentState: rows.intent.state as IntentState,
     owner: rows.transaction.feePayer,
-    side: rows.transaction.effects.side,
-    inputMint: rows.transaction.effects.inputMint,
-    outputMint: rows.transaction.effects.outputMint,
-    maxInputRaw: BigInt(rows.transaction.effects.maxInputRaw),
-    minimumOutputRaw: BigInt(rows.transaction.effects.minimumOutputRaw),
+    batch: rows.transaction.batch,
+    batchCount: rows.plan.batchCount,
+    earlierFills: rows.earlierFills,
+    legs: rows.transaction.effects.legs.map((leg) => {
+      const approved = rows.plan.legs.find((entry) => entry.legIndex === leg.legIndex);
+      return {
+        legIndex: leg.legIndex,
+        side: leg.side,
+        inputMint: leg.inputMint,
+        outputMint: leg.outputMint,
+        inputRaw: BigInt(leg.maxInputRaw),
+        maxInputRaw: BigInt(approved?.maxInputRaw ?? leg.maxInputRaw),
+        minimumOutputRaw: BigInt(approved?.minimumOutputRaw ?? leg.minimumOutputRaw),
+      };
+    }),
   };
 }

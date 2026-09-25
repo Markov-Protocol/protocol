@@ -287,6 +287,7 @@ export function StartReviewView() {
       executionPreference: 'atomic_or_explicit_staged_review',
       approvalMode: 'owner_each_plan',
       slippageBps: slippageBps === null ? null : effectiveSlippage,
+      continuationOfIntentId: null,
       idempotencyKey: idempotencyKey.current,
     };
     create.mutate(request, {

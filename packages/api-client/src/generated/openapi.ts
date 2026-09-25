@@ -21337,6 +21337,14 @@ export type paths = {
                                 readonly slippageBps: number;
                                 readonly latestPlanId: string | null;
                                 readonly latestPlanHash: string | null;
+                                readonly continuation: {
+                                    /** Format: uuid */
+                                    readonly ofIntentId: string;
+                                    /** Format: uuid */
+                                    readonly ofPlanId: string;
+                                    readonly legIndexes: readonly number[];
+                                } | null;
+                                readonly continuedByIntentId: string | null;
                                 readonly idempotencyKey: string;
                                 /** Format: date-time */
                                 readonly createdAt: string;
@@ -21493,7 +21501,7 @@ export type paths = {
         readonly put?: never;
         /**
          * Create an investment intent (idempotent per key)
-         * @description A basket investment names a pinned version you own or a public one; a single buy names an admitted instrument. The budget is raw units of the platform stablecoin from one of your verified wallets. 201 for a new intent, 200 when the key was already used with the same request; IDEMPOTENCY_CONFLICT when it was used with another. Nothing is quoted or reserved here.
+         * @description A basket investment names a pinned version you own or a public one; a single buy names an admitted instrument; a single sell names an admitted instrument and a budget in its raw units. The budget is raw units of the platform stablecoin from one of your verified wallets. A reviewed completion sets continuationOfIntentId to one of your PARTIALLY_COMPLETED baskets: the same wallet and version, and a budget equal to the sum of the legs it left unfilled at their original targets (VALIDATION_FAILED names the field otherwise); the original records continuedByIntentId. 201 for a new intent, 200 when the key was already used with the same request; IDEMPOTENCY_CONFLICT when it was used with another. Nothing is quoted or reserved here.
          */
         readonly post: {
             readonly parameters: {
@@ -21538,6 +21546,8 @@ export type paths = {
                         readonly approvalMode?: "owner_each_plan";
                         /** @default null */
                         readonly slippageBps?: number | null;
+                        /** @default null */
+                        readonly continuationOfIntentId?: string | null;
                         readonly idempotencyKey: string;
                     };
                 };
@@ -21589,6 +21599,14 @@ export type paths = {
                             readonly slippageBps: number;
                             readonly latestPlanId: string | null;
                             readonly latestPlanHash: string | null;
+                            readonly continuation: {
+                                /** Format: uuid */
+                                readonly ofIntentId: string;
+                                /** Format: uuid */
+                                readonly ofPlanId: string;
+                                readonly legIndexes: readonly number[];
+                            } | null;
+                            readonly continuedByIntentId: string | null;
                             readonly idempotencyKey: string;
                             /** Format: date-time */
                             readonly createdAt: string;
@@ -21645,6 +21663,14 @@ export type paths = {
                             readonly slippageBps: number;
                             readonly latestPlanId: string | null;
                             readonly latestPlanHash: string | null;
+                            readonly continuation: {
+                                /** Format: uuid */
+                                readonly ofIntentId: string;
+                                /** Format: uuid */
+                                readonly ofPlanId: string;
+                                readonly legIndexes: readonly number[];
+                            } | null;
+                            readonly continuedByIntentId: string | null;
                             readonly idempotencyKey: string;
                             /** Format: date-time */
                             readonly createdAt: string;
@@ -21868,6 +21894,14 @@ export type paths = {
                             readonly slippageBps: number;
                             readonly latestPlanId: string | null;
                             readonly latestPlanHash: string | null;
+                            readonly continuation: {
+                                /** Format: uuid */
+                                readonly ofIntentId: string;
+                                /** Format: uuid */
+                                readonly ofPlanId: string;
+                                readonly legIndexes: readonly number[];
+                            } | null;
+                            readonly continuedByIntentId: string | null;
                             readonly idempotencyKey: string;
                             /** Format: date-time */
                             readonly createdAt: string;
@@ -22212,6 +22246,13 @@ export type paths = {
                             readonly grouping: {
                                 /** @enum {string} */
                                 readonly mode: "atomic" | "staged";
+                                /** @enum {string} */
+                                readonly reason: "single_leg" | "composition_fits" | "composition_too_large" | "composition_simulation_failed" | "composition_unavailable";
+                                readonly composition: {
+                                    readonly sizeBytes: number | null;
+                                    readonly maxBytes: number;
+                                    readonly legs: number;
+                                } | null;
                                 readonly batches: readonly {
                                     readonly batch: number;
                                     readonly legIndexes: readonly number[];
@@ -22241,7 +22282,16 @@ export type paths = {
                                 readonly policyExpiresAt: string;
                                 /** Format: date-time */
                                 readonly expiresAt: string;
-                                readonly simulation: null;
+                                readonly simulation: {
+                                    /** @enum {string} */
+                                    readonly status: "ok" | "failed" | "unavailable";
+                                    readonly unitsConsumed: number | null;
+                                    readonly err: string | null;
+                                    readonly logsHash: string | null;
+                                    readonly slot: number | null;
+                                    /** Format: date-time */
+                                    readonly observedAt: string;
+                                } | null;
                                 readonly evidence: {
                                     readonly eligibilityDecisionId: string | null;
                                     readonly policyVersion: string | null;
@@ -22606,6 +22656,13 @@ export type paths = {
                             readonly grouping: {
                                 /** @enum {string} */
                                 readonly mode: "atomic" | "staged";
+                                /** @enum {string} */
+                                readonly reason: "single_leg" | "composition_fits" | "composition_too_large" | "composition_simulation_failed" | "composition_unavailable";
+                                readonly composition: {
+                                    readonly sizeBytes: number | null;
+                                    readonly maxBytes: number;
+                                    readonly legs: number;
+                                } | null;
                                 readonly batches: readonly {
                                     readonly batch: number;
                                     readonly legIndexes: readonly number[];
@@ -22635,7 +22692,16 @@ export type paths = {
                                 readonly policyExpiresAt: string;
                                 /** Format: date-time */
                                 readonly expiresAt: string;
-                                readonly simulation: null;
+                                readonly simulation: {
+                                    /** @enum {string} */
+                                    readonly status: "ok" | "failed" | "unavailable";
+                                    readonly unitsConsumed: number | null;
+                                    readonly err: string | null;
+                                    readonly logsHash: string | null;
+                                    readonly slot: number | null;
+                                    /** Format: date-time */
+                                    readonly observedAt: string;
+                                } | null;
                                 readonly evidence: {
                                     readonly eligibilityDecisionId: string | null;
                                     readonly policyVersion: string | null;
@@ -23015,6 +23081,13 @@ export type paths = {
                             readonly grouping: {
                                 /** @enum {string} */
                                 readonly mode: "atomic" | "staged";
+                                /** @enum {string} */
+                                readonly reason: "single_leg" | "composition_fits" | "composition_too_large" | "composition_simulation_failed" | "composition_unavailable";
+                                readonly composition: {
+                                    readonly sizeBytes: number | null;
+                                    readonly maxBytes: number;
+                                    readonly legs: number;
+                                } | null;
                                 readonly batches: readonly {
                                     readonly batch: number;
                                     readonly legIndexes: readonly number[];
@@ -23044,7 +23117,16 @@ export type paths = {
                                 readonly policyExpiresAt: string;
                                 /** Format: date-time */
                                 readonly expiresAt: string;
-                                readonly simulation: null;
+                                readonly simulation: {
+                                    /** @enum {string} */
+                                    readonly status: "ok" | "failed" | "unavailable";
+                                    readonly unitsConsumed: number | null;
+                                    readonly err: string | null;
+                                    readonly logsHash: string | null;
+                                    readonly slot: number | null;
+                                    /** Format: date-time */
+                                    readonly observedAt: string;
+                                } | null;
                                 readonly evidence: {
                                     readonly eligibilityDecisionId: string | null;
                                     readonly policyVersion: string | null;
@@ -23296,6 +23378,14 @@ export type paths = {
                             readonly slippageBps: number;
                             readonly latestPlanId: string | null;
                             readonly latestPlanHash: string | null;
+                            readonly continuation: {
+                                /** Format: uuid */
+                                readonly ofIntentId: string;
+                                /** Format: uuid */
+                                readonly ofPlanId: string;
+                                readonly legIndexes: readonly number[];
+                            } | null;
+                            readonly continuedByIntentId: string | null;
                             readonly idempotencyKey: string;
                             /** Format: date-time */
                             readonly createdAt: string;
@@ -23465,7 +23555,7 @@ export type paths = {
         readonly put?: never;
         /**
          * Build, validate and simulate the transaction of an acknowledged plan
-         * @description For a single-leg plan (buy or sell) acknowledged by its hash: takes a finalized blockhash, asks the venue for the transaction, decodes every instruction and checks it against the plan (fee payer and sole signer, the owner’s token accounts, mints, exact input and minimum output, compute budget within the plan’s fee cap, account creation for the owner only, reviewed route programs), simulates it and stores it. Refusals answer TRANSACTION_REFUSED with the refusal code in details (VALIDATION_FAILED, SIMULATION_FAILED, STAGED_NOT_SUPPORTED, ATTEMPT_IN_FLIGHT, PLAN_NOT_APPROVED), QUOTE_EXPIRED when the plan expired, PLAN_CHANGED when the intent moved on, PROVIDER_UNAVAILABLE when no venue builds. A new build supersedes an unsigned earlier one. Nothing is signed or sent.
+         * @description Builds the next transaction of a plan acknowledged by its hash: one composed transaction for an atomic plan (a single leg, or every leg of a basket that fit and passed simulation when the plan was built), or the next batch of a staged plan, built only after the previous one finalized with its fills recorded. Takes a finalized blockhash, asks the venue for the bytes, decodes every instruction and checks it against the plan (fee payer and sole signer, the owner’s token accounts, mints, exact input and minimum output per leg, compute budget within the plan’s fee cap, account creation for the owner only, reviewed route programs), simulates it and stores it. A later batch of a staged plan is quoted again first and refused with LEG_TERMS_CHANGED when the fresh quote cannot meet the approved bounds; the intent is then PARTIALLY_COMPLETED and a reviewed completion (a new intent with continuationOfIntentId) buys the unfilled legs at their original targets. Refusals answer TRANSACTION_REFUSED with the refusal code in details (VALIDATION_FAILED, SIMULATION_FAILED, ATTEMPT_IN_FLIGHT, PLAN_NOT_APPROVED, LEG_TERMS_CHANGED, BATCH_NOT_READY, PLAN_COMPLETED), QUOTE_EXPIRED when the plan expired, PLAN_CHANGED when the intent moved on, PROVIDER_UNAVAILABLE when no venue builds. A new build supersedes an unsigned earlier one of the same batch. Nothing is signed or sent.
          */
         readonly post: {
             readonly parameters: {
@@ -23520,11 +23610,18 @@ export type paths = {
                                 /** @enum {string} */
                                 readonly side: "buy" | "sell";
                                 readonly inputMint: string;
-                                readonly outputMint: string;
                                 readonly maxInputRaw: string;
-                                readonly minimumOutputRaw: string;
-                                readonly sourceTokenAccount: string;
-                                readonly destinationTokenAccount: string;
+                                readonly legs: readonly {
+                                    readonly legIndex: number;
+                                    /** @enum {string} */
+                                    readonly side: "buy" | "sell";
+                                    readonly inputMint: string;
+                                    readonly outputMint: string;
+                                    readonly maxInputRaw: string;
+                                    readonly minimumOutputRaw: string;
+                                    readonly sourceTokenAccount: string;
+                                    readonly destinationTokenAccount: string;
+                                }[];
                                 readonly accountsCreated: readonly string[];
                                 readonly computeUnitLimit: number | null;
                                 readonly computeUnitPriceMicroLamports: string;
@@ -23766,6 +23863,16 @@ export type paths = {
                             readonly stateReason: string | null;
                             readonly planId: string | null;
                             readonly planHash: string | null;
+                            readonly batches: readonly {
+                                readonly batch: number;
+                                readonly legIndexes: readonly number[];
+                                /** @enum {string} */
+                                readonly state: "pending" | "prepared" | "submitting" | "submitted" | "confirmed" | "finalized" | "failed" | "expired" | "cancelled" | "unknown" | "stale";
+                                readonly transactionId: string | null;
+                                readonly attemptId: string | null;
+                                readonly signature: string | null;
+                                readonly reason: string | null;
+                            }[];
                             readonly transactions: readonly {
                                 /** Format: uuid */
                                 readonly transactionId: string;
@@ -23802,11 +23909,18 @@ export type paths = {
                                     /** @enum {string} */
                                     readonly side: "buy" | "sell";
                                     readonly inputMint: string;
-                                    readonly outputMint: string;
                                     readonly maxInputRaw: string;
-                                    readonly minimumOutputRaw: string;
-                                    readonly sourceTokenAccount: string;
-                                    readonly destinationTokenAccount: string;
+                                    readonly legs: readonly {
+                                        readonly legIndex: number;
+                                        /** @enum {string} */
+                                        readonly side: "buy" | "sell";
+                                        readonly inputMint: string;
+                                        readonly outputMint: string;
+                                        readonly maxInputRaw: string;
+                                        readonly minimumOutputRaw: string;
+                                        readonly sourceTokenAccount: string;
+                                        readonly destinationTokenAccount: string;
+                                    }[];
                                     readonly accountsCreated: readonly string[];
                                     readonly computeUnitLimit: number | null;
                                     readonly computeUnitPriceMicroLamports: string;
@@ -23926,6 +24040,16 @@ export type paths = {
                             readonly stateReason: string | null;
                             readonly planId: string | null;
                             readonly planHash: string | null;
+                            readonly batches: readonly {
+                                readonly batch: number;
+                                readonly legIndexes: readonly number[];
+                                /** @enum {string} */
+                                readonly state: "pending" | "prepared" | "submitting" | "submitted" | "confirmed" | "finalized" | "failed" | "expired" | "cancelled" | "unknown" | "stale";
+                                readonly transactionId: string | null;
+                                readonly attemptId: string | null;
+                                readonly signature: string | null;
+                                readonly reason: string | null;
+                            }[];
                             readonly transactions: readonly {
                                 /** Format: uuid */
                                 readonly transactionId: string;
@@ -23962,11 +24086,18 @@ export type paths = {
                                     /** @enum {string} */
                                     readonly side: "buy" | "sell";
                                     readonly inputMint: string;
-                                    readonly outputMint: string;
                                     readonly maxInputRaw: string;
-                                    readonly minimumOutputRaw: string;
-                                    readonly sourceTokenAccount: string;
-                                    readonly destinationTokenAccount: string;
+                                    readonly legs: readonly {
+                                        readonly legIndex: number;
+                                        /** @enum {string} */
+                                        readonly side: "buy" | "sell";
+                                        readonly inputMint: string;
+                                        readonly outputMint: string;
+                                        readonly maxInputRaw: string;
+                                        readonly minimumOutputRaw: string;
+                                        readonly sourceTokenAccount: string;
+                                        readonly destinationTokenAccount: string;
+                                    }[];
                                     readonly accountsCreated: readonly string[];
                                     readonly computeUnitLimit: number | null;
                                     readonly computeUnitPriceMicroLamports: string;
@@ -24256,6 +24387,16 @@ export type paths = {
                             readonly stateReason: string | null;
                             readonly planId: string | null;
                             readonly planHash: string | null;
+                            readonly batches: readonly {
+                                readonly batch: number;
+                                readonly legIndexes: readonly number[];
+                                /** @enum {string} */
+                                readonly state: "pending" | "prepared" | "submitting" | "submitted" | "confirmed" | "finalized" | "failed" | "expired" | "cancelled" | "unknown" | "stale";
+                                readonly transactionId: string | null;
+                                readonly attemptId: string | null;
+                                readonly signature: string | null;
+                                readonly reason: string | null;
+                            }[];
                             readonly transactions: readonly {
                                 /** Format: uuid */
                                 readonly transactionId: string;
@@ -24292,11 +24433,18 @@ export type paths = {
                                     /** @enum {string} */
                                     readonly side: "buy" | "sell";
                                     readonly inputMint: string;
-                                    readonly outputMint: string;
                                     readonly maxInputRaw: string;
-                                    readonly minimumOutputRaw: string;
-                                    readonly sourceTokenAccount: string;
-                                    readonly destinationTokenAccount: string;
+                                    readonly legs: readonly {
+                                        readonly legIndex: number;
+                                        /** @enum {string} */
+                                        readonly side: "buy" | "sell";
+                                        readonly inputMint: string;
+                                        readonly outputMint: string;
+                                        readonly maxInputRaw: string;
+                                        readonly minimumOutputRaw: string;
+                                        readonly sourceTokenAccount: string;
+                                        readonly destinationTokenAccount: string;
+                                    }[];
                                     readonly accountsCreated: readonly string[];
                                     readonly computeUnitLimit: number | null;
                                     readonly computeUnitPriceMicroLamports: string;
@@ -24590,6 +24738,16 @@ export type paths = {
                             readonly stateReason: string | null;
                             readonly planId: string | null;
                             readonly planHash: string | null;
+                            readonly batches: readonly {
+                                readonly batch: number;
+                                readonly legIndexes: readonly number[];
+                                /** @enum {string} */
+                                readonly state: "pending" | "prepared" | "submitting" | "submitted" | "confirmed" | "finalized" | "failed" | "expired" | "cancelled" | "unknown" | "stale";
+                                readonly transactionId: string | null;
+                                readonly attemptId: string | null;
+                                readonly signature: string | null;
+                                readonly reason: string | null;
+                            }[];
                             readonly transactions: readonly {
                                 /** Format: uuid */
                                 readonly transactionId: string;
@@ -24626,11 +24784,18 @@ export type paths = {
                                     /** @enum {string} */
                                     readonly side: "buy" | "sell";
                                     readonly inputMint: string;
-                                    readonly outputMint: string;
                                     readonly maxInputRaw: string;
-                                    readonly minimumOutputRaw: string;
-                                    readonly sourceTokenAccount: string;
-                                    readonly destinationTokenAccount: string;
+                                    readonly legs: readonly {
+                                        readonly legIndex: number;
+                                        /** @enum {string} */
+                                        readonly side: "buy" | "sell";
+                                        readonly inputMint: string;
+                                        readonly outputMint: string;
+                                        readonly maxInputRaw: string;
+                                        readonly minimumOutputRaw: string;
+                                        readonly sourceTokenAccount: string;
+                                        readonly destinationTokenAccount: string;
+                                    }[];
                                     readonly accountsCreated: readonly string[];
                                     readonly computeUnitLimit: number | null;
                                     readonly computeUnitPriceMicroLamports: string;

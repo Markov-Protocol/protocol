@@ -9,7 +9,12 @@ import {
   platformHealthInputSchema,
   platformHealthReportSchema,
 } from '@markov/contracts';
-import { createExecutionStorePort, type DbClient, listLiveAttemptContexts } from '@markov/db';
+import {
+  createExecutionStorePort,
+  type DbClient,
+  listLiveAttemptContexts,
+  liveAttemptRowsOf,
+} from '@markov/db';
 import { liveAttemptFromRows, reconcileAttempt } from '@markov/execution';
 import type { Logger } from '@markov/observability';
 import type { SolanaRpcClient } from '@markov/solana-rpc';
@@ -73,7 +78,7 @@ export function createPlatformActivities(deps: ActivityDependencies): PlatformAc
       const contexts = await listLiveAttemptContexts(deps.dbClient.db, input.batchSize);
       const outcomes: ExecutionReconciliationRound['outcomes'] = [];
       for (const context of contexts) {
-        const live = liveAttemptFromRows(context);
+        const live = liveAttemptFromRows(liveAttemptRowsOf(context));
         if (live === null) {
           continue;
         }

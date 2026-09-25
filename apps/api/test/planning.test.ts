@@ -35,7 +35,8 @@ const sumRaw = (values: readonly string[]) =>
 
 describe.skipIf(adminUrl === null)('planning API', () => {
   it('plans a basket investment with conserved allocation, checked fixture quotes, policy evidence and a reviewed hash', async () => {
-    await withHarness({ venue: 'fixture' }, async (h) => {
+    // The fixture venue is limited to one leg per transaction here, so the basket is staged with its reason.
+    await withHarness({ venue: 'fixture', composeMaxLegs: () => 1 }, async (h) => {
       const ids = await h.seed(await h.operator(['ops:catalog:read', 'ops:catalog:write']));
       const alice = await h.user();
       const bob = await h.user('did:test:bob');
@@ -58,6 +59,7 @@ describe.skipIf(adminUrl === null)('planning API', () => {
         executionPreference: 'atomic_or_explicit_staged_review',
         approvalMode: 'owner_each_plan',
         slippageBps: null,
+        continuationOfIntentId: null,
         idempotencyKey: 'test-intent-0001',
       };
 
@@ -185,6 +187,9 @@ describe.skipIf(adminUrl === null)('planning API', () => {
       expect(plan.input.totalSpendRaw).toBe('1000000000');
       // Two constituents: staged, one batch per leg, with worst-case spend and acknowledgement required.
       expect(plan.grouping.mode).toBe('staged');
+      expect(plan.grouping.reason).toBe('composition_unavailable');
+      expect(plan.grouping.composition).toBeNull();
+      expect(plan.validity.simulation).toBeNull();
       expect(plan.grouping.acknowledgementRequired).toBe(true);
       expect(plan.grouping.batches.map((batch) => batch.worstCaseSpentRaw)).toEqual([
         '450000000',
@@ -198,9 +203,10 @@ describe.skipIf(adminUrl === null)('planning API', () => {
         expect(leg.policyDecision.outcome).toBe('allow');
         expect(leg.slippageBps).toBe(50);
       }
-      expect(plan.legs.map((leg) => leg.symbol)).toEqual(['FXAERO', 'XSFXA']);
-      expect(plan.legs.map((leg) => leg.issuer)).toEqual(['prestocks', 'xstocks']);
-      expect(plan.legs[1]?.tokenProgram).toBe('token-2022');
+      // Frozen legs are ordered by instrument id, so the pair's order depends on the seeded ids.
+      expect([...plan.legs.map((leg) => leg.symbol)].sort()).toEqual(['FXAERO', 'XSFXA']);
+      expect([...plan.legs.map((leg) => leg.issuer)].sort()).toEqual(['prestocks', 'xstocks']);
+      expect(plan.legs.find((leg) => leg.symbol === 'XSFXA')?.tokenProgram).toBe('token-2022');
       // Fees: a separate SOL budget with an explicit upper bound; no protocol fee under beta-0.
       expect(plan.fees.protocol).toEqual({ feePolicyVersion: 'beta-0', feeBps: 0, feeRaw: '0' });
       expect(plan.fees.network.batches).toBe(2);

@@ -1106,6 +1106,11 @@ export const intents = pgTable(
     slippageBps: integer('slippage_bps').notNull(),
     latestPlanId: uuid('latest_plan_id'),
     latestPlanHash: text('latest_plan_hash'),
+    /** A reviewed completion (B11): the partially completed intent and plan this one continues, and its legs. */
+    continuationOfIntentId: uuid('continuation_of_intent_id'),
+    continuationOfPlanId: uuid('continuation_of_plan_id'),
+    continuationLegIndexes: jsonb('continuation_leg_indexes').$type<number[]>(),
+    continuedByIntentId: uuid('continued_by_intent_id'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),

@@ -1,8 +1,9 @@
-# Execution planning (B09)
+# Execution planning (B09, B10, B11)
 
 An **intent** is the owner's request to invest a stablecoin budget from one
 verified wallet into a pinned strategy version (`basket_investment`) or one
-admitted instrument (`single_buy`). A **plan** is the immutable, hashed
+admitted instrument (`single_buy`), or to sell an exact quantity of one
+(`single_sell`, B10). A **plan** is the immutable, hashed
 answer: an integer allocation that conserves the budget exactly, one checked
 venue quote and one policy decision per constituent, a separate SOL fee
 budget with an explicit upper bound, the transaction grouping, the
@@ -34,6 +35,15 @@ Persistence: migration `0010_planning` (`intents`, `execution_plans`,
 - A basket investment may name a version the person owns or a public
   (registered, unmoderated) version; anything else is `NOT_FOUND`. A single
   buy needs an admitted instrument (`ASSET_NOT_ADMITTED` otherwise).
+- A reviewed completion (B11) is a basket investment with
+  `continuationOfIntentId` naming one of the caller's `PARTIALLY_COMPLETED`
+  baskets: the same wallet and version, and a budget equal to the sum of
+  the legs that intent left unfilled at their original targets
+  (`VALIDATION_FAILED` names `walletId`, `strategyVersionId` or
+  `budget.rawAmount` otherwise; a basket already continued, or with nothing
+  left, is refused). The new intent records `continuation` (the original
+  intent, its plan and the leg indexes) and the original records
+  `continuedByIntentId`, once.
 - States (`INTENT_STATES`): `DRAFT` → `QUOTED` (a plan exists) →
   `AWAITING_APPROVAL` (the owner acknowledged the current plan) → `AUTHORIZED`
   … `FINALIZED` (B10/B11), with `EXPIRED`, `REJECTED`, `CANCELLED`, `FAILED`
@@ -166,21 +176,45 @@ does so offline.
 
 ## Grouping: atomic or staged
 
-A single constituent is one transaction (`atomic`): it lands entirely or
-not at all. Two or more constituents are `staged` until whole-basket
-composition and simulation exist (B11): one batch per constituent in weight
-order, each with its worst-case cumulative spend and the cash remaining
-after it, and `acknowledgementRequired: true`. The acknowledgement must
-carry `stagedAcknowledged: true`; the plan's warning says that later
-batches can fail or expire after earlier ones filled and that no budget is
-ever moved between constituents on its own. A batch-signing wallet feature
-does not make separate transactions atomic.
+A single constituent is one transaction (`atomic`, reason `single_leg`): it
+lands entirely or not at all. For two or more constituents the plan build
+composes the whole basket (B11): after the quotes and policy decisions, the
+venue's `compose` is asked for one transaction carrying every leg (account
+creations first, swaps in leg order, all from the owner's one stablecoin
+account), on a finalized blockhash from the node with the owner's missing
+token accounts read from it. The bytes are measured against the packet
+limit (1232 bytes) and simulated on the node as it stands. The plan is
+`atomic` only when the composition fits and the simulation passed
+(`composition_fits`), and records `grouping.composition` (size, limit,
+legs) and the simulation as `validity.simulation`. Otherwise it is
+`staged` with the reason: `composition_too_large`,
+`composition_simulation_failed` (the simulation's error is in the
+warnings), or `composition_unavailable` (the venue cannot compose, the node
+could not be asked, or the bytes did not parse); nothing is inferred from
+an absent answer.
+
+A staged plan has one batch per constituent in weight order, each with its
+worst-case cumulative spend and the cash remaining after it, and
+`acknowledgementRequired: true`. The acknowledgement must carry
+`stagedAcknowledged: true`; the plan's note says that each later
+transaction is checked again against the approved bounds before it is
+built, that the run stops as partially completed when a later leg fails,
+expires or no longer meets its bounds after earlier ones filled, and that
+no budget is ever moved between constituents on its own. A batch-signing
+wallet feature does not make separate transactions atomic. The composed
+transaction is built, validated and simulated again at execution time
+before it is shown for signing; the plan-time composition is evidence of
+grouping, not the bytes that are signed. The grouping `reason` is part of
+the hashed plan.
 
 ## Validity, funds and evidence
 
 - `validity.expiresAt` is the earliest of every quote's expiry and every
   policy decision's expiry; nothing may be signed against an expired plan.
-  `simulation` is `null` until B10/B11: no simulation has happened.
+  `simulation` is the plan-time simulation of the composed basket for an
+  atomic multi-leg plan and `null` otherwise (a single leg is simulated
+  when its transaction is built; a staged plan carries no whole-basket
+  simulation).
 - `funds` is what the network reported when the plan was built (slot,
   stablecoin, lamports) and whether it covers the spend and the SOL bound;
   the API refuses to build at all (`INSUFFICIENT_FUNDS`, naming both
@@ -217,11 +251,14 @@ acknowledgement) is the same as for buys.
 
 ## What is executed and what is not
 
-B10 executes single-leg plans (`docs/markov/execution-state-machine.md`):
-one transaction built from the plan's quote, validated against the plan,
-simulated, signed by the owner, submitted once and reconciled to finality.
-Multi-constituent plans stay staged and are refused by the build step
-(`STAGED_NOT_SUPPORTED`) until B11 composes and simulates them batch by
-batch. Nothing rebalances. Plans from the fixture venue execute only against
-the fixture chain of local and test modes; no live route has been built or
-sent.
+B10 executes single-leg plans and B11 baskets
+(`docs/markov/execution-state-machine.md`): an atomic plan as one
+transaction built from the plan's quotes, validated against every leg,
+simulated, signed by the owner, submitted once and reconciled to finality
+with a fill per leg; a staged plan one transaction per constituent, each
+built only after the previous one finalized, re-quoted and checked against
+the approved bounds first, with partial completion on evidence and reviewed
+completion of the rest through a continuation intent. Nothing rebalances
+and nothing moves budget between constituents. Plans from the fixture venue
+execute only against the fixture chain of local and test modes; no live
+route has been built, composed or sent.

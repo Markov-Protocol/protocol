@@ -48,6 +48,8 @@ export function intent(overrides: Partial<Intent> = {}): Intent {
     slippageBps: 50,
     latestPlanId: null,
     latestPlanHash: null,
+    continuation: null,
+    continuedByIntentId: null,
     idempotencyKey: 'test-intent-0001',
     createdAt: NOW,
     updatedAt: NOW,
@@ -185,6 +187,8 @@ export function plan(overrides: Partial<ExecutionPlan> = {}): ExecutionPlan {
     },
     grouping: {
       mode: 'staged',
+      reason: 'composition_unavailable',
+      composition: null,
       batches: [
         {
           batch: 0,
@@ -298,6 +302,8 @@ export function singlePlan(overrides: Partial<ExecutionPlan> = {}): ExecutionPla
     },
     grouping: {
       mode: 'atomic',
+      reason: 'single_leg',
+      composition: null,
       batches: [
         {
           batch: 0,

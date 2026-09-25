@@ -1,16 +1,20 @@
 import { createHash } from 'node:crypto';
 import type { Principal } from '@markov/auth';
 import type { MarkovConfig } from '@markov/config';
-import type {
-  ExecutionAttempt,
-  ExecutionFill,
-  ExecutionPlan,
-  ExecutionStatus,
-  IntentState,
-  PlanLeg,
-  PreparedTransaction,
-  SignedTransactionSubmission,
-  SimulationEvidence,
+import {
+  type BatchState,
+  type ExecutionAttempt,
+  type ExecutionBatch,
+  type ExecutionFill,
+  type ExecutionPlan,
+  type ExecutionStatus,
+  type IntentState,
+  PLANNING_SCHEMA_VERSION,
+  type PlanLeg,
+  type PreparedTransaction,
+  type SignedTransactionSubmission,
+  type SimulationEvidence,
+  type VenueQuote,
 } from '@markov/contracts';
 import {
   type AttemptContext,
@@ -28,27 +32,35 @@ import {
   type IntentRow,
   insertOutboxEvent,
   insertPreparedTransaction,
+  insertVenueQuotes,
   listAttempts,
   listCurrentPreparedTransactions,
   listFills,
+  liveAttemptRowsOf,
   markPlanStatus,
   type PreparedTransactionRow,
   recordAuditEvent,
   releaseReservation,
+  reservationKey,
   transitionIntent,
   updateAttempt,
   updatePreparedTransactionState,
 } from '@markov/db';
 import {
   checkSignedSubmission,
+  legTokenAccounts,
   liveAttemptFromRows,
   type ReconcileOutcome,
   reconcileAttempt,
   validateSwapTransaction,
 } from '@markov/execution';
-import { type VenueAdapter, VenueQuoteError } from '@markov/planning';
 import {
-  associatedTokenAddress,
+  checkQuote,
+  type VenueAdapter,
+  type VenueComposeLeg,
+  VenueQuoteError,
+} from '@markov/planning';
+import {
   base64ToBytes,
   bytesToBase64,
   decodeAddressLookupTable,
@@ -60,17 +72,21 @@ import {
 } from '@markov/solana-codec';
 import { type SolanaRpcClient, SolanaRpcError } from '@markov/solana-rpc';
 import { ApiError } from '../errors.js';
+import { PRICE_IMPACT_LIMIT_BPS } from '../planning/service.js';
 import type { PolicyService } from '../policy/service.js';
 
 /**
- * Execution of an approved plan (B10): build one transaction per batch from
- * the venue, decode and validate every instruction against the plan,
- * simulate it, persist it, verify the owner's signature over the exact
- * message, re-evaluate policy with a reservation, persist the attempt before
- * any broadcast, then observe the signature to finality and reconcile from
- * chain evidence. Basket plans stay staged (B11); this session executes
- * single-leg plans, buy and sell, and never builds, signs or sends anything
- * a person did not approve by hash.
+ * Execution of an approved plan (B10, B11): build one transaction per batch
+ * from the venue (one composed transaction for an atomic basket, one per leg
+ * for a staged one), decode and validate every instruction against the
+ * plan, simulate it, persist it, verify the owner's signature over the exact
+ * message, re-evaluate policy with a reservation per leg, persist the
+ * attempt before any broadcast, then observe the signature to finality and
+ * reconcile from chain evidence. A staged plan's later transaction is built
+ * only after the previous one finalized with its fills recorded, and only
+ * when its leg's fresh quote still meets the approved bounds; otherwise the
+ * run stops as partially completed and nothing is reallocated. Nothing is
+ * built, signed or sent that a person did not approve by hash.
  */
 
 /** Compute units requested for one swap; the fixture route needs far less, live routes are bounded by the cap. */
@@ -141,8 +157,10 @@ function refusal(
     | 'VALIDATION_FAILED'
     | 'SIMULATION_FAILED'
     | 'ATTEMPT_IN_FLIGHT'
-    | 'STAGED_NOT_SUPPORTED'
-    | 'TRANSACTION_EXPIRED',
+    | 'TRANSACTION_EXPIRED'
+    | 'BATCH_NOT_READY'
+    | 'LEG_TERMS_CHANGED'
+    | 'PLAN_COMPLETED',
   message: string,
   details: { path: string; message: string }[] = [],
 ): ApiError {
@@ -159,6 +177,80 @@ function refusal(
 
 function tokenProgramOf(program: PlanLeg['tokenProgram']): string {
   return program === 'token-2022' ? TOKEN_2022_PROGRAM_ID : SPL_TOKEN_PROGRAM_ID;
+}
+
+const BATCH_STATE_SET: ReadonlySet<string> = new Set<BatchState>([
+  'pending',
+  'prepared',
+  'submitting',
+  'submitted',
+  'confirmed',
+  'finalized',
+  'failed',
+  'expired',
+  'cancelled',
+  'unknown',
+  'stale',
+]);
+const ENDED_INTENT_STATES: ReadonlySet<string> = new Set<IntentState>([
+  'PARTIALLY_COMPLETED',
+  'CANCELLED',
+  'FAILED',
+  'EXPIRED',
+  'REJECTED',
+]);
+
+/**
+ * The plan's batches as execution sees them, derived from what is stored:
+ * the fills say which batches finalized, the attempt or prepared row says
+ * how far a batch got, and a batch that was never built while the intent
+ * ended is stale (the run stopped before it).
+ */
+export function batchesOf(input: {
+  readonly plan: ExecutionPlan | null;
+  readonly intentState: string;
+  readonly intentReason: string | null;
+  readonly transactions: readonly PreparedTransactionRow[];
+  readonly attempts: readonly ExecutionAttemptRow[];
+  readonly fills: readonly ExecutionFillRow[];
+}): ExecutionBatch[] {
+  if (input.plan === null) {
+    return [];
+  }
+  const filled = new Set(input.fills.map((fill) => fill.legIndex));
+  const ended = ENDED_INTENT_STATES.has(input.intentState);
+  return input.plan.grouping.batches.map((batch) => {
+    const row = input.transactions.find((entry) => entry.batch === batch.batch) ?? null;
+    const attempt =
+      row === null
+        ? null
+        : (input.attempts.filter((entry) => entry.transactionId === row.id).at(-1) ?? null);
+    const complete = batch.legIndexes.every((index) => filled.has(index));
+    let state: BatchState;
+    let reason: string | null = null;
+    if (complete) {
+      state = 'finalized';
+    } else if (attempt !== null) {
+      state = BATCH_STATE_SET.has(attempt.state) ? (attempt.state as BatchState) : 'stale';
+      reason = attempt.reason;
+    } else if (row !== null) {
+      state = BATCH_STATE_SET.has(row.state) ? (row.state as BatchState) : 'stale';
+    } else if (ended) {
+      state = input.intentState === 'CANCELLED' ? 'cancelled' : 'stale';
+      reason = input.intentReason;
+    } else {
+      state = 'pending';
+    }
+    return {
+      batch: batch.batch,
+      legIndexes: [...batch.legIndexes],
+      state,
+      transactionId: row?.id ?? null,
+      attemptId: attempt?.id ?? null,
+      signature: attempt?.signature ?? null,
+      reason: reason === null ? null : reason.slice(0, 500),
+    };
+  });
 }
 
 function sha256Hex(lines: readonly string[]): string {
@@ -349,7 +441,7 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
     context: AttemptContext,
     at: Date,
   ): Promise<ReconcileOutcome | null> => {
-    const live = liveAttemptFromRows(context);
+    const live = liveAttemptFromRows(liveAttemptRowsOf(context));
     if (live === null) {
       return null;
     }
@@ -434,13 +526,23 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
                 ? violated
                   ? 'review'
                   : 'reconcile'
-                : 'none';
+                : state === 'PARTIALLY_COMPLETED'
+                  ? 'review'
+                  : 'none';
     return {
       intentId: intent.id,
       state,
       stateReason: intent.stateReason,
       planId: plan?.id ?? null,
       planHash: plan?.planHash ?? null,
+      batches: batchesOf({
+        plan: plan?.plan ?? null,
+        intentState: state,
+        intentReason: intent.stateReason,
+        transactions,
+        attempts,
+        fills,
+      }),
       transactions: transactions.map((row) =>
         toPrepared(
           row,
@@ -459,6 +561,48 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
       nextAction,
       updatedAt: intent.updatedAt.toISOString(),
     };
+  };
+
+  /**
+   * An approved plan whose validity passed: the plan is marked expired and the
+   * intent ends, as EXPIRED when nothing filled or as PARTIALLY_COMPLETED when
+   * earlier transactions of a staged run did (what landed stays).
+   */
+  const expireApproved = async (
+    userId: string,
+    intent: IntentRow,
+    planRow: ExecutionPlanRow,
+    at: Date,
+  ): Promise<void> => {
+    if (planRow.status === 'valid') {
+      await markPlanStatus(db, planRow.id, 'expired');
+    }
+    const filled = await listFills(db, intent.id);
+    const moved = await transitionIntent(db, {
+      intentId: intent.id,
+      from: ['AWAITING_APPROVAL', 'AUTHORIZED'],
+      to: filled.length > 0 ? 'PARTIALLY_COMPLETED' : 'EXPIRED',
+      reason:
+        filled.length > 0
+          ? `the plan expired at ${planRow.expiresAt.toISOString()} after ${filled.length} leg${filled.length === 1 ? '' : 's'} filled; the basket stays partial until a reviewed completion or exit`
+          : `the plan expired at ${planRow.expiresAt.toISOString()} before its signature arrived`,
+      now: at,
+    });
+    if (moved) {
+      for (const row of await listCurrentPreparedTransactions(db, planRow.id)) {
+        if (row.state === 'prepared') {
+          await updatePreparedTransactionState(db, row.id, 'expired', at);
+        }
+      }
+      await insertOutboxEvent(db, {
+        kind: filled.length > 0 ? 'execution.partial' : 'execution.expired',
+        aggregateType: 'intent',
+        aggregateId: intent.id,
+        ownerUserId: userId,
+        payload: { planId: planRow.id, filledLegs: filled.length, expiredAt: planRow.expiresAt },
+        now: at,
+      });
+    }
   };
 
   return {
@@ -500,9 +644,7 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
         );
       }
       if (planExpired(planRow, at)) {
-        if (planRow.status === 'valid') {
-          await markPlanStatus(db, planRow.id, 'expired');
-        }
+        await expireApproved(userId, intent, planRow, at);
         throw refusal(
           'PLAN_EXPIRED',
           `the plan expired at ${planRow.expiresAt.toISOString()}; build and acknowledge a new plan`,
@@ -517,26 +659,168 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
         },
         status: 'valid',
       };
-      if (plan.grouping.batches.length !== 1 || plan.legs.length !== 1) {
-        throw refusal(
-          'STAGED_NOT_SUPPORTED',
-          `this plan has ${plan.grouping.batches.length} batches; staged basket execution arrives with B11 and nothing of it is built here`,
-        );
-      }
       if (plan.mode !== venue.mode) {
         throw refusal(
           'PLAN_CHANGED',
           `the plan was quoted in ${plan.mode} mode but the configured venue runs ${venue.mode}; build a new plan`,
         );
       }
-      const leg = plan.legs[0] as PlanLeg;
+
+      // The next transaction: the first batch whose legs have not all filled. Earlier batches are
+      // complete by construction, since a later batch is never built before the previous one
+      // finalized with its fills recorded.
+      const batches = plan.grouping.batches;
+      const fills = await listFills(db, intent.id);
+      const filledLegs = new Set(fills.map((fill) => fill.legIndex));
+      const next =
+        batches.find((batch) => !batch.legIndexes.every((index) => filledLegs.has(index))) ?? null;
+      if (next === null) {
+        throw refusal(
+          'PLAN_COMPLETED',
+          `all ${batches.length} transaction${batches.length === 1 ? '' : 's'} of this plan finalized; nothing is left to build`,
+        );
+      }
+      const batchLegs = next.legIndexes.flatMap((index) => {
+        const leg = plan.legs.find((entry) => entry.legIndex === index);
+        return leg === undefined ? [] : [leg];
+      });
+      if (batchLegs.length !== next.legIndexes.length || batchLegs.length === 0) {
+        throw refusal('PLAN_CHANGED', 'the plan names legs it does not carry; build a new plan');
+      }
       const owner = plan.wallet.address;
       const stablecoinProgram = SPL_TOKEN_PROGRAM_ID;
-      const instrumentProgram = tokenProgramOf(leg.tokenProgram);
-      const inputTokenProgram = leg.side === 'buy' ? stablecoinProgram : instrumentProgram;
-      const outputTokenProgram = leg.side === 'buy' ? instrumentProgram : stablecoinProgram;
-      const destination = associatedTokenAddress(owner, leg.outputMint, outputTokenProgram).address;
-      const createOutputAccount = !(await tokenAccountExists(destination));
+      const batchLabel = `transaction ${next.batch + 1} of ${batches.length}`;
+
+      // A later transaction of a staged plan: its leg is quoted again now and refused when the
+      // fresh terms cannot meet the bounds the owner approved. The run then stops as partially
+      // completed; nothing is re-weighted, and no budget moves between constituents.
+      const freshQuotes = new Map<number, VenueQuote>();
+      if (next.batch > 0) {
+        const limits = await policy.limits(principal);
+        for (const leg of batchLegs) {
+          let fresh: VenueQuote;
+          try {
+            fresh = await venue.quote({
+              schemaVersion: PLANNING_SCHEMA_VERSION,
+              venue: 'jupiter',
+              inputMint: leg.inputMint,
+              outputMint: leg.outputMint,
+              inAmountRaw: leg.targetInputRaw,
+              slippageBps: leg.slippageBps,
+              swapMode: 'exact_in',
+            });
+          } catch (error) {
+            if (error instanceof VenueQuoteError) {
+              throw refusal(
+                'BUILD_UNAVAILABLE',
+                `the venue could not quote ${leg.symbol} again (${error.kind}): ${error.message}; ${batchLabel} is not built`,
+              );
+            }
+            throw error;
+          }
+          const issues: { code: string; message: string }[] = checkQuote(fresh, {
+            inputMint: leg.inputMint,
+            outputMint: leg.outputMint,
+            targetInputRaw: BigInt(leg.targetInputRaw),
+            slippageBps: leg.slippageBps,
+            maxSlippageBps: limits.effective.maxSlippageBps,
+            maxQuoteAgeSeconds: limits.effective.maxQuoteAgeSeconds,
+            maxPriceImpactBps: PRICE_IMPACT_LIMIT_BPS,
+            mode: plan.mode,
+            now: at,
+          });
+          if (BigInt(fresh.inAmountRaw) > BigInt(leg.maxInputRaw)) {
+            issues.push({
+              code: 'INPUT_ABOVE_APPROVED',
+              message: `the fresh quote spends ${fresh.inAmountRaw} raw ${leg.inputSymbol}; the approved maximum is ${leg.maxInputRaw}`,
+            });
+          }
+          if (BigInt(fresh.otherAmountThresholdRaw) < BigInt(leg.minimumOutputRaw)) {
+            issues.push({
+              code: 'OUTPUT_BELOW_APPROVED',
+              message: `the fresh quote guarantees at least ${fresh.otherAmountThresholdRaw} raw ${leg.outputSymbol}; the approved minimum is ${leg.minimumOutputRaw}`,
+            });
+          }
+          await insertVenueQuotes(db, [
+            {
+              intentId: intent.id,
+              planId: plan.planId,
+              legIndex: leg.legIndex,
+              quote: fresh,
+              accepted: issues.length === 0,
+              issues,
+              now: at,
+            },
+          ]);
+          if (issues.length > 0) {
+            const reason = `${batchLabel} (${leg.symbol}) was not built: the fresh quote cannot meet the approved bounds (${issues.map((issue) => issue.code).join(', ')}); the basket stays partial until a reviewed completion or exit`;
+            const moved = await transitionIntent(db, {
+              intentId: intent.id,
+              from: ['AUTHORIZED'],
+              to: 'PARTIALLY_COMPLETED',
+              reason,
+              now: at,
+            });
+            if (moved) {
+              await insertOutboxEvent(db, {
+                kind: 'execution.partial',
+                aggregateType: 'intent',
+                aggregateId: intent.id,
+                ownerUserId: userId,
+                payload: {
+                  planId: plan.planId,
+                  batch: next.batch,
+                  legIndex: leg.legIndex,
+                  issues: issues.map((issue) => issue.code),
+                },
+                now: at,
+              });
+            }
+            await audit(
+              principal,
+              'execution.transaction.refused',
+              'intent',
+              intent.id,
+              requestId,
+              {
+                planId: plan.planId,
+                batch: next.batch,
+                legIndex: leg.legIndex,
+                refusals: issues.map((issue) => ({
+                  code: 'LEG_TERMS_CHANGED',
+                  message: `${issue.code}: ${issue.message}`,
+                })),
+              },
+            );
+            throw refusal(
+              'LEG_TERMS_CHANGED',
+              reason,
+              issues.map((issue) => ({
+                path: `legs[${leg.legIndex}]`,
+                message: `${issue.code}: ${issue.message}`,
+              })),
+            );
+          }
+          freshQuotes.set(leg.legIndex, fresh);
+        }
+      }
+
+      // Token accounts per leg; a missing destination is created idempotently by the venue's build.
+      const composeLegs: VenueComposeLeg[] = [];
+      for (const leg of batchLegs) {
+        const accounts = legTokenAccounts(
+          leg,
+          owner,
+          stablecoinProgram,
+          tokenProgramOf(leg.tokenProgram),
+        );
+        composeLegs.push({
+          quote: freshQuotes.get(leg.legIndex) ?? leg.quote,
+          inputTokenProgram: accounts.inputTokenProgram,
+          outputTokenProgram: accounts.outputTokenProgram,
+          createOutputAccount: !(await tokenAccountExists(accounts.destination)),
+        });
+      }
 
       let blockhash: Awaited<ReturnType<SolanaRpcClient['getLatestBlockhash']>>;
       try {
@@ -557,18 +841,37 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
           ? priceCap
           : DEFAULT_COMPUTE_UNIT_PRICE_MICRO_LAMPORTS;
 
+      // One leg: the venue's swap build. Several legs (an atomic basket): the venue's composition
+      // of every leg into one transaction, account creations first, swaps in leg order.
       let built: Awaited<ReturnType<NonNullable<VenueAdapter['build']>>>;
       try {
-        built = await venue.build({
-          quote: leg.quote,
-          owner,
-          inputTokenProgram,
-          outputTokenProgram,
-          recentBlockhash: blockhash.blockhash,
-          computeUnitLimit: COMPUTE_UNIT_LIMIT,
-          computeUnitPriceMicroLamports,
-          createOutputAccount,
-        });
+        if (composeLegs.length === 1) {
+          const single = composeLegs[0] as VenueComposeLeg;
+          built = await venue.build({
+            quote: single.quote,
+            owner,
+            inputTokenProgram: single.inputTokenProgram,
+            outputTokenProgram: single.outputTokenProgram,
+            recentBlockhash: blockhash.blockhash,
+            computeUnitLimit: COMPUTE_UNIT_LIMIT,
+            computeUnitPriceMicroLamports,
+            createOutputAccount: single.createOutputAccount,
+          });
+        } else {
+          if (venue.compose === null) {
+            throw refusal(
+              'BUILD_UNAVAILABLE',
+              'the configured venue does not compose several constituents into one transaction; build a new plan',
+            );
+          }
+          built = await venue.compose({
+            legs: composeLegs,
+            owner,
+            recentBlockhash: blockhash.blockhash,
+            computeUnitLimit: COMPUTE_UNIT_LIMIT,
+            computeUnitPriceMicroLamports,
+          });
+        }
       } catch (error) {
         if (error instanceof VenueQuoteError) {
           throw refusal(
@@ -608,10 +911,10 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
       const lookupTables = await lookupTablesFor(transaction);
       const validation = validateSwapTransaction(transaction, {
         plan,
-        leg,
+        legs: batchLegs,
         owner,
-        inputTokenProgram,
-        outputTokenProgram,
+        stablecoinTokenProgram: stablecoinProgram,
+        instrumentTokenProgram: (leg) => tokenProgramOf(leg.tokenProgram),
         lookupTables,
       });
       if (!validation.ok || validation.effects === null) {
@@ -679,9 +982,9 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
         intentId: intent.id,
         planId: plan.planId,
         ownerUserId: userId,
-        transactionIndex: 0,
-        batch: 0,
-        legIndexes: [leg.legIndex],
+        transactionIndex: next.batch,
+        batch: next.batch,
+        legIndexes: [...next.legIndexes],
         version: built.version,
         messageHash: messageHashHex(transaction.messageBytes),
         unsignedTransaction: built.unsignedTransaction,
@@ -699,7 +1002,7 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
         intentId: intent.id,
         from: ['AWAITING_APPROVAL', 'AUTHORIZED'],
         to: 'AUTHORIZED',
-        reason: `transaction 0 prepared (message ${row.messageHash.slice(0, 16)}); awaiting the owner's signature`,
+        reason: `${batchLabel} prepared (message ${row.messageHash.slice(0, 16)}); awaiting the owner's signature`,
         now: at,
       });
       if (!moved) {
@@ -716,12 +1019,16 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
           intentId: intent.id,
           planId: plan.planId,
           planHash: plan.planHash,
+          batch: next.batch,
+          batchCount: batches.length,
+          legIndexes: [...next.legIndexes],
+          refreshedLegs: [...freshQuotes.keys()],
           messageHash: row.messageHash,
           source: built.sourceRef,
           effects: {
             side: validation.effects.side,
             maxInputRaw: validation.effects.maxInputRaw,
-            minimumOutputRaw: validation.effects.minimumOutputRaw,
+            minimumOutputRaw: validation.effects.legs.map((leg) => leg.minimumOutputRaw),
             totalLamportsMax: validation.effects.totalLamportsMax,
           },
           simulation: { status: simulation.status, unitsConsumed: simulation.unitsConsumed },
@@ -808,18 +1115,23 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
           `the intent is ${intent.state}${intent.stateReason ? ` (${intent.stateReason})` : ''}; nothing was submitted`,
         );
       }
-      if (planExpired(planRow, at)) {
-        if (planRow.status === 'valid') {
-          await markPlanStatus(db, planRow.id, 'expired');
+      // A later transaction of a staged plan is submitted only after every earlier one finalized
+      // with its fills recorded; nothing is broadcast out of order.
+      if (row.batch > 0) {
+        const filled = new Set((await listFills(db, intent.id)).map((fill) => fill.legIndex));
+        const waiting = planRow.plan.grouping.batches.find(
+          (batch) =>
+            batch.batch < row.batch && !batch.legIndexes.every((index) => filled.has(index)),
+        );
+        if (waiting) {
+          throw refusal(
+            'BATCH_NOT_READY',
+            `transaction ${row.batch + 1} of ${planRow.plan.grouping.batches.length} waits for transaction ${waiting.batch + 1} to finalize; nothing was submitted`,
+          );
         }
-        await updatePreparedTransactionState(db, row.id, 'expired', at);
-        await transitionIntent(db, {
-          intentId: intent.id,
-          from: ['AUTHORIZED'],
-          to: 'EXPIRED',
-          reason: `the plan expired at ${planRow.expiresAt.toISOString()} before its signature arrived`,
-          now: at,
-        });
+      }
+      if (planExpired(planRow, at)) {
+        await expireApproved(userId, intent, planRow, at);
         throw refusal(
           'PLAN_EXPIRED',
           `the plan expired at ${planRow.expiresAt.toISOString()} before the signature arrived; nothing was submitted, create a new intent`,
@@ -844,50 +1156,77 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
         );
       }
 
-      // Policy at submission, with the reservation that counts against the daily and account budgets.
-      const leg = planRow.plan.legs[0] as PlanLeg;
-      const decision = await policy.evaluate(
-        principal,
-        {
-          stage: 'submit',
-          side: leg.side,
-          instrumentId: leg.instrumentId,
-          notionalUsdcRaw: leg.side === 'buy' ? leg.maxInputRaw : leg.expectedOutputRaw,
-          intentId: intent.id,
-          venue: 'jupiter',
-          slippageBps: leg.slippageBps,
-          quoteObservedAt: leg.quote.observedAt,
-          exposure: {
-            source: 'caller_declared',
-            observedAt: planRow.plan.funds.observedAt,
-            positions: [],
-            cashUsdcRaw: planRow.plan.funds.stablecoinRaw,
-          },
-          reserve: true,
-        },
-        requestId,
-      );
-      if (decision.outcome !== 'allow') {
-        await audit(
+      // Policy at submission, one decision and one reservation per leg of this transaction (each
+      // leg's instrument checks at its own notional, the legs outside it declared as exposure);
+      // every reservation counts against the daily and account budgets until the attempt settles.
+      const legs = row.legIndexes.flatMap((index) => {
+        const leg = planRow.plan.legs.find((entry) => entry.legIndex === index);
+        return leg === undefined ? [] : [leg];
+      });
+      if (legs.length !== row.legIndexes.length || legs.length === 0) {
+        throw refusal('PLAN_CHANGED', 'the transaction names legs the plan does not carry');
+      }
+      const reservationKeys: string[] = [];
+      let reservationId: string | null = null;
+      const releaseHeld = async () => {
+        for (const key of reservationKeys) {
+          await releaseReservation(db, { userId, intentId: key, now: at });
+        }
+      };
+      for (const leg of legs) {
+        const key = reservationKey(intent.id, row.id, legs.length === 1 ? null : leg.legIndex);
+        const decision = await policy.evaluate(
           principal,
-          'execution.submission.refused',
-          'prepared_transaction',
-          row.id,
-          requestId,
           {
-            intentId: intent.id,
-            code: 'POLICY_DENIED',
-            denials: decision.denials.map((denial) => denial.code),
+            stage: 'submit',
+            side: leg.side,
+            instrumentId: leg.instrumentId,
+            notionalUsdcRaw: leg.side === 'buy' ? leg.maxInputRaw : leg.expectedOutputRaw,
+            intentId: key,
+            venue: 'jupiter',
+            slippageBps: leg.slippageBps,
+            quoteObservedAt: leg.quote.observedAt,
+            exposure: {
+              source: 'caller_declared',
+              observedAt: planRow.plan.funds.observedAt,
+              positions: planRow.plan.legs
+                .filter((other) => !row.legIndexes.includes(other.legIndex))
+                .map((other) => ({
+                  instrumentId: other.instrumentId,
+                  notionalUsdcRaw: other.maxInputRaw,
+                })),
+              cashUsdcRaw: planRow.plan.funds.stablecoinRaw,
+            },
+            reserve: true,
           },
+          requestId,
         );
-        throw new ApiError(
-          'POLICY_DENIED',
-          'policy denied the submission; nothing was submitted',
-          decision.denials.map((denial) => ({
-            path: 'policy',
-            message: `${denial.code}: ${denial.message}`,
-          })),
-        );
+        if (decision.outcome !== 'allow') {
+          await releaseHeld();
+          await audit(
+            principal,
+            'execution.submission.refused',
+            'prepared_transaction',
+            row.id,
+            requestId,
+            {
+              intentId: intent.id,
+              legIndex: leg.legIndex,
+              code: 'POLICY_DENIED',
+              denials: decision.denials.map((denial) => denial.code),
+            },
+          );
+          throw new ApiError(
+            'POLICY_DENIED',
+            `policy denied the submission (${leg.symbol}); nothing was submitted`,
+            decision.denials.map((denial) => ({
+              path: `policy.legs[${leg.legIndex}]`,
+              message: `${denial.code}: ${denial.message}`,
+            })),
+          );
+        }
+        reservationKeys.push(key);
+        reservationId ??= decision.reservation?.reservationId ?? null;
       }
 
       // Persist the attempt, its signed bytes and the outbox event before any broadcast.
@@ -900,19 +1239,20 @@ export function createExecutionService(deps: ExecutionServiceDeps): ExecutionSer
         signature: check.signature,
         signedTransaction: bytesToBase64(signedBytes),
         messageHash: check.messageHash,
-        reservationId: decision.reservation?.reservationId ?? null,
+        reservationId,
         lastValidBlockHeight: row.lastValidBlockHeight,
         now: at,
         intentFrom: ['AUTHORIZED'],
       });
       if (begun.kind === 'attempt_in_flight') {
+        await releaseHeld();
         return {
           status: await status(userId, intent.id, { reconcile: 'throttled' }),
           created: false,
         };
       }
       if (begun.kind === 'intent_not_ready') {
-        await releaseReservation(db, { userId, intentId: intent.id, now: at });
+        await releaseHeld();
         throw refusal('PLAN_CHANGED', 'the intent changed while the submission was being recorded');
       }
       const attempt = begun.attempt;

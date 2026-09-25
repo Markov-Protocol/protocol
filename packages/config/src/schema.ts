@@ -97,6 +97,8 @@ export const rawEnvSchema = z.object({
   EXECUTION_VENUE_QUOTE_URL: z.url().optional(),
   /** Optional gateway that builds transactions for its quotes (configured_url only); without it execution stays unavailable. */
   EXECUTION_VENUE_BUILD_URL: z.url().optional(),
+  /** Fixture venue only (local/test): the most legs it composes into one transaction, to exercise staged plans. */
+  EXECUTION_VENUE_FIXTURE_COMPOSE_MAX_LEGS: intFromEnv(1, 10).optional(),
   /** Bearer token for the configured gateway; never logged, never part of a plan. */
   EXECUTION_VENUE_API_KEY: z.string().min(1).max(4000).optional(),
   /** Product complexity limit on recipe legs (B07), tightened downward for a beta; never raised above 10. */
@@ -165,6 +167,8 @@ export interface MarkovConfig {
       readonly quoteUrl: string | null;
       /** Optional gateway that builds transactions for its quotes; without it execution is unavailable. */
       readonly buildUrl: string | null;
+      /** Fixture venue test control: the most legs composed into one transaction (null: no limit). */
+      readonly fixtureComposeMaxLegs: number | null;
       readonly apiKey: string | null;
     };
   };

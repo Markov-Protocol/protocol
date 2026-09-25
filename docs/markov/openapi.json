@@ -83334,7 +83334,7 @@
         "tags": [
           "execution"
         ],
-        "description": "A basket investment names a pinned version you own or a public one; a single buy names an admitted instrument. The budget is raw units of the platform stablecoin from one of your verified wallets. 201 for a new intent, 200 when the key was already used with the same request; IDEMPOTENCY_CONFLICT when it was used with another. Nothing is quoted or reserved here.",
+        "description": "A basket investment names a pinned version you own or a public one; a single buy names an admitted instrument; a single sell names an admitted instrument and a budget in its raw units. The budget is raw units of the platform stablecoin from one of your verified wallets. A reviewed completion sets continuationOfIntentId to one of your PARTIALLY_COMPLETED baskets: the same wallet and version, and a budget equal to the sum of the legs it left unfilled at their original targets (VALIDATION_FAILED names the field otherwise); the original records continuedByIntentId. 201 for a new intent, 200 when the key was already used with the same request; IDEMPOTENCY_CONFLICT when it was used with another. Nothing is quoted or reserved here.",
         "requestBody": {
           "required": true,
           "content": {
@@ -83429,6 +83429,19 @@
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 1000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "continuationOfIntentId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                       },
                       {
                         "type": "null"
@@ -83663,6 +83676,55 @@
                         }
                       ]
                     },
+                    "continuation": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "ofIntentId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "ofPlanId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "legIndexes": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            }
+                          },
+                          "required": [
+                            "ofIntentId",
+                            "ofPlanId",
+                            "legIndexes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "continuedByIntentId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "idempotencyKey": {
                       "type": "string"
                     },
@@ -83698,6 +83760,8 @@
                     "slippageBps",
                     "latestPlanId",
                     "latestPlanHash",
+                    "continuation",
+                    "continuedByIntentId",
                     "idempotencyKey",
                     "createdAt",
                     "updatedAt",
@@ -83918,6 +83982,55 @@
                         }
                       ]
                     },
+                    "continuation": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "ofIntentId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "ofPlanId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "legIndexes": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            }
+                          },
+                          "required": [
+                            "ofIntentId",
+                            "ofPlanId",
+                            "legIndexes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "continuedByIntentId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "idempotencyKey": {
                       "type": "string"
                     },
@@ -83953,6 +84066,8 @@
                     "slippageBps",
                     "latestPlanId",
                     "latestPlanHash",
+                    "continuation",
+                    "continuedByIntentId",
                     "idempotencyKey",
                     "createdAt",
                     "updatedAt",
@@ -84781,6 +84896,55 @@
                               }
                             ]
                           },
+                          "continuation": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "ofIntentId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "ofPlanId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "legIndexes": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "ofIntentId",
+                                  "ofPlanId",
+                                  "legIndexes"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "continuedByIntentId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "idempotencyKey": {
                             "type": "string"
                           },
@@ -84816,6 +84980,8 @@
                           "slippageBps",
                           "latestPlanId",
                           "latestPlanHash",
+                          "continuation",
+                          "continuedByIntentId",
                           "idempotencyKey",
                           "createdAt",
                           "updatedAt",
@@ -85660,6 +85826,55 @@
                         }
                       ]
                     },
+                    "continuation": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "ofIntentId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "ofPlanId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "legIndexes": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            }
+                          },
+                          "required": [
+                            "ofIntentId",
+                            "ofPlanId",
+                            "legIndexes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "continuedByIntentId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "idempotencyKey": {
                       "type": "string"
                     },
@@ -85695,6 +85910,8 @@
                     "slippageBps",
                     "latestPlanId",
                     "latestPlanHash",
+                    "continuation",
+                    "continuedByIntentId",
                     "idempotencyKey",
                     "createdAt",
                     "updatedAt",
@@ -87070,6 +87287,56 @@
                             "staged"
                           ]
                         },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "single_leg",
+                            "composition_fits",
+                            "composition_too_large",
+                            "composition_simulation_failed",
+                            "composition_unavailable"
+                          ]
+                        },
+                        "composition": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "sizeBytes": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "maxBytes": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "legs": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "sizeBytes",
+                                "maxBytes",
+                                "legs"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "batches": {
                           "type": "array",
                           "items": {
@@ -87122,6 +87389,8 @@
                       },
                       "required": [
                         "mode",
+                        "reason",
+                        "composition",
                         "batches",
                         "acknowledgementRequired",
                         "note"
@@ -87205,7 +87474,84 @@
                           "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                         },
                         "simulation": {
-                          "type": "null"
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ok",
+                                    "failed",
+                                    "unavailable"
+                                  ]
+                                },
+                                "unitsConsumed": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "err": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "logsHash": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "slot": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "observedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "status",
+                                "unitsConsumed",
+                                "err",
+                                "logsHash",
+                                "slot",
+                                "observedAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "evidence": {
                           "type": "object",
@@ -88802,6 +89148,56 @@
                             "staged"
                           ]
                         },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "single_leg",
+                            "composition_fits",
+                            "composition_too_large",
+                            "composition_simulation_failed",
+                            "composition_unavailable"
+                          ]
+                        },
+                        "composition": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "sizeBytes": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "maxBytes": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "legs": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "sizeBytes",
+                                "maxBytes",
+                                "legs"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "batches": {
                           "type": "array",
                           "items": {
@@ -88854,6 +89250,8 @@
                       },
                       "required": [
                         "mode",
+                        "reason",
+                        "composition",
                         "batches",
                         "acknowledgementRequired",
                         "note"
@@ -88937,7 +89335,84 @@
                           "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                         },
                         "simulation": {
-                          "type": "null"
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ok",
+                                    "failed",
+                                    "unavailable"
+                                  ]
+                                },
+                                "unitsConsumed": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "err": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "logsHash": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "slot": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "observedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "status",
+                                "unitsConsumed",
+                                "err",
+                                "logsHash",
+                                "slot",
+                                "observedAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "evidence": {
                           "type": "object",
@@ -90558,6 +91033,56 @@
                             "staged"
                           ]
                         },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "single_leg",
+                            "composition_fits",
+                            "composition_too_large",
+                            "composition_simulation_failed",
+                            "composition_unavailable"
+                          ]
+                        },
+                        "composition": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "sizeBytes": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "maxBytes": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "legs": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "sizeBytes",
+                                "maxBytes",
+                                "legs"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "batches": {
                           "type": "array",
                           "items": {
@@ -90610,6 +91135,8 @@
                       },
                       "required": [
                         "mode",
+                        "reason",
+                        "composition",
                         "batches",
                         "acknowledgementRequired",
                         "note"
@@ -90693,7 +91220,84 @@
                           "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                         },
                         "simulation": {
-                          "type": "null"
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ok",
+                                    "failed",
+                                    "unavailable"
+                                  ]
+                                },
+                                "unitsConsumed": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "err": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "logsHash": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "slot": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "observedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "status",
+                                "unitsConsumed",
+                                "err",
+                                "logsHash",
+                                "slot",
+                                "observedAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "evidence": {
                           "type": "object",
@@ -91743,6 +92347,55 @@
                         }
                       ]
                     },
+                    "continuation": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "ofIntentId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "ofPlanId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "legIndexes": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            }
+                          },
+                          "required": [
+                            "ofIntentId",
+                            "ofPlanId",
+                            "legIndexes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "continuedByIntentId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "idempotencyKey": {
                       "type": "string"
                     },
@@ -91778,6 +92431,8 @@
                     "slippageBps",
                     "latestPlanId",
                     "latestPlanHash",
+                    "continuation",
+                    "continuedByIntentId",
                     "idempotencyKey",
                     "createdAt",
                     "updatedAt",
@@ -92392,7 +93047,7 @@
         "tags": [
           "execution"
         ],
-        "description": "For a single-leg plan (buy or sell) acknowledged by its hash: takes a finalized blockhash, asks the venue for the transaction, decodes every instruction and checks it against the plan (fee payer and sole signer, the owner’s token accounts, mints, exact input and minimum output, compute budget within the plan’s fee cap, account creation for the owner only, reviewed route programs), simulates it and stores it. Refusals answer TRANSACTION_REFUSED with the refusal code in details (VALIDATION_FAILED, SIMULATION_FAILED, STAGED_NOT_SUPPORTED, ATTEMPT_IN_FLIGHT, PLAN_NOT_APPROVED), QUOTE_EXPIRED when the plan expired, PLAN_CHANGED when the intent moved on, PROVIDER_UNAVAILABLE when no venue builds. A new build supersedes an unsigned earlier one. Nothing is signed or sent.",
+        "description": "Builds the next transaction of a plan acknowledged by its hash: one composed transaction for an atomic plan (a single leg, or every leg of a basket that fit and passed simulation when the plan was built), or the next batch of a staged plan, built only after the previous one finalized with its fills recorded. Takes a finalized blockhash, asks the venue for the bytes, decodes every instruction and checks it against the plan (fee payer and sole signer, the owner’s token accounts, mints, exact input and minimum output per leg, compute budget within the plan’s fee cap, account creation for the owner only, reviewed route programs), simulates it and stores it. A later batch of a staged plan is quoted again first and refused with LEG_TERMS_CHANGED when the fresh quote cannot meet the approved bounds; the intent is then PARTIALLY_COMPLETED and a reviewed completion (a new intent with continuationOfIntentId) buys the unfilled legs at their original targets. Refusals answer TRANSACTION_REFUSED with the refusal code in details (VALIDATION_FAILED, SIMULATION_FAILED, ATTEMPT_IN_FLIGHT, PLAN_NOT_APPROVED, LEG_TERMS_CHANGED, BATCH_NOT_READY, PLAN_COMPLETED), QUOTE_EXPIRED when the plan expired, PLAN_CHANGED when the intent moved on, PROVIDER_UNAVAILABLE when no venue builds. A new build supersedes an unsigned earlier one of the same batch. Nothing is signed or sent.",
         "parameters": [
           {
             "schema": {
@@ -92573,34 +93228,77 @@
                           "maxLength": 44,
                           "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
                         },
-                        "outputMint": {
-                          "type": "string",
-                          "minLength": 32,
-                          "maxLength": 44,
-                          "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
-                        },
                         "maxInputRaw": {
                           "type": "string",
                           "pattern": "^\\d+$"
                         },
-                        "minimumOutputRaw": {
-                          "type": "string",
-                          "pattern": "^\\d+$"
-                        },
-                        "sourceTokenAccount": {
-                          "type": "string",
-                          "minLength": 32,
-                          "maxLength": 44,
-                          "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
-                        },
-                        "destinationTokenAccount": {
-                          "type": "string",
-                          "minLength": 32,
-                          "maxLength": 44,
-                          "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                        "legs": {
+                          "minItems": 1,
+                          "maxItems": 10,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "legIndex": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "side": {
+                                "type": "string",
+                                "enum": [
+                                  "buy",
+                                  "sell"
+                                ]
+                              },
+                              "inputMint": {
+                                "type": "string",
+                                "minLength": 32,
+                                "maxLength": 44,
+                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                              },
+                              "outputMint": {
+                                "type": "string",
+                                "minLength": 32,
+                                "maxLength": 44,
+                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                              },
+                              "maxInputRaw": {
+                                "type": "string",
+                                "pattern": "^\\d+$"
+                              },
+                              "minimumOutputRaw": {
+                                "type": "string",
+                                "pattern": "^\\d+$"
+                              },
+                              "sourceTokenAccount": {
+                                "type": "string",
+                                "minLength": 32,
+                                "maxLength": 44,
+                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                              },
+                              "destinationTokenAccount": {
+                                "type": "string",
+                                "minLength": 32,
+                                "maxLength": 44,
+                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                              }
+                            },
+                            "required": [
+                              "legIndex",
+                              "side",
+                              "inputMint",
+                              "outputMint",
+                              "maxInputRaw",
+                              "minimumOutputRaw",
+                              "sourceTokenAccount",
+                              "destinationTokenAccount"
+                            ],
+                            "additionalProperties": false
+                          }
                         },
                         "accountsCreated": {
-                          "maxItems": 4,
+                          "maxItems": 10,
                           "type": "array",
                           "items": {
                             "type": "string",
@@ -92667,11 +93365,8 @@
                       "required": [
                         "side",
                         "inputMint",
-                        "outputMint",
                         "maxInputRaw",
-                        "minimumOutputRaw",
-                        "sourceTokenAccount",
-                        "destinationTokenAccount",
+                        "legs",
                         "accountsCreated",
                         "computeUnitLimit",
                         "computeUnitPriceMicroLamports",
@@ -93680,6 +94375,102 @@
                         }
                       ]
                     },
+                    "batches": {
+                      "maxItems": 32,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "batch": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "legIndexes": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "prepared",
+                              "submitting",
+                              "submitted",
+                              "confirmed",
+                              "finalized",
+                              "failed",
+                              "expired",
+                              "cancelled",
+                              "unknown",
+                              "stale"
+                            ]
+                          },
+                          "transactionId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "attemptId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "signature": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 80,
+                                "maxLength": 90
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "batch",
+                          "legIndexes",
+                          "state",
+                          "transactionId",
+                          "attemptId",
+                          "signature",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "transactions": {
                       "maxItems": 32,
                       "type": "array",
@@ -93846,34 +94637,77 @@
                                 "maxLength": 44,
                                 "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
                               },
-                              "outputMint": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
-                              },
                               "maxInputRaw": {
                                 "type": "string",
                                 "pattern": "^\\d+$"
                               },
-                              "minimumOutputRaw": {
-                                "type": "string",
-                                "pattern": "^\\d+$"
-                              },
-                              "sourceTokenAccount": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
-                              },
-                              "destinationTokenAccount": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                              "legs": {
+                                "minItems": 1,
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "legIndex": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "side": {
+                                      "type": "string",
+                                      "enum": [
+                                        "buy",
+                                        "sell"
+                                      ]
+                                    },
+                                    "inputMint": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "outputMint": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "maxInputRaw": {
+                                      "type": "string",
+                                      "pattern": "^\\d+$"
+                                    },
+                                    "minimumOutputRaw": {
+                                      "type": "string",
+                                      "pattern": "^\\d+$"
+                                    },
+                                    "sourceTokenAccount": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "destinationTokenAccount": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    }
+                                  },
+                                  "required": [
+                                    "legIndex",
+                                    "side",
+                                    "inputMint",
+                                    "outputMint",
+                                    "maxInputRaw",
+                                    "minimumOutputRaw",
+                                    "sourceTokenAccount",
+                                    "destinationTokenAccount"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               },
                               "accountsCreated": {
-                                "maxItems": 4,
+                                "maxItems": 10,
                                 "type": "array",
                                 "items": {
                                   "type": "string",
@@ -93940,11 +94774,8 @@
                             "required": [
                               "side",
                               "inputMint",
-                              "outputMint",
                               "maxInputRaw",
-                              "minimumOutputRaw",
-                              "sourceTokenAccount",
-                              "destinationTokenAccount",
+                              "legs",
                               "accountsCreated",
                               "computeUnitLimit",
                               "computeUnitPriceMicroLamports",
@@ -94583,6 +95414,7 @@
                     "stateReason",
                     "planId",
                     "planHash",
+                    "batches",
                     "transactions",
                     "attempts",
                     "fills",
@@ -94661,6 +95493,102 @@
                         }
                       ]
                     },
+                    "batches": {
+                      "maxItems": 32,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "batch": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "legIndexes": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "prepared",
+                              "submitting",
+                              "submitted",
+                              "confirmed",
+                              "finalized",
+                              "failed",
+                              "expired",
+                              "cancelled",
+                              "unknown",
+                              "stale"
+                            ]
+                          },
+                          "transactionId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "attemptId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "signature": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 80,
+                                "maxLength": 90
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "batch",
+                          "legIndexes",
+                          "state",
+                          "transactionId",
+                          "attemptId",
+                          "signature",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "transactions": {
                       "maxItems": 32,
                       "type": "array",
@@ -94827,34 +95755,77 @@
                                 "maxLength": 44,
                                 "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
                               },
-                              "outputMint": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
-                              },
                               "maxInputRaw": {
                                 "type": "string",
                                 "pattern": "^\\d+$"
                               },
-                              "minimumOutputRaw": {
-                                "type": "string",
-                                "pattern": "^\\d+$"
-                              },
-                              "sourceTokenAccount": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
-                              },
-                              "destinationTokenAccount": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                              "legs": {
+                                "minItems": 1,
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "legIndex": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "side": {
+                                      "type": "string",
+                                      "enum": [
+                                        "buy",
+                                        "sell"
+                                      ]
+                                    },
+                                    "inputMint": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "outputMint": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "maxInputRaw": {
+                                      "type": "string",
+                                      "pattern": "^\\d+$"
+                                    },
+                                    "minimumOutputRaw": {
+                                      "type": "string",
+                                      "pattern": "^\\d+$"
+                                    },
+                                    "sourceTokenAccount": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "destinationTokenAccount": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    }
+                                  },
+                                  "required": [
+                                    "legIndex",
+                                    "side",
+                                    "inputMint",
+                                    "outputMint",
+                                    "maxInputRaw",
+                                    "minimumOutputRaw",
+                                    "sourceTokenAccount",
+                                    "destinationTokenAccount"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               },
                               "accountsCreated": {
-                                "maxItems": 4,
+                                "maxItems": 10,
                                 "type": "array",
                                 "items": {
                                   "type": "string",
@@ -94921,11 +95892,8 @@
                             "required": [
                               "side",
                               "inputMint",
-                              "outputMint",
                               "maxInputRaw",
-                              "minimumOutputRaw",
-                              "sourceTokenAccount",
-                              "destinationTokenAccount",
+                              "legs",
                               "accountsCreated",
                               "computeUnitLimit",
                               "computeUnitPriceMicroLamports",
@@ -95564,6 +96532,7 @@
                     "stateReason",
                     "planId",
                     "planHash",
+                    "batches",
                     "transactions",
                     "attempts",
                     "fills",
@@ -96260,6 +97229,102 @@
                         }
                       ]
                     },
+                    "batches": {
+                      "maxItems": 32,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "batch": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "legIndexes": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "prepared",
+                              "submitting",
+                              "submitted",
+                              "confirmed",
+                              "finalized",
+                              "failed",
+                              "expired",
+                              "cancelled",
+                              "unknown",
+                              "stale"
+                            ]
+                          },
+                          "transactionId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "attemptId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "signature": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 80,
+                                "maxLength": 90
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "batch",
+                          "legIndexes",
+                          "state",
+                          "transactionId",
+                          "attemptId",
+                          "signature",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "transactions": {
                       "maxItems": 32,
                       "type": "array",
@@ -96426,34 +97491,77 @@
                                 "maxLength": 44,
                                 "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
                               },
-                              "outputMint": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
-                              },
                               "maxInputRaw": {
                                 "type": "string",
                                 "pattern": "^\\d+$"
                               },
-                              "minimumOutputRaw": {
-                                "type": "string",
-                                "pattern": "^\\d+$"
-                              },
-                              "sourceTokenAccount": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
-                              },
-                              "destinationTokenAccount": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                              "legs": {
+                                "minItems": 1,
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "legIndex": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "side": {
+                                      "type": "string",
+                                      "enum": [
+                                        "buy",
+                                        "sell"
+                                      ]
+                                    },
+                                    "inputMint": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "outputMint": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "maxInputRaw": {
+                                      "type": "string",
+                                      "pattern": "^\\d+$"
+                                    },
+                                    "minimumOutputRaw": {
+                                      "type": "string",
+                                      "pattern": "^\\d+$"
+                                    },
+                                    "sourceTokenAccount": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "destinationTokenAccount": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    }
+                                  },
+                                  "required": [
+                                    "legIndex",
+                                    "side",
+                                    "inputMint",
+                                    "outputMint",
+                                    "maxInputRaw",
+                                    "minimumOutputRaw",
+                                    "sourceTokenAccount",
+                                    "destinationTokenAccount"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               },
                               "accountsCreated": {
-                                "maxItems": 4,
+                                "maxItems": 10,
                                 "type": "array",
                                 "items": {
                                   "type": "string",
@@ -96520,11 +97628,8 @@
                             "required": [
                               "side",
                               "inputMint",
-                              "outputMint",
                               "maxInputRaw",
-                              "minimumOutputRaw",
-                              "sourceTokenAccount",
-                              "destinationTokenAccount",
+                              "legs",
                               "accountsCreated",
                               "computeUnitLimit",
                               "computeUnitPriceMicroLamports",
@@ -97163,6 +98268,7 @@
                     "stateReason",
                     "planId",
                     "planHash",
+                    "batches",
                     "transactions",
                     "attempts",
                     "fills",
@@ -97859,6 +98965,102 @@
                         }
                       ]
                     },
+                    "batches": {
+                      "maxItems": 32,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "batch": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "legIndexes": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "prepared",
+                              "submitting",
+                              "submitted",
+                              "confirmed",
+                              "finalized",
+                              "failed",
+                              "expired",
+                              "cancelled",
+                              "unknown",
+                              "stale"
+                            ]
+                          },
+                          "transactionId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "attemptId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "signature": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 80,
+                                "maxLength": 90
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "batch",
+                          "legIndexes",
+                          "state",
+                          "transactionId",
+                          "attemptId",
+                          "signature",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "transactions": {
                       "maxItems": 32,
                       "type": "array",
@@ -98025,34 +99227,77 @@
                                 "maxLength": 44,
                                 "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
                               },
-                              "outputMint": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
-                              },
                               "maxInputRaw": {
                                 "type": "string",
                                 "pattern": "^\\d+$"
                               },
-                              "minimumOutputRaw": {
-                                "type": "string",
-                                "pattern": "^\\d+$"
-                              },
-                              "sourceTokenAccount": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
-                              },
-                              "destinationTokenAccount": {
-                                "type": "string",
-                                "minLength": 32,
-                                "maxLength": 44,
-                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                              "legs": {
+                                "minItems": 1,
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "legIndex": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "side": {
+                                      "type": "string",
+                                      "enum": [
+                                        "buy",
+                                        "sell"
+                                      ]
+                                    },
+                                    "inputMint": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "outputMint": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "maxInputRaw": {
+                                      "type": "string",
+                                      "pattern": "^\\d+$"
+                                    },
+                                    "minimumOutputRaw": {
+                                      "type": "string",
+                                      "pattern": "^\\d+$"
+                                    },
+                                    "sourceTokenAccount": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    },
+                                    "destinationTokenAccount": {
+                                      "type": "string",
+                                      "minLength": 32,
+                                      "maxLength": 44,
+                                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                    }
+                                  },
+                                  "required": [
+                                    "legIndex",
+                                    "side",
+                                    "inputMint",
+                                    "outputMint",
+                                    "maxInputRaw",
+                                    "minimumOutputRaw",
+                                    "sourceTokenAccount",
+                                    "destinationTokenAccount"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               },
                               "accountsCreated": {
-                                "maxItems": 4,
+                                "maxItems": 10,
                                 "type": "array",
                                 "items": {
                                   "type": "string",
@@ -98119,11 +99364,8 @@
                             "required": [
                               "side",
                               "inputMint",
-                              "outputMint",
                               "maxInputRaw",
-                              "minimumOutputRaw",
-                              "sourceTokenAccount",
-                              "destinationTokenAccount",
+                              "legs",
                               "accountsCreated",
                               "computeUnitLimit",
                               "computeUnitPriceMicroLamports",
@@ -98762,6 +100004,7 @@
                     "stateReason",
                     "planId",
                     "planHash",
+                    "batches",
                     "transactions",
                     "attempts",
                     "fills",

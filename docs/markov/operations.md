@@ -231,7 +231,8 @@ after 24 hours. Contract: `docs/markov/execution-planning.md`.
 
 ```
 markov intents create --instrument <instrumentId> --sell --wallet <walletId> --budget <rawInstrumentUnits> --token <session> --url …
-markov intents build <intentId> --token <session> --url …          # build, validate, simulate; answers the prepared transaction
+markov intents create --version-id <versionId> --continue-intent <partiallyCompletedIntentId> --wallet <walletId> --budget <sumOfUnfilledTargets> --token <session> --url …   # reviewed completion (B11)
+markov intents build <intentId> --token <session> --url …          # build, validate, simulate the plan's next transaction; answers the prepared transaction
 markov intents sign --key-file <path> --input '<prepared json>' [--message-hash <hex>]   # NONPRODUCTION: demo wallet key from `auth demo-wallet-link --keep-key`
 markov intents submit <intentId> --signed <base64> [--transaction-index 0] --token <session> --url …
 markov intents execution <intentId> --token <session|agent> --url … # status with attempts, fills, evidence
@@ -246,7 +247,12 @@ the `BETA_*` caps, the allowlist and `RELEASE_EVIDENCE_REF`. A
 outside local/test); without it plans are quoted but every build answers
 `PROVIDER_UNAVAILABLE`. Migration `0011_execution` adds
 `prepared_transactions`, `execution_attempts` (at most one live attempt per
-intent), `execution_fills` (one per signature and leg) and `outbox_events`.
+intent), `execution_fills` (one per signature and leg) and `outbox_events`;
+`0012_continuations` adds the continuation columns on `intents` and the
+`execution.partial` outbox kind. `EXECUTION_VENUE_FIXTURE_COMPOSE_MAX_LEGS`
+(fixture venue only; refused with any other provider) caps how many
+constituents the fixture venue composes into one transaction so tests and
+the web journeys can keep a staged basket; leave it unset elsewhere.
 Audit actions: `execution.transaction.prepared`,
 `execution.transaction.refused` (with the refusal codes),
 `execution.submission.refused`, `execution.attempt.persisted`,
@@ -267,7 +273,19 @@ person's review); `execution.transaction.refused` audit rows with
 `VALIDATION_FAILED` codes mean the venue produced bytes the plan does not
 explain, which is a venue incident, never a config switch. Never rebuild or
 re-sign on a person's behalf: a stuck attempt is observed, resent as the
-same bytes while its blockhash lives, and expires on evidence. Contract:
+same bytes while its blockhash lives, and expires on evidence.
+
+Baskets (B11): a plan is atomic only when its composed transaction fit and
+simulated at plan time (`grouping.reason: composition_fits`); a staged plan
+lands one leg per transaction, and its later legs are quoted again before
+they are built. `PARTIALLY_COMPLETED` intents are not incidents: they are
+the recorded outcome of a later leg failing, expiring, going stale
+(`LEG_TERMS_CHANGED`, the refused fresh quote is stored in `venue_quotes`)
+or being cancelled after an earlier leg filled. Nothing reallocates; the
+person completes the rest with a continuation intent (`intents create
+--continue-intent`) or leaves it. A growing count of `stale` batches across
+intents means the venue's prices move faster than the plan validity, which
+is a product or venue question, never a reason to loosen bounds. Contract:
 `docs/markov/execution-state-machine.md`.
 
 ## Readiness and monitoring

@@ -36,7 +36,7 @@ const read = [requireClass('user', 'agent'), requireScope('portfolio:read')];
 const interactive = requireClass('user');
 
 /**
- * Execution (B10). A transaction is built only for a plan its owner
+ * Execution (B10, B11). A transaction is built only for a plan its owner
  * acknowledged by hash, decoded and validated against that plan, simulated
  * and stored before it is shown for signing; the owner's signature over the
  * exact message is verified, policy re-evaluated with a reservation and the
@@ -56,7 +56,7 @@ export const executionRoutes: FastifyPluginAsyncZod<ExecutionRoutesOptions> = as
         tags: ['execution'],
         summary: 'Build, validate and simulate the transaction of an acknowledged plan',
         description:
-          'For a single-leg plan (buy or sell) acknowledged by its hash: takes a finalized blockhash, asks the venue for the transaction, decodes every instruction and checks it against the plan (fee payer and sole signer, the owner’s token accounts, mints, exact input and minimum output, compute budget within the plan’s fee cap, account creation for the owner only, reviewed route programs), simulates it and stores it. Refusals answer TRANSACTION_REFUSED with the refusal code in details (VALIDATION_FAILED, SIMULATION_FAILED, STAGED_NOT_SUPPORTED, ATTEMPT_IN_FLIGHT, PLAN_NOT_APPROVED), QUOTE_EXPIRED when the plan expired, PLAN_CHANGED when the intent moved on, PROVIDER_UNAVAILABLE when no venue builds. A new build supersedes an unsigned earlier one. Nothing is signed or sent.',
+          'Builds the next transaction of a plan acknowledged by its hash: one composed transaction for an atomic plan (a single leg, or every leg of a basket that fit and passed simulation when the plan was built), or the next batch of a staged plan, built only after the previous one finalized with its fills recorded. Takes a finalized blockhash, asks the venue for the bytes, decodes every instruction and checks it against the plan (fee payer and sole signer, the owner’s token accounts, mints, exact input and minimum output per leg, compute budget within the plan’s fee cap, account creation for the owner only, reviewed route programs), simulates it and stores it. A later batch of a staged plan is quoted again first and refused with LEG_TERMS_CHANGED when the fresh quote cannot meet the approved bounds; the intent is then PARTIALLY_COMPLETED and a reviewed completion (a new intent with continuationOfIntentId) buys the unfilled legs at their original targets. Refusals answer TRANSACTION_REFUSED with the refusal code in details (VALIDATION_FAILED, SIMULATION_FAILED, ATTEMPT_IN_FLIGHT, PLAN_NOT_APPROVED, LEG_TERMS_CHANGED, BATCH_NOT_READY, PLAN_COMPLETED), QUOTE_EXPIRED when the plan expired, PLAN_CHANGED when the intent moved on, PROVIDER_UNAVAILABLE when no venue builds. A new build supersedes an unsigned earlier one of the same batch. Nothing is signed or sent.',
         params: intentParams,
         response: { 201: preparedTransactionSchema, ...errorResponses },
       },

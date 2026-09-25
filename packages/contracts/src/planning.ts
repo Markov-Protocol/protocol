@@ -165,6 +165,12 @@ export const intentCreateRequestSchema = z
     approvalMode: approvalModeSchema.default('owner_each_plan'),
     /** Null takes the policy default; never above the owner's slippage limit. */
     slippageBps: basisPointsSchema.min(1).max(1000).nullable().default(null),
+    /**
+     * A reviewed completion: this basket investment completes the legs the named
+     * partially completed intent left unfilled, at their original targets and
+     * from the same wallet; the budget must equal the sum of those targets.
+     */
+    continuationOfIntentId: idSchema.nullable().default(null),
     /** Client-generated, scoped to the caller; reuse with another payload is a conflict. */
     idempotencyKey: z
       .string()
@@ -188,6 +194,13 @@ export const intentCreateRequestSchema = z
         code: 'custom',
         path: ['instrumentId'],
         message: 'a single buy or sell names the instrument',
+      });
+    }
+    if (value.continuationOfIntentId !== null && value.kind !== 'basket_investment') {
+      context.addIssue({
+        code: 'custom',
+        path: ['continuationOfIntentId'],
+        message: 'only a basket investment continues a partially completed basket',
       });
     }
     if (value.kind === 'single_sell' && value.budgetMode !== 'all_in_stablecoin') {
@@ -232,6 +245,17 @@ export const intentSchema = z.object({
   slippageBps: basisPointsSchema.min(1),
   latestPlanId: idSchema.nullable(),
   latestPlanHash: sha256HexSchema.nullable(),
+  /** Set when this intent completes the legs a partially completed intent left unfilled, at their original targets. */
+  continuation: z
+    .object({
+      ofIntentId: idSchema,
+      ofPlanId: idSchema,
+      /** The leg indexes of the original plan this intent completes. */
+      legIndexes: z.array(z.number().int().nonnegative()).min(1),
+    })
+    .nullable(),
+  /** The intent that continues this partially completed one, when one was created. */
+  continuedByIntentId: idSchema.nullable(),
   idempotencyKey: z.string(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -329,8 +353,45 @@ export const planFeesSchema = z.object({
   }),
 });
 
+/** Why a plan groups the way it does; recorded so a staged plan explains itself. */
+export const GROUPING_REASONS = [
+  /** One constituent: one transaction by construction. */
+  'single_leg',
+  /** Every leg was composed into one transaction that fits the packet and simulated successfully. */
+  'composition_fits',
+  /** The composed transaction exceeds the packet size; legs land one by one. */
+  'composition_too_large',
+  /** The composed transaction failed simulation on the current state; legs land one by one. */
+  'composition_simulation_failed',
+  /** The venue cannot compose several legs (or no node could simulate); legs land one by one. */
+  'composition_unavailable',
+] as const;
+export const groupingReasonSchema = z.enum(GROUPING_REASONS);
+export type GroupingReason = z.infer<typeof groupingReasonSchema>;
+
+/** Evidence of one whole-transaction simulation on a node (plan-time composition or build-time). */
+export const simulationEvidenceSchema = z.object({
+  status: z.enum(['ok', 'failed', 'unavailable']),
+  unitsConsumed: z.number().int().nonnegative().nullable(),
+  err: z.string().max(300).nullable(),
+  /** SHA-256 over the simulation's log lines; the lines themselves are not stored. */
+  logsHash: sha256HexSchema.nullable(),
+  slot: z.number().int().nonnegative().nullable(),
+  observedAt: z.iso.datetime(),
+});
+export type SimulationEvidence = z.infer<typeof simulationEvidenceSchema>;
+
 export const planGroupingSchema = z.object({
   mode: groupingModeSchema,
+  reason: groupingReasonSchema,
+  /** The composed whole-basket transaction measured at plan time; null when nothing was composed. */
+  composition: z
+    .object({
+      sizeBytes: z.number().int().nonnegative().nullable(),
+      maxBytes: z.number().int().positive(),
+      legs: z.number().int().positive(),
+    })
+    .nullable(),
   batches: z.array(
     z.object({
       batch: z.number().int().nonnegative(),
@@ -416,8 +477,8 @@ export const executionPlanSchema = z.object({
     policyExpiresAt: z.iso.datetime(),
     /** The earliest of the quote and policy expiries; nothing may be signed against an expired plan. */
     expiresAt: z.iso.datetime(),
-    /** Whole-transaction simulation arrives with B10/B11; null says none happened. */
-    simulation: z.null(),
+    /** The plan-time simulation of the composed whole-basket transaction (atomic multi-leg plans); null otherwise. */
+    simulation: simulationEvidenceSchema.nullable(),
     evidence: z.object({
       eligibilityDecisionId: idSchema.nullable(),
       policyVersion: z.string().nullable(),

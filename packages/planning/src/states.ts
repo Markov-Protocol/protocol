@@ -1,28 +1,59 @@
 import type { IntentState } from '@markov/contracts';
 
 /**
- * Valid intent transitions. B09 uses the planning states; the execution
- * states are defined here so B10/B11 extend the machine instead of
- * inventing one. Failure is terminal only where evidence establishes it,
- * which is why a submission that got no answer moves to reconciliation,
- * never to FAILED.
+ * Valid intent transitions. B09 uses the planning states, B10 the single
+ * transaction lifecycle and B11 the staged one: a non-final batch that
+ * finalizes returns the intent to AUTHORIZED for the next signature; a
+ * failure, expiry or cancellation after at least one batch filled ends in
+ * PARTIALLY_COMPLETED, which stays partial until a reviewed completion (a new
+ * intent for the remaining legs) or an exit. Failure is terminal only where
+ * evidence establishes it, which is why a submission that got no answer
+ * moves to reconciliation, never to FAILED.
  */
 export const INTENT_TRANSITIONS: Readonly<Record<IntentState, readonly IntentState[]>> = {
   DRAFT: ['QUOTED', 'CANCELLED', 'EXPIRED', 'REJECTED'],
   QUOTED: ['QUOTED', 'AWAITING_APPROVAL', 'CANCELLED', 'EXPIRED', 'REJECTED'],
   AWAITING_APPROVAL: ['QUOTED', 'AUTHORIZED', 'CANCELLED', 'EXPIRED'],
-  AUTHORIZED: ['SUBMITTING', 'CANCEL_REQUESTED', 'EXPIRED'],
-  SUBMITTING: ['SUBMITTED', 'FAILED', 'UNKNOWN_REQUIRES_RECONCILIATION'],
-  SUBMITTED: ['CONFIRMED', 'FAILED', 'EXPIRED', 'UNKNOWN_REQUIRES_RECONCILIATION'],
-  CONFIRMED: ['FINALIZED', 'UNKNOWN_REQUIRES_RECONCILIATION'],
+  AUTHORIZED: ['AUTHORIZED', 'SUBMITTING', 'CANCELLED', 'EXPIRED', 'PARTIALLY_COMPLETED'],
+  SUBMITTING: ['SUBMITTED', 'FAILED', 'PARTIALLY_COMPLETED', 'UNKNOWN_REQUIRES_RECONCILIATION'],
+  SUBMITTED: [
+    'CONFIRMED',
+    'FINALIZED',
+    'AUTHORIZED',
+    'FAILED',
+    'EXPIRED',
+    'PARTIALLY_COMPLETED',
+    'UNKNOWN_REQUIRES_RECONCILIATION',
+  ],
+  CONFIRMED: [
+    'FINALIZED',
+    'AUTHORIZED',
+    'FAILED',
+    'PARTIALLY_COMPLETED',
+    'UNKNOWN_REQUIRES_RECONCILIATION',
+  ],
   FINALIZED: [],
-  PARTIALLY_COMPLETED: ['FINALIZED', 'CANCELLED', 'UNKNOWN_REQUIRES_RECONCILIATION'],
+  PARTIALLY_COMPLETED: [],
   EXPIRED: [],
   REJECTED: [],
   FAILED: [],
-  CANCEL_REQUESTED: ['CANCELLED', 'SUBMITTED', 'UNKNOWN_REQUIRES_RECONCILIATION'],
+  CANCEL_REQUESTED: [
+    'CANCELLED',
+    'PARTIALLY_COMPLETED',
+    'SUBMITTED',
+    'CONFIRMED',
+    'FINALIZED',
+    'AUTHORIZED',
+    'UNKNOWN_REQUIRES_RECONCILIATION',
+  ],
   CANCELLED: [],
-  UNKNOWN_REQUIRES_RECONCILIATION: ['CONFIRMED', 'FINALIZED', 'FAILED', 'PARTIALLY_COMPLETED'],
+  UNKNOWN_REQUIRES_RECONCILIATION: [
+    'CONFIRMED',
+    'FINALIZED',
+    'AUTHORIZED',
+    'FAILED',
+    'PARTIALLY_COMPLETED',
+  ],
 };
 
 export const TERMINAL_INTENT_STATES: ReadonlySet<IntentState> = new Set(

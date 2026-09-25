@@ -1,5 +1,19 @@
 import { venueQuoteSchema } from '@markov/contracts';
-import { checkQuote, FIXTURE_ROUTE_PROGRAM_ID, VenueQuoteError } from '@markov/planning';
+import {
+  checkQuote,
+  decodeFixtureSwapData,
+  FIXTURE_ROUTE_PROGRAM_ID,
+  VenueQuoteError,
+} from '@markov/planning';
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  base64ToBytes,
+  COMPUTE_BUDGET_PROGRAM_ID,
+  parseTransaction,
+  resolveInstructions,
+  resolveMessageAccounts,
+  SPL_TOKEN_PROGRAM_ID,
+} from '@markov/solana-codec';
 import { describe, expect, it } from 'vitest';
 import {
   createConfiguredUrlVenue,
@@ -79,6 +93,93 @@ describe('fixture venue', () => {
     });
     await expect(down.quote(request)).rejects.toBeInstanceOf(VenueQuoteError);
     expect(FIXTURE_PRICES.some((price) => price.mint === DRIFT)).toBe(false);
+  });
+
+  it('composes every leg into one transaction: budget, account creations first, swaps in leg order', async () => {
+    const XSA = FIXTURE_PRICES.find((price) => price.mint !== AERO)?.mint as string;
+    const owner = 'GcZjWRLBiCVHq6L4oaxbBwhcuRi5kAN5PwUxYpWbizCu';
+    const blockhash = 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
+    const aero = await venue.quote(request);
+    const xsa = await venue.quote({ ...request, outputMint: XSA, inAmountRaw: '500000000' });
+    const compose = venue.compose as NonNullable<typeof venue.compose>;
+    const built = await compose({
+      owner,
+      recentBlockhash: blockhash,
+      computeUnitLimit: 400_000,
+      computeUnitPriceMicroLamports: 250n,
+      legs: [
+        {
+          quote: aero,
+          inputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+          outputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+          createOutputAccount: true,
+        },
+        {
+          quote: xsa,
+          inputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+          outputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+          createOutputAccount: false,
+        },
+      ],
+    });
+    expect(built.version).toBe('legacy');
+    const parsed = parseTransaction(base64ToBytes(built.unsignedTransaction));
+    expect(parsed.message.accountKeys[0]).toBe(owner);
+    expect(parsed.message.header.numRequiredSignatures).toBe(1);
+    const instructions = resolveInstructions(
+      parsed.message,
+      resolveMessageAccounts(parsed.message, new Map()),
+    );
+    expect(instructions.map((entry) => entry.programId)).toEqual([
+      COMPUTE_BUDGET_PROGRAM_ID,
+      COMPUTE_BUDGET_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+      FIXTURE_ROUTE_PROGRAM_ID,
+      FIXTURE_ROUTE_PROGRAM_ID,
+    ]);
+    const swaps = instructions.slice(3).map((entry) => decodeFixtureSwapData(entry.data));
+    expect(swaps.map((swap) => swap?.inAmountRaw)).toEqual([1_825_000_000n, 500_000_000n]);
+    expect(swaps.map((swap) => swap?.minimumOutRaw)).toEqual([
+      BigInt(aero.otherAmountThresholdRaw),
+      BigInt(xsa.otherAmountThresholdRaw),
+    ]);
+    // Both swaps spend from the owner's one stablecoin account.
+    expect(instructions[3]?.accounts[1]?.pubkey).toBe(instructions[4]?.accounts[1]?.pubkey);
+    // Test controls: a leg limit refuses composition (plans stay staged) and a quote shift worsens terms.
+    const limited = createFixtureVenue({
+      stablecoin: { mint: USDC, decimals: 6 },
+      now: () => NOW,
+      composeMaxLegs: () => 1,
+    });
+    await expect(
+      (limited.compose as NonNullable<typeof venue.compose>)({
+        owner,
+        recentBlockhash: blockhash,
+        computeUnitLimit: 400_000,
+        computeUnitPriceMicroLamports: 0n,
+        legs: [
+          {
+            quote: aero,
+            inputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+            outputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+            createOutputAccount: false,
+          },
+          {
+            quote: xsa,
+            inputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+            outputTokenProgram: SPL_TOKEN_PROGRAM_ID,
+            createOutputAccount: false,
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({ kind: 'no_route' });
+    const shifted = createFixtureVenue({
+      stablecoin: { mint: USDC, decimals: 6 },
+      now: () => NOW,
+      quoteShiftBps: () => -200,
+    });
+    const worse = await shifted.quote(request);
+    expect(BigInt(worse.outAmountRaw)).toBe((BigInt(aero.outAmountRaw) * 9_800n) / 10_000n);
   });
 });
 
