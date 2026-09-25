@@ -11,7 +11,11 @@ selection and ownership verification, receive/funding status, eligibility
 and terms screens and the live readiness checklist; session **F05**
 delivered Explore's Instruments tab over real backend-admitted
 instruments, the exact-id market detail page and account-scoped
-watchlists. Nothing in this app is deployed.
+watchlists; sessions **F06** to **F08** delivered sourced research, the
+basket builder and publishing with version history; session **F09**
+delivered the one review screen for basket investments and single buys
+over the B09 execution plans (every term, bound to the plan hash, approved
+before any wallet is asked to sign). Nothing in this app is deployed.
 
 ## Install, run, build
 
@@ -67,7 +71,8 @@ combination at build time (`next.config.ts`) and at server start
 | Research workspace `/research` and thesis editor `/research/[thesisId]`: typed statements (sourced fact, issuer assertion, opinion, labelled model interpretation) with citations, counterarguments, shortlist by canonical id with a catalog picker, research subjects with deterministic mapping, source records with fetched/refused/failed states and dates, bounded research runs with progress, cancel and adoption, private notes kept out of the hash and the public page, publish with "what becomes public", archive, saved revisions with two-tab notice, shortlist to a B07 basket draft; market Research tab (theses per instrument, start one), rights and evidence, honest route observations, "Add to a new basket draft"; Build page listing basket drafts | F06 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e against the local API with the fixture issuer source and fixture model adapter; no hosted model provider (OD-19); the basket editor arrives with F07 |
 | Basket builder `/strategies/new` and `/strategies/[strategyId]/edit`: four stages on one server draft identity (Research with linked thesis and shortlist import; Assemble with constituents by canonical id, exact basis-point weights, ±1% keyboard steps, move and remove buttons, explicit equal weights, cash remainder, notes; Set Rules with title, thesis, maintenance suggestion, references, effective limits and approval preference; Activate with wallet and budget apart from the recipe, exact split estimates, availability and readiness), revision-checked autosave with Saving / Saved / Offline changes / Conflict (compare and restore), archive and restore, persistent summary and phone sticky total | F07 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e against the local API with fixture instruments and the fixture wallet; review and execution arrive with F09/F10 |
 | Publishing `/strategies/[strategyId]` and `/strategies/[strategyId]/versions/[versionId]`: freeze the validated draft, versions with chain-derived registration states, prepare with a verified wallet (what becomes public and what never does, permanence, cost), sign through `solana:signTransaction` with the byte check, submit, Saved privately / Publishing / Registered on-chain / Failed / Expired / Status unknown restored on reload, registration evidence with explorer links and verification, deprecation and reactivation by the publisher wallet, readable version differences; public strategy and version pages with evidence, canonical bytes and the indexed record; follow and unfollow; fork into a new draft with attribution | F08 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e against the local API with the fixture ledger and the fixture wallet signing real bytes; no deployed program or live cluster (OD-09, OD-10); review and execution arrive with F09/F10 |
-| Review, execution, portfolio, rankings, maintenance, companion, other settings | F09 onward | not started; each needs its backend session |
+| Review `/review/new` and `/review/[intentId]` (and the `/review` index): one screen for a basket investment in a pinned version and for a single buy from an instrument page; target, verified wallet with observed balances, exact stablecoin budget, budget mode, slippage default derived from the person's policy limit (tighten only), eligibility; the plan built by the API for that exact budget with input and allocation, per-constituent max input, expected and minimum output, price impact, slippage limit and transaction, cash that stays, every fee with basis and the fee payer, signatures and transactions, atomic or staged semantics with the batch order, policy evidence per leg, validity with a live countdown, funds observed, quote references, plan id and hash; approval bound to the hash (staged execution acknowledged separately), refused terms shown as actionable refusals (insufficient funds, policy denial, budget below the route minimum, no output, quotes unavailable, expired), expired terms refreshed with a difference view before any approval, a connected wallet or newer version that differs called out, "Sign transaction 1 of N" honestly unavailable until F10; entry points from the builder's Activate stage, the strategy and version pages and the market page's Buy | F09 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e against the local API with the fixture venue's synthetic quotes, fixture instruments and the fixture wallet; no live venue (OD-21), no signing or submission (F10/B10) |
+| Execution, portfolio, rankings, maintenance, companion, other settings | F10 onward | not started; each needs its backend session |
 
 ## Backend prerequisites
 
@@ -90,6 +95,10 @@ added in F06, and the B07 draft routes (`/v1/strategies/limits`,
 `/v1/me/publications/{publicationId}`, `…/submit`, the public
 `/v1/strategies/{strategyId}`, `…/versions/{versionId}` and
 `/v1/registry/records/{address}`) and the follow contract added in F08
-(`/v1/me/follows`); later sessions require later backend sessions. The app never reads provider
+(`/v1/me/follows`); F09 uses the B09 planning routes (`/v1/me/intents`,
+`…/intents/{intentId}`, `…/plans`, `…/plans/{planId}`,
+`…/plans/{planId}/acknowledgements`, `…/cancel`) with the B05 limits,
+eligibility and capability reads and the F04 funding read, and added
+nothing to the backend; later sessions require later backend sessions. The app never reads provider
 endpoints directly and the browser never calls the API: private calls go
 through the app's own `/api/markov/*` allowlist.

@@ -754,7 +754,7 @@ describe('Basket builder', () => {
       'aria-disabled',
       'true',
     );
-    expect(screen.getByText(/Review and execution arrive with F09 and F10/)).toBeInTheDocument();
+    expect(screen.getByText(/Freeze a version first/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/^Budget \(/), { target: { value: '0.000001' } });
     expect((await screen.findAllByText('too small to buy anything')).length).toBe(2);
     // Sending a plan never touches the recipe.

@@ -100,6 +100,18 @@ export const PROXY_ROUTES: readonly ProxyRoute[] = [
   { method: 'GET', pattern: /^\/v1\/me\/follows$/ },
   { method: 'PUT', pattern: new RegExp(`^/v1/me/follows/${UUID}$`) },
   { method: 'DELETE', pattern: new RegExp(`^/v1/me/follows/${UUID}$`) },
+  // Review (F09): intents and bounded, hashed plans; an approval binds the review to the plan hash.
+  // Nothing here signs or submits; the wallet handoff arrives with F10.
+  { method: 'POST', pattern: /^\/v1\/me\/intents$/ },
+  { method: 'GET', pattern: /^\/v1\/me\/intents$/ },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/intents/${UUID}$`) },
+  { method: 'POST', pattern: new RegExp(`^/v1/me/intents/${UUID}/plans$`) },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/intents/${UUID}/plans/${UUID}$`) },
+  {
+    method: 'POST',
+    pattern: new RegExp(`^/v1/me/intents/${UUID}/plans/${UUID}/acknowledgements$`),
+  },
+  { method: 'POST', pattern: new RegExp(`^/v1/me/intents/${UUID}/cancel$`) },
 ];
 
 const SEGMENT = /^[A-Za-z0-9_-]{1,64}$/;

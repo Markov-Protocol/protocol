@@ -204,11 +204,42 @@ and its own server-side exchange.
   rendered as links only when they are `https://`; everything else is
   text. The canonical manifest is rendered as text in a `<pre>`.
 
+## Review (F09)
+
+- Every number on the review is the API's: the allocation, quotes,
+  minimum outputs, fees, fee payer, signatures, batches, policy decisions,
+  validity and funds come from the plan the backend built for the exact
+  budget. The browser computes nothing financial; it formats base units
+  and compares two plans field by field to show what changed. Assembled
+  routes are never modified in the browser.
+- The visible review is bound to an immutable plan id and hash. Approval
+  sends the hash the person saw; the API refuses a hash that is not the
+  current plan or a plan that expired. A refreshed plan never appears
+  behind an enabled approval button: the difference is shown first and
+  approval (and the staged acknowledgement) is asked again. A countdown
+  and an "expired" label come from the plan's own expiry against the
+  clock; a superseded plan is read-only.
+- Refusals are actions, never bypasses: the page cannot lower a limit,
+  skip a policy decision, invent a quote or reshape the recipe. The
+  smallest workable budget, the shortfalls and the denial codes are what
+  the API answered.
+- Context differences are visible: the connected wallet (or its network)
+  differing from the plan's wallet, no connected wallet, and a newer
+  version of the strategy are called out next to the approval. The final
+  call to action names the next real step ("Sign transaction 1 of N")
+  and is unavailable until F10 wires the wallet; nothing claims a trade
+  or an investment completed.
+- Intents are private: another person's intent is "not found" whoever
+  asks, review pages are `noindex`, and the proxy allowlists only the
+  intent, plan, acknowledgement and cancel routes (no operator routes).
+  Nothing about a plan is stored in the browser beyond the query cache
+  of the signed-in principal; a reload reads the plan from the API.
+
 ## Planned (with the sessions that own them)
 
 Full CSP with exact identity/wallet allowances and report-only rollout,
 HSTS at the deployment, the hosted identity provider browser adapter
 (BLOCKED on OD-05), execution transaction signing-path validation (F10;
-registration signing is validated in F08), analytics consent and retention
-(F14/F20). Threat-model rows from the build prompt are tracked in
+registration signing is validated in F08 and the reviewed plan is bound by
+hash in F09), analytics consent and retention (F14/F20). Threat-model rows from the build prompt are tracked in
 `docs/frontend/verification.md` as they gain tests.

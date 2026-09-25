@@ -219,9 +219,9 @@ test.describe('public publishing, versions and forks', () => {
     await expect(visitor.getByTestId('publish-panel')).toHaveCount(0);
     await visitor.getByText('Show the canonical bytes').click();
     await expect(visitor.getByTestId('canonical-manifest')).toContainText('"schemaVersion"');
-    await expect(visitor.getByRole('button', { name: 'Review investment' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
+    await expect(visitor.getByRole('link', { name: 'Review investment' })).toHaveAttribute(
+      'href',
+      /\/sign-in\?next=%2Freview%2Fnew/,
     );
     await visitor.screenshot({ path: `${evidenceDir}version-public-${width}.png`, fullPage: true });
     await visitor.goto(strategyUrl);

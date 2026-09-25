@@ -20,7 +20,9 @@ plans, fixture-verified),
 **F05** (issuer-aware discovery and watchlists),
 **F06** (instrument evidence and strategy theses),
 **F07** (complete stock basket builder),
-**F08** (public publishing, versions and forks on the registry routes) and
+**F08** (public publishing, versions and forks on the registry routes),
+**F09** (one review for basket investments and single buys over the B09
+plans) and
 frontend sessions **F01** (shared design system), **F02** (Mark I shell) and
 **F03** (app sessions and account recovery) are complete. Backend sessions B02 to B18 and
 frontend sessions F02 to F20 follow in dependency order; see
@@ -113,7 +115,8 @@ bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful s
 | Research in the app: thesis editor with typed statements and citations, safe source cards, bounded runs with progress and cancel, shortlist by canonical id, private notes vs published projection, shortlist to basket draft, instrument evidence rules and honest route observations | implemented, tested (F06) against the local B06/B07 API with the fixture source and fixture model adapter; no hosted model provider (OD-19) |
 | Basket builder: four stages on one server draft, exact basis-point allocations with explicit equal weighting and cash remainder, backend validation on every save, revision-checked autosave with offline and two-tab conflict handling, rules and effective limits, wallet and budget kept apart from the recipe with exact split estimates | implemented, tested (F07) against the local B05/B07 API; review and execution arrive with B09/B10 and F09/F10 |
 | Publishing in the app: freeze, versions with chain-derived registration states, prepare with a verified wallet (what becomes public, permanence, cost), sign through `solana:signTransaction` with a byte check, submit, states restored on reload, registration evidence with explorer links and verification, deprecation, readable version differences, public strategy and version pages, follows (backend addition in F08), forks of registered versions with attribution | implemented, tested (F08) against the local B07/B08 API with the fixture ledger and the fixture wallet; no deployed program or live cluster (OD-09, OD-10) |
-| Product routes (review, portfolio, rankings, automations) | not started (F09 onward, each needing its backend session) |
+| Review in the app: one screen for a basket investment in a pinned version and a single buy of an instrument; wallet with observed balances, exact budget, policy-derived slippage; the API's plan with allocation, quotes, minimum outputs, fees and fee payer, signatures and transactions, atomic or staged semantics, policy evidence, validity with countdown, plan id and hash; approval bound to the hash with the staged acknowledgement, refresh with a difference view, actionable refusals, context differences; "Sign transaction 1 of N" unavailable until F10 | implemented, tested (F09) against the local B09 API with the fixture venue's synthetic quotes and the fixture wallet; no live venue (OD-21), no signing or submission (B10/F10) |
+| Product routes (execution, portfolio, rankings, automations) | not started (F10 onward, each needing its backend session) |
 
 Capability verification states are recorded in the database and in
 `docs/markov/provider-capabilities.md`.

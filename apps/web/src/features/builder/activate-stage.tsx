@@ -1,6 +1,6 @@
 'use client';
 
-import type { StrategyDraft, StrategyDraftContent } from '@markov/contracts';
+import type { StrategyDraft, StrategyDraftContent, VersionSummary } from '@markov/contracts';
 import { formatBasisPoints, formatRawAmount, shortenAddress } from '@markov/formatters';
 import {
   AmountInput,
@@ -84,8 +84,9 @@ function EstimateRow({
 /**
  * Stage 04: a personal plan from the saved recipe, a verified wallet and a
  * budget; every number here is an orientation estimate from exact integer
- * arithmetic, and nothing is bought. Review and execution arrive with F09
- * and F10; the button says so instead of pretending.
+ * arithmetic, and nothing is bought. "Review investment" opens the review
+ * (F09) for the newest frozen version with real quotes; a draft that was
+ * never frozen cannot be invested in, and the button says so.
  */
 export function ActivateStage({
   content,
@@ -93,13 +94,22 @@ export function ActivateStage({
   dirty,
   plan,
   onPlanChange,
+  strategyId,
+  versions,
 }: {
   readonly content: StrategyDraftContent;
   readonly server: StrategyDraft;
   readonly dirty: boolean;
   readonly plan: PlanInputs;
   readonly onPlanChange: (next: PlanInputs) => void;
+  readonly strategyId: string;
+  readonly versions: readonly VersionSummary[];
 }) {
+  const newest = [...versions].sort((a, b) => b.versionNumber - a.versionNumber)[0] ?? null;
+  const reviewHref =
+    newest === null
+      ? null
+      : `/review/new?strategyId=${strategyId}&versionId=${newest.versionId}${plan.walletId ? `&walletId=${plan.walletId}` : ''}${plan.budgetRaw ? `&budget=${plan.budgetRaw}` : ''}`;
   const wallets = useVerifiedWallets(true);
   const funding = useFunding(plan.walletId);
   const limits = useEffectiveLimits(true);
@@ -247,8 +257,8 @@ export function ActivateStage({
         </h2>
         <p className="text-supporting text-text-muted">
           floor(budget × weight) per constituent in exact base units, the remainder as cash. An
-          estimate for orientation: the review (F09) quotes real outputs, fees, minimums and route
-          conditions.
+          estimate for orientation: the review quotes real outputs, fees, minimums and route
+          conditions for the frozen version you invest in.
         </p>
         {server.content.legs.length === 0 ? (
           <p className="text-supporting text-text-muted">No constituent in the saved revision.</p>
@@ -320,14 +330,24 @@ export function ActivateStage({
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            disabledReason="Review and execution arrive with F09 and F10 (backend B09 and B10). Nothing is bought from this page."
-          >
-            Review investment
-          </Button>
+          {reviewHref ? (
+            <Button asChild data-testid="review-investment">
+              <Link href={reviewHref}>Review investment (version {newest?.versionNumber})</Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              disabledReason="Freeze a version first: a review invests in an immutable version, never in the working draft."
+            >
+              Review investment
+            </Button>
+          )}
           <StatusBadge tone="neutral">No order, no signature</StatusBadge>
         </div>
+        <p className="text-caption text-text-muted">
+          The review quotes the newest frozen version with your wallet and budget carried over; this
+          draft's unsaved or unfrozen edits are not what gets bought.
+        </p>
         {content.legs.length !== server.content.legs.length ? null : null}
       </section>
     </div>

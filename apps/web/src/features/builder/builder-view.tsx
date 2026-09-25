@@ -392,6 +392,8 @@ function Builder({ detail }: { readonly detail: StrategyDetail }) {
           {stage === 'rules' ? <RulesStage content={content} onChange={change} /> : null}
           {stage === 'activate' ? (
             <ActivateStage
+              strategyId={strategyId}
+              versions={detail.versions}
               content={content}
               server={server}
               dirty={dirty}

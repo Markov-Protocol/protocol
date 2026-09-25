@@ -72,7 +72,12 @@ for SYMBOL in FXAERO FXBIO XSFXA; do
   node apps/cli/dist/main.js catalog decide "$ID" --decision admit --reason "web e2e: fixture instrument" --evidence review=web-e2e --token "$CATALOG_TOKEN" --url "$API_URL" >/dev/null
 done
 node apps/cli/dist/main.js catalog events ingest --issuer xstocks --source fixture --token "$CATALOG_TOKEN" --url "$API_URL" >/dev/null
-unset CATALOG_TOKEN
+# The fixture split (xs-ev-001) is already effective: until an operator applies
+# it, policy keeps XSFXA unquoteable (corporate_action_pending), exactly as in
+# scripts/ci/startup-check.sh. Apply it so review journeys can quote the basket.
+SPLIT_ID=$(node apps/cli/dist/main.js catalog events list --issuer xstocks --status pending --token "$CATALOG_TOKEN" --url "$API_URL" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const a=JSON.parse(d).actions.find(x=>x.externalId==="xs-ev-001");if(!a){console.error("missing xs-ev-001");process.exit(1)}console.log(a.actionId)})')
+node apps/cli/dist/main.js catalog events apply "$SPLIT_ID" --reason "web e2e: issuer notice fixture" --evidence notice=fixture --token "$CATALOG_TOKEN" --url "$API_URL" >/dev/null
+unset CATALOG_TOKEN SPLIT_ID
 # Tell Playwright the API is seeded (apps/web/playwright.config.ts waits on this flag).
 curl -fsS -X POST "http://127.0.0.1:$RPC_PORT/fixture/ready" >/dev/null
 wait "$API_PID"

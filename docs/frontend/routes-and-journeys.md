@@ -11,15 +11,18 @@ the target; only the rows marked *implemented* exist.
 | `/api/auth/session`, `/api/auth/sign-in`, `/api/auth/sign-out` | Same-origin session routes (`Cache-Control: no-store`); mutations require a same-origin browser request with a JSON body | app server only | implemented (F03) |
 | `/dev/components` | Internal component reference inside the shell | internal; `MARKOV_WEB_INTERNAL_ROUTES=true`; refused in production | implemented |
 | `/explore` | Instruments tab over admitted and paused instruments (search, category, issuer collections, bounded pagination, watchlist toggles), Watchlist tab (account-scoped), Strategies tab (arrives with F12); filter and tab state in the URL (`q`, `issuer`, `kind`, `tab`, validated values only) | public; watchlist authenticated | implemented (F05) |
-| `/markets/[instrumentId]` | Exact-id instrument page: Overview (with rights and evidence, "Add to a new basket draft"), Research (the person's theses mentioning the instrument, start a thesis with it shortlisted, evidence rules), Liquidity (route observations, every field "Not observed" until B17/F09), Instrument tabs; save control; public availability refined by the person's capability states when signed in | public where the instrument is admitted or paused; personal states, theses and drafts authenticated | implemented (F05, F06) |
+| `/markets/[instrumentId]` | Exact-id instrument page: Overview (with rights and evidence, "Add to a new basket draft"), Research (the person's theses mentioning the instrument, start a thesis with it shortlisted, evidence rules), Liquidity (route observations, every field "Not observed" until B17; a buy is reviewed through the review, which shows the venue's quote and route), Instrument tabs; save control; public availability refined by the person's capability states when signed in, "Review a buy" into `/review/new` when the person can quote the instrument, selling unavailable until F10 | public where the instrument is admitted or paused; personal states, theses and drafts authenticated | implemented (F05, F06, F09) |
 | `/research` | Research workspace: the person's theses (visibility, status, revision, instrument count) and a form that starts a private thesis | authenticated | implemented (F06) |
 | `/research/[thesisId]` | Owner: the thesis editor (typed statements with citations, counterarguments, shortlist by canonical id with a catalog picker, research subjects with deterministic mapping, sources with fetched/refused/failed states and dates, bounded research runs with progress and cancel, private notes, publish with "what becomes public", archive, saved revisions, shortlist to basket draft). Anyone else: the published projection or "not found or private" | owner; published projection public | implemented (F06) |
 | `/strategies/new` | Static path, never a strategy id: start a basket draft on the server or resume one; `?strategyId=` (older links) opens the editor | authenticated | implemented (F06, F07) |
-| `/strategies/[strategyId]/edit` | The owner's basket builder on one draft identity: 01 Research (linked thesis, shortlist import), 02 Assemble (constituents by canonical id, exact basis-point weights with keyboard steps, explicit equal weights, cash remainder, notes), 03 Set Rules (title, thesis text, maintenance suggestion, references, the person's effective limits and approval preference read from the policy), 04 Activate (verified wallet and budget kept apart from the recipe, exact split estimates, availability and readiness, "Review investment" honestly unavailable until F09/F10); autosave with revision checks, Saving / Saved / Offline changes / Conflict states with compare and restore; archive and restore | owner | implemented (F07) |
+| `/strategies/[strategyId]/edit` | The owner's basket builder on one draft identity: 01 Research (linked thesis, shortlist import), 02 Assemble (constituents by canonical id, exact basis-point weights with keyboard steps, explicit equal weights, cash remainder, notes), 03 Set Rules (title, thesis text, maintenance suggestion, references, the person's effective limits and approval preference read from the policy), 04 Activate (verified wallet and budget kept apart from the recipe, exact split estimates, availability and readiness, "Review investment" opening `/review/new` for the newest frozen version with the wallet and budget carried over, unavailable with its reason until a version is frozen); autosave with revision checks, Saving / Saved / Offline changes / Conflict states with compare and restore; archive and restore | owner | implemented (F07) |
 | `/portfolio`, `/activity`, `/rankings`, `/automations`, `/status` | navigation targets | public shell | honest unavailable pages naming the delivering session (F02); real features arrive with F10 onward |
-| `/strategies/[strategyId]` | Owner: the working draft's state, "Freeze as version N" (unavailable with its reason when the draft breaks a rule or the strategy is archived), every frozen version with its chain-derived registration state (Saved privately / Publishing / Registered on-chain / Failed / Expired / Status unknown), and what others see (registered versions, followers). Anyone else: the registered projection (title, registered versions with status marker, record address and date, follower count, fork attribution), Follow / Unfollow, Fork, "Review investment" honestly unavailable until F09 | owner; registered projection public | implemented (F08) |
-| `/strategies/[strategyId]/versions/[versionId]` | Owner: the immutable version (recipe with mints, thesis, rules, disclosures, hashes, lineage and the difference from the previous version), the registration panel (prepare with a verified wallet → what becomes public, what never does, permanence, cost → sign with the connected publisher wallet through `solana:signTransaction` → submit → state read from the chain, restored on reload), registration evidence with explorer links and verification once registered, deprecation and reactivation by the publisher wallet, fork. Anyone else: the registered projection with evidence, verification, canonical bytes, the indexed record, the public difference from the previous public version, Follow and Fork | owner; registered projection public | implemented (F08) |
-| `/portfolio/[instanceId]`, `/review/[intentId]`, `/activity/[intentId]`, `/receipts/[receiptId]`, other `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
+| `/strategies/[strategyId]` | Owner: the working draft's state, "Freeze as version N" (unavailable with its reason when the draft breaks a rule or the strategy is archived), every frozen version with its chain-derived registration state (Saved privately / Publishing / Registered on-chain / Failed / Expired / Status unknown), and what others see (registered versions, followers). Anyone else: the registered projection (title, registered versions with status marker, record address and date, follower count, fork attribution), Follow / Unfollow, Fork, "Review investment (version N)" into `/review/new` for the newest registered version | owner; registered projection public | implemented (F08, F09) |
+| `/strategies/[strategyId]/versions/[versionId]` | Owner: the immutable version (recipe with mints, thesis, rules, disclosures, hashes, lineage and the difference from the previous version), the registration panel (prepare with a verified wallet → what becomes public, what never does, permanence, cost → sign with the connected publisher wallet through `solana:signTransaction` → submit → state read from the chain, restored on reload), registration evidence with explorer links and verification once registered, deprecation and reactivation by the publisher wallet, fork. Anyone else: the registered projection with evidence, verification, canonical bytes, the indexed record, the public difference from the previous public version, Follow and Fork; both views offer "Review investment" for this exact version | owner; registered projection public | implemented (F08, F09) |
+| `/review/new` | Start a review: the target from the query (`?strategyId=&versionId=` for a basket investment in that exact version, owner's copy or public projection; `?instrumentId=` for a single buy of an admitted instrument), one of the person's verified wallets with its observed balances, an exact stablecoin budget (`?walletId=&budget=` prefilled from the builder), budget mode, a slippage limit defaulting to the platform's 0.50% capped by the person's policy limit (tighten only), eligibility; "Get quotes and review" creates the intent with a per-visit idempotency key and opens the review. Nothing is quoted, reserved or bought here | authenticated | implemented (F09) |
+| `/review/[intentId]` | The one review for basket investments and single buys: the plan the API built for the exact budget (input and allocation, constituents with max input, expected and minimum output, price impact, slippage limit and transaction, cash that stays, fees with basis and fee payer, signatures and transactions, atomic or staged semantics with batch order, policy evidence per leg, validity with countdown, funds observed, quote references, plan id and hash); approval bound to the plan hash with the staged acknowledgement when required; refusals as actions (add funds and check again, eligibility, another budget, try again); expired terms refreshed with a difference view before any approval; connected wallet, network and newer version differences called out; cancel; "Sign transaction 1 of N" unavailable until F10. Another person's intent is "not found" | owner | implemented (F09) |
+| `/review` | The person's reviews, newest first, with state and budget | authenticated | implemented (F09) |
+| `/portfolio/[instanceId]`, `/activity/[intentId]`, `/receipts/[receiptId]`, other `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
 
 ## Session journeys (F03)
 
@@ -224,8 +227,10 @@ Rules that already apply:
   the budget is split as floor(budget × weight) in exact base units with
   the remainder as cash, checked against the observed balance and the
   person's limits; per-constituent availability comes from the policy;
-  a readiness list says what is missing. "Review investment" is
-  unavailable with its reason until F09/F10; nothing is bought.
+  a readiness list says what is missing. "Review investment" (F09) opens
+  the review of the newest frozen version with the wallet and budget
+  carried over, and is unavailable with its reason until a version is
+  frozen; nothing is bought on this page.
 - **Safe return.** Sign-in returns to the edit page; verifying a wallet
   happens on `/settings/wallets` and the draft is on the server when the
   person comes back.
@@ -277,5 +282,70 @@ Rules that already apply:
   version) or forks a registered version into a private draft of their
   own that opens in the editor with `forkOf` attribution; neither buys
   anything or moves a pin, and the original strategy is untouched.
-  Anonymous readers get sign-in links. "Review investment" stays
-  unavailable with its reason until F09/F10.
+  Anonymous readers get sign-in links. "Review investment" (F09) opens
+  the review of that registered version for a signed-in person.
+
+## Session journeys (F09)
+
+- **One review for every trade.** A basket investment (from the builder's
+  Activate stage, the strategy page or a version page) and a single buy
+  (from an instrument page) open the same `/review/new` and the same
+  `/review/[intentId]`. The target is exactly what the link named: a
+  pinned version by id (never the working draft, never "the latest
+  version") or one admitted instrument by canonical id. Assistant and
+  maintenance proposals (F13/F14) will land on the same screen.
+- **Start.** The person chooses one of their verified wallets (balances
+  observed by the API through the RPC, shown with the slot), an exact
+  stablecoin budget in base units and the budget mode. The slippage limit
+  defaults to the platform's 0.50% capped by the person's effective policy
+  limit, read from the API; it can only be tightened. Local hints name the
+  per-order cap (for a basket, against the largest constituent's share)
+  and the observed balance, but the API decides: creating the intent
+  quotes nothing and reserves nothing, and the review page asks the API
+  for a plan.
+- **The plan.** The API builds the plan for the exact budget: the
+  allocation in base units (largest remainder; targets plus cash equal the
+  investable amount), one exact-in quote per constituent with the expected
+  and minimum output at the slippage limit, price impact, the route's
+  venue and mode (fixture quotes are labelled as such), every fee with its
+  basis (base network fee, priority fee at most, token account rent at
+  most, total SOL at most, the Markov fee under the published policy) and
+  the fee payer (the person's wallet), the number of signatures and
+  transactions, atomic or staged semantics (a staged basket lists its
+  transactions in order with the worst-case spend after each and the cash
+  still in the wallet, and needs a separate acknowledgement that later
+  transactions can fail after earlier ones filled and nothing is rolled
+  back), the policy version, eligibility decision and per-constituent
+  decisions with their expiry, the plan's validity with a live countdown,
+  the funds observed, the quote references and the plan id and hash. The
+  page states what has not happened: no simulation yet, nothing reserved,
+  nothing signed. A preview amount is not a reserved fill.
+- **Approval bound to the hash.** "Approve plan" (or "Approve staged
+  plan" after the acknowledgement) records the person's approval against
+  the plan hash; the API refuses an approval whose hash is not the current
+  plan (`PLAN_CHANGED`) or whose plan expired (`QUOTE_EXPIRED`). After
+  approval the next action reads "Sign transaction 1 of N" and is
+  unavailable with its reason until F10 wires the wallet; nothing says
+  "investment complete".
+- **Changed terms.** A refreshed plan (by choice, or because the terms
+  expired) never replaces the one on screen behind an enabled approval
+  button: the page shows what changed (budget, spend, cash, SOL bound,
+  fee, transactions, semantics, fee payer, wallet, version, quote mode,
+  validity; per constituent max input, expected, minimum, impact,
+  slippage, transaction; changed constituents) and keeps approval
+  unavailable until the person has read the new terms; a staged
+  acknowledgement is asked again. Expired terms are labelled expired with
+  a refresh; the old plan reads as superseded once a newer one exists. A
+  connected wallet that differs from the plan's wallet, a wallet on
+  another network, no connected wallet and a newer version of the strategy
+  are called out on the page.
+- **Refusals are actions, not workarounds.** Insufficient stablecoin or
+  SOL names both shortfalls with "Add funds" and "Check again"; a policy
+  denial shows the API's codes with eligibility and terms or another
+  budget as the next step; a budget below the route minimum names the
+  smallest workable budget without touching the weights; a constituent
+  that is no longer admitted, unavailable quotes and rate limits each keep
+  the intent open for another attempt. None of them bypasses the check.
+- **Cancel and list.** Cancelling is explicit (confirm) and final for the
+  intent; `/review` lists the person's reviews with their state. Another
+  person's intent is "not found".

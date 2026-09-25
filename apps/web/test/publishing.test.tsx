@@ -1069,9 +1069,9 @@ describe('public strategy and version pages', () => {
     expect(screen.getAllByTestId('public-version-row')).toHaveLength(1);
     expect(screen.queryByTestId('freeze-button')).not.toBeInTheDocument();
     expect(screen.queryByTestId('publish-panel')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Review investment' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
+    expect(screen.getByRole('link', { name: 'Review investment (version 1)' })).toHaveAttribute(
+      'href',
+      `/review/new?strategyId=${S1}&versionId=${V1}`,
     );
 
     const follow = await screen.findByTestId('follow-button');

@@ -178,6 +178,30 @@ describe('proxy allowlist', () => {
     expect(matchRoute('GET', '/v1/registry/records')).toBeNull();
   });
 
+  it('allows the review operations added in F09 and nothing that signs, submits or reads another owner', () => {
+    expect(matchRoute('POST', '/v1/me/intents')).not.toBeNull();
+    expect(matchRoute('GET', '/v1/me/intents')).not.toBeNull();
+    expect(matchRoute('GET', '/v1/me/intents')?.query).toBeUndefined();
+    expect(matchRoute('GET', `/v1/me/intents/${WALLET}`)).not.toBeNull();
+    expect(matchRoute('POST', `/v1/me/intents/${WALLET}/plans`)).not.toBeNull();
+    expect(matchRoute('GET', `/v1/me/intents/${WALLET}/plans/${WALLET}`)).not.toBeNull();
+    expect(
+      matchRoute('POST', `/v1/me/intents/${WALLET}/plans/${WALLET}/acknowledgements`),
+    ).not.toBeNull();
+    expect(matchRoute('POST', `/v1/me/intents/${WALLET}/cancel`)).not.toBeNull();
+    for (const route of [
+      ['GET', `/v1/me/intents/${WALLET}/plans`],
+      ['DELETE', `/v1/me/intents/${WALLET}`],
+      ['POST', `/v1/me/intents/${WALLET}/plans/${WALLET}/submit`],
+      ['POST', `/v1/me/intents/${WALLET}/plans/${WALLET}/signatures`],
+      ['GET', `/v1/me/intents/not-an-id`],
+      ['GET', '/v1/intents'],
+    ] as const) {
+      expect(matchRoute(route[0], route[1]), route.join(' ')).toBeNull();
+    }
+    expect(matchRoute('POST', '/v1/me/intents')?.public).toBeUndefined();
+  });
+
   it('re-encodes a bounded query string and refuses the rest', () => {
     expect(safeQuery('')).toBe('');
     expect(safeQuery('?q=Fixture%20Aero&issuer=prestocks&limit=25')).toBe(

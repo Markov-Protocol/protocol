@@ -8,6 +8,7 @@ import { WebApiError } from '../api/use-markov-api';
 import { useSession } from '../auth/session-context';
 import { CopyButton } from '../funding/copy-button';
 import { clusterOf, ISSUER_LABELS } from '../markets/labels';
+import { ReviewInvestmentLink } from '../review/review-link';
 import { RegistrationEvidenceView } from './evidence-panel';
 import { FollowButton } from './follow-button';
 import { ForkButton } from './fork-button';
@@ -25,9 +26,6 @@ import { VersionDiffView } from './version-diff';
 function isNotFound(error: unknown): boolean {
   return error instanceof WebApiError && error.status === 404;
 }
-
-const REVIEW_UNAVAILABLE =
-  'Review and execution arrive with F09 and F10 (backend B09 and B10). Nothing is bought from this page.';
 
 function Loading() {
   return (
@@ -267,9 +265,7 @@ function OwnerVersion({ version }: { readonly version: StrategyVersion }) {
           versionId={version.versionId}
           versionNumber={version.versionNumber}
         />
-        <Button type="button" disabledReason={REVIEW_UNAVAILABLE}>
-          Review investment
-        </Button>
+        <ReviewInvestmentLink strategyId={strategyId} versionId={version.versionId} />
       </section>
     </div>
   );
@@ -378,13 +374,12 @@ function PublicVersionView({ version }: { readonly version: PublicVersion }) {
             versionId={version.versionId}
             versionNumber={version.versionNumber}
           />
-          <Button type="button" disabledReason={REVIEW_UNAVAILABLE}>
-            Review investment
-          </Button>
+          <ReviewInvestmentLink strategyId={strategyId} versionId={version.versionId} />
         </div>
         <p className="text-caption text-text-muted">
           Following subscribes you to new versions; forking copies this version into a private draft
-          of your own with attribution. Neither buys anything.
+          of your own with attribution. Neither buys anything. Reviewing an investment quotes this
+          exact version for your own wallet and budget.
         </p>
       </section>
 

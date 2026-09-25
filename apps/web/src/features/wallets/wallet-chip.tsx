@@ -32,12 +32,13 @@ export function WalletChip() {
   return (
     <Link
       href="/settings/wallets"
-      className="inline-flex items-center gap-2 text-supporting"
+      className="inline-flex items-center gap-2 whitespace-nowrap text-supporting"
       data-testid="wallet-chip"
     >
       <WalletIcon aria-hidden="true" className="size-4" />
       <span>
-        {connection.walletName} ·{' '}
+        {/* The wallet's name is hidden on narrow screens; the address always identifies the signer. */}
+        <span className="hidden md:inline">{connection.walletName} · </span>
         <code className="font-mono">{shortenAddress(connection.account.address)}</code>
       </span>
       <StatusBadge

@@ -254,6 +254,15 @@ who). `POST /v1/me/strategies/{strategyId}/forks` accepts, from any
 signed-in person, a version that is registered and not withheld; the owner
 keeps forking any of their versions (`docs/markov/strategies.md`).
 
+### Additions for the app (F09)
+
+None. The app's review (`/review/new`, `/review/{intentId}`) consumes the
+B09 planning routes below through its own proxy: it creates the intent
+with a per-visit idempotency key, asks for a plan with an empty JSON
+object as the body (the proxy requires a JSON body on mutations; the
+route ignores it), reads the plan it points to, acknowledges by plan hash
+and cancels. Signing and submission arrive with B10/F10.
+
 ## Endpoints (B09)
 
 | Method | Path                                                     | Principal                                  | Purpose |

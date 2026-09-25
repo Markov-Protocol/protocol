@@ -326,6 +326,84 @@ Readiness: IMPLEMENTED and FIXTURE_VERIFIED; the chain is the fixture
 ledger, which is not production evidence (`docs/markov/strategy-registry.md`
 lists the release gates).
 
+## F09 — unified investment and trade review (2026-09-25)
+
+Environment as for F08 plus the planner: the real API in test mode with
+the fixture execution venue (`EXECUTION_VENUE_PROVIDER=fixture`,
+synthetic deterministic quotes with 30-second validity), the fixture RPC
+serving observed balances, the fixture issuer instruments admitted and the
+fixture split applied so XSFXA is quoteable, and the fixture wallet
+injected through the Wallet Standard. No live venue, live cluster, issuer
+feed or real wallet was involved; nothing was signed, submitted, reserved
+or spent, and nothing left this machine.
+
+| Check | Command | Result |
+| ----- | ------- | ------ |
+| Backend additions | none | the review consumes the B09 routes as published; the e2e API launcher now applies the effective fixture corporate action, as the startup check does |
+| App-owned API proxy | `pnpm exec vitest run --project node apps/web/test/server/proxy.test.ts` | 15 tests: intent create and list, intent read, plan build and read, acknowledgement and cancel allowlisted; operator planning routes and anything else under `/v1/me/intents` are not |
+| Contract matrix | `pnpm exec vitest run --project node packages/api-client` | 55 entries proven against the frozen OpenAPI document, the seven F09 routes among them |
+| Pure review model | `pnpm exec vitest run --project web apps/web/test/review-model.test.ts` | 6 tests: validity phases and countdown (approval unavailable at zero and when the API says expired or superseded), the next action named without ever claiming completion ("Sign transaction 1 of N", "Refresh terms", "Approve staged plan"), exact units for legs, fees and SOL without double counting, only binding differences between a reviewed and a refreshed plan (a differing constituent list is a difference), context warnings that never change what the plan is bound to, and every API refusal mapped to a title, the API's details and one honest next step |
+| Review client | `pnpm exec vitest run --project web apps/web/test/review.test.tsx` | 9 tests: the start screen names the pinned version, derives the slippage default from the person's policy limit, compares the largest constituent's share with the per-order cap, carries the wallet and budget over and creates exactly one intent with a per-visit idempotency key; slippage above the limit and a missing target keep creation unavailable and a refused creation is shown verbatim; the review quotes a staged basket, shows every term, requires the staged acknowledgement and binds the approval to the hash the person saw; a refreshed plan shows the difference before approval can be enabled again; expired terms read as expired with a refresh and an older plan as superseded; refusals become actions (insufficient funds with both shortfalls, a policy denial with its codes, a budget below the route minimum with the smallest workable budget, no output) and never a bypass; a differing connected wallet or a newer strategy version is called out; a single buy is one atomic transaction, an approved plan is restored on reload and cancelling needs a confirmation; another person's review is "not found" and no plan is invented |
+| Full unit and integration run | `pnpm test` (inside `pnpm verify`) | see the session log `docs/sessions/F09.md` |
+| Production build | `pnpm web:build` | 28 routes, all server-rendered on demand, including `/review`, `/review/new` and `/review/[intentId]` |
+| Browser evidence | `MARKOV_TEST_DATABASE_URL=… pnpm exec playwright test e2e/review.spec.ts` | 2 passed (1.1 min): the journey below on the desktop and phone profiles, each with a real 30-second quote expiry |
+| Screenshots | `docs/frontend/evidence/F09/` | `review-start-*.png`, `review-unfunded-*.png`, `review-staged-*.png`, `review-approved-*.png`, `review-expired-*.png`, `review-difference-*.png`, `review-denied-*.png`, `review-single-*.png` |
+
+Review journey (desktop 1280×800 and the Pixel 7 profile at 320 px, one
+run each):
+
+1. Sign in → the fixture wallet is chosen and verified → the fixture
+   jurisdiction is declared and the terms acknowledged → a two-constituent
+   basket (FXAERO 60 %, XSFXA 30 %, cash 10 %) is built and frozen as
+   version 1 → "Review investment" on the version page opens
+   `/review/new` naming exactly that version and its weights → the
+   verified wallet is chosen and its balances (0 USDC, 0 SOL) are shown
+   from the API → budget 1,000 USDC → the slippage line reads the
+   platform default within the policy limit → "Get quotes and review"
+   creates the intent and opens the review → the API observes the
+   unfunded wallet before quoting and the review shows "The wallet cannot
+   fund this plan" with both shortfalls, "Add funds" and "Check again",
+   the intent still "Not quoted yet" → the fixture RPC is funded (2,500
+   USDC, 0.05 SOL) → "Check again" builds a staged plan: both
+   constituents with their max input (600 and 300 USDC), expected and
+   minimum output, one transaction each, 100 USDC cash that stays, the
+   fee table in SOL under the beta fee policy, the fee payer (the
+   person's wallet), "2 signatures across 2 transactions", the staged
+   notice with the batch order, per-constituent policy decisions
+   ("allow"), the countdown and the funds observed → the approval is
+   unavailable until the staged acknowledgement is checked by keyboard
+   (Space) → Enter on "Approve staged plan" records the approval: "Approved
+   by you … staged execution acknowledged", state "Approved, awaiting
+   your signature", "Sign transaction 1 of 2" unavailable with its reason
+   → a reload restores the same approved plan without rebuilding → the
+   30-second fixture quotes expire on screen: "These terms expired", the
+   validity row reads expired and the signature stays unavailable →
+   "Refresh terms" builds a new plan and the difference view ("The terms
+   changed since you last looked", at least the validity) keeps approval
+   unavailable until "I have read the new terms", after which the staged
+   acknowledgement is asked again → `/review` lists the review with its
+   state → "Cancel review" then "Confirm cancel" reads "Cancelled" with
+   the API's reason and no approval → a second review with a 3,000 USDC
+   budget: the start screen says the largest constituent (60.00 %) would
+   exceed the per-order limit of 1,000 USDC, the intent is still created
+   and the API refuses the plan with "Policy refused this plan",
+   `ORDER_CAP_EXCEEDED` and "Start over with another budget" → from the
+   FXAERO instrument page "Review a buy" opens the review of a single
+   buy: 100 USDC, "Buy FXAERO", "One transaction, all or nothing", "1
+   signature across 1 transaction", no staged acknowledgement, "Approve
+   plan" → approved, "Sign transaction 1 of 1".
+
+Not verified in F09: a live venue quote (OD-21), any signature or
+submission (F10/B10), whole-basket simulation (B11), real browser
+wallets, the hosted embedded wallet (OD-05), screen-reader journeys
+through the review, and the sell direction (F10). Fees are the API's
+bounds under the beta policy from the base fee, a priority cap and rent
+for new token accounts, not a fee market observation.
+
+Readiness: IMPLEMENTED and FIXTURE_VERIFIED; the venue is the fixture
+venue, which is not production evidence (`docs/markov/execution-planning.md`
+lists the gates).
+
 ## Acceptance matrix (build prompt section 12)
 
 | Journey or risk | Evidence | Status |
@@ -338,6 +416,8 @@ lists the release gates).
 | Research → builder → saved draft | F06 journey 1: thesis started from an admitted instrument, fixture issuer source fetched and cited, a metadata address refused and recorded, a bounded run adopted as labelled interpretations, revisions saved, publication with "what becomes public", a basket draft created from the saved shortlist with exact integer weights and the backend's validation shown; jsdom tests for a refused save keeping the edits and for the two-tab revision notice | research, the saved draft (F06) and the builder (F07: exact weights, readable validation from the backend, two-tab revision conflict with compare and restore, offline copy, small-notional and limit checks in Activate) complete; review and execution arrive with F09/F10 |
 | Publish privately/publicly: correct public payload, actual registration state distinguished from the database save | F08 journey 1: the review lists exactly the manifest the API will register (constituents by mint and weight, cash, hashes, publisher, record address) and what never becomes public; every state on screen is the API's chain-derived reading, evidence and explorer links appear only after finality was read back, and a reload restores the same state; jsdom tests for wrong network, altered message, double click, failed / expired / unknown, verification mismatch | complete on the fixture ledger (F08); a deployed program, validator run and independent review remain release gates (OD-09, OD-10) |
 | Strategy registry: correct cluster, program, version and backend receipt | The registration panel and evidence show the platform network, the program id and genesis hash from `GET /v1/registry`, the version number and manifest hash, the record address, the finalized slot and transaction; the fixture wallet signs the prepared bytes and the API refuses anything else before the node (B08 tests); F08 journey 2 shows a landed program error truthfully | complete for the fixture ledger (F08) |
+| Basket → review → approve: the complete economic and execution plan is understood before any wallet is invoked | F09 journey: budget, allocation in base units, per-constituent max input, expected and minimum output, price impact, slippage limit, transaction, cash that stays, every fee with basis and payer, signature and transaction counts, staged semantics with batch order, policy evidence, validity with countdown, funds observed, plan id and hash, all from the API before "Approve"; the approval is bound to the hash; jsdom tests for staged and atomic plans, changed wallet, changed version, changed fees, stale quotes, insufficient stablecoin and SOL, policy denial, zero output; keyboard approval and the phone profile in Playwright | complete for the fixture venue (F09); signing, submission and reconciliation arrive with F10/B10 |
+| Stale quote or changed plan behind an enabled approval | jsdom: a refreshed plan shows the difference first and approval stays unavailable until the new terms are read; expired terms are labelled expired and the old plan superseded; the API refuses `PLAN_CHANGED` and `QUOTE_EXPIRED` acknowledgements; Playwright: real 30-second quote expiry after approval, refresh with the difference view, approval asked again | complete (F09); the wallet popup itself arrives with F10, where the same plan hash and expiry are checked again |
 | Untrusted research, token image or assistant content executes | jsdom asserts excerpts with markup render as text (no element created), a `javascript:` source URL is never linked, model output is labelled and adopted only by the person; the API sanitises and refuses retrievals (B06); no images are fetched (F05) | complete for research content (F06); assistant content arrives with F14 |
 
 Every other row is filled by the session that delivers it.

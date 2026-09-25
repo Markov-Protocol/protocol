@@ -112,7 +112,7 @@ function ConnectionStatus() {
     return <StatusBadge tone="error">Backend unreachable</StatusBadge>;
   }
   return (
-    <StatusBadge tone="success">
+    <StatusBadge tone="success" className="whitespace-nowrap">
       Connected{platform.solanaCluster ? ` · ${platform.solanaCluster}` : ''}
     </StatusBadge>
   );

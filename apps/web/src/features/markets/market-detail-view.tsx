@@ -156,13 +156,18 @@ function WhatYouCanDo({
         />
         <ActionRow
           label="Buy"
-          allowed={capabilities?.buyable ?? false}
-          reason={because(false, ['trading arrives with F08 (needs B09 and B10)'])}
+          allowed={signedIn ? (capabilities?.quoteable ?? false) : instrument.availability.trade}
+          reason={because(false, signedIn ? [] : ['sign in to review a buy'])}
+          action={
+            <Button asChild size="sm" data-testid="review-buy">
+              <Link href={`/review/new?instrumentId=${instrument.instrumentId}`}>Review a buy</Link>
+            </Button>
+          }
         />
         <ActionRow
           label="Sell"
-          allowed={capabilities?.sellable ?? false}
-          reason={because(false, ['trading arrives with F08 (needs B09 and B10)'])}
+          allowed={false}
+          reason={because(false, ['selling arrives with F10 (needs B10)'])}
         />
         <ActionRow
           label="Redeem with the issuer"
@@ -573,9 +578,9 @@ function RouteObservations({ symbol }: { readonly symbol: string }) {
         Route observations
       </h2>
       <Notice tone="info" title="Route information unavailable">
-        No execution venue is enabled in this build and no route or pool has been observed for{' '}
-        {symbol}. Observations arrive with backend session B17 and frontend session F09; until then
-        nothing below is estimated.
+        No pool or route has been observed for {symbol}. Pool observations arrive with backend
+        session B17; the route conditions for an actual budget (quote, minimum output, price impact)
+        appear in a review, never here as a guess.
       </Notice>
       <dl className="grid gap-x-6 gap-y-2 text-supporting sm:grid-cols-[auto_minmax(0,1fr)]">
         {fields.map((field) => (

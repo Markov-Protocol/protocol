@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { WebApiError } from '../api/use-markov-api';
 import { useSession } from '../auth/session-context';
 import { useStrategy } from '../builder/queries';
+import { ReviewInvestmentLink } from '../review/review-link';
 import { FollowButton } from './follow-button';
 import { ForkButton } from './fork-button';
 import { readRegistration } from './publication-state';
@@ -30,9 +31,6 @@ function Loading({ label }: { readonly label: string }) {
     </section>
   );
 }
-
-const REVIEW_UNAVAILABLE =
-  'Review and execution arrive with F09 and F10 (backend B09 and B10). Nothing is bought from this page.';
 
 function OwnerVersionRow({
   strategyId,
@@ -277,14 +275,18 @@ function PublicStrategyView({ strategy }: { readonly strategy: PublicStrategy })
               versionNumber={newest.versionNumber}
             />
           ) : null}
-          <Button type="button" disabledReason={REVIEW_UNAVAILABLE}>
-            Review investment
-          </Button>
+          <ReviewInvestmentLink
+            strategyId={strategy.strategyId}
+            versionId={newest?.versionId ?? null}
+            versionNumber={newest?.versionNumber ?? null}
+            unavailableReason="No registered version to invest in."
+          />
         </div>
         <p className="text-caption text-text-muted">
           Following subscribes you to new versions on your Build page. Forking copies a version into
           a private draft of your own, with attribution to this strategy. Neither buys anything or
-          moves a pin.
+          moves a pin. Reviewing an investment quotes the newest registered version for your own
+          wallet and budget; nothing is bought until you approve and sign.
         </p>
       </section>
 

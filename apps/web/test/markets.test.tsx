@@ -651,7 +651,11 @@ describe('Market detail', () => {
     expect(
       within(actions as HTMLElement).getAllByText('Not available').length,
     ).toBeGreaterThanOrEqual(3);
-    expect(within(actions as HTMLElement).getAllByText(/trading arrives with F08/)).toHaveLength(2);
+    expect(within(actions as HTMLElement).getByText(/sign in to review a buy/)).toBeInTheDocument();
+    expect(
+      within(actions as HTMLElement).getByText(/selling arrives with F10/),
+    ).toBeInTheDocument();
+    expect(within(actions as HTMLElement).queryByTestId('review-buy')).not.toBeInTheDocument();
     expect(within(actions as HTMLElement).getByText(/never through Markov/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
       'href',
