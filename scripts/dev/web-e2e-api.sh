@@ -78,6 +78,9 @@ for SYMBOL in FXAERO FXBIO XSFXA; do
   node apps/cli/dist/main.js catalog decide "$ID" --decision admit --reason "web e2e: fixture instrument" --evidence review=web-e2e --token "$CATALOG_TOKEN" --url "$API_URL" >/dev/null
 done
 node apps/cli/dist/main.js catalog events ingest --issuer xstocks --source fixture --token "$CATALOG_TOKEN" --url "$API_URL" >/dev/null
+# Valuation (F11 over B13): ingestion recorded the fixture feeds' reference prices; one operator SOL
+# observation lets network fees and lamports be valued too. A synthetic figure for this run only.
+node apps/cli/dist/main.js prices record --sol --kind secondary_market --value 150 --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source web-e2e --evidence run=web-e2e --token "$CATALOG_TOKEN" --url "$API_URL" >/dev/null
 # The fixture split (xs-ev-001) is already effective: until an operator applies
 # it, policy keeps XSFXA unquoteable (corporate_action_pending), exactly as in
 # scripts/ci/startup-check.sh. Apply it so review journeys can quote the basket.

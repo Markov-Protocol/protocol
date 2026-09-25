@@ -19,7 +19,7 @@ export const ROUTE_INFO: Readonly<Record<string, RouteInfo>> = {
   '/strategies/new': { title: 'Build a strategy', arrivesWith: null, needsBackend: null },
   '/review': { title: 'Review', arrivesWith: null, needsBackend: null },
   '/review/new': { title: 'Review an investment', arrivesWith: null, needsBackend: null },
-  '/portfolio': { title: 'Portfolio', arrivesWith: 'F11', needsBackend: 'B12 and B13' },
+  '/portfolio': { title: 'Portfolio', arrivesWith: null, needsBackend: null },
   '/activity': { title: 'Activity', arrivesWith: null, needsBackend: null },
   '/receipts': { title: 'Receipt', arrivesWith: null, needsBackend: null },
   '/rankings': { title: 'Rankings', arrivesWith: 'F12', needsBackend: 'B13 and B14' },

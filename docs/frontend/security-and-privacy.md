@@ -17,6 +17,7 @@ constraints.
 | Server-only API origin (`MARKOV_API_ORIGIN`), required https outside local/test; the browser never calls the API directly | `apps/web/src/config/web-env.ts`, `apps/web/src/server/api.ts` | `apps/web/test/web-env.test.ts`; e2e asserts a browser fetch to the API origin is blocked |
 | Host-only HttpOnly session cookie, same-origin mutation guard, validated return paths, replayed-cookie refusal | `apps/web/src/server/auth/*`, `apps/web/src/features/auth/return-path.ts` | `apps/web/test/server/auth.test.ts` (13 tests), `apps/web/e2e/auth.spec.ts` |
 | Principal-scoped caches and late-response discard on account change | `apps/web/src/features/auth/session-context.tsx`, `private-query-provider.tsx` | `apps/web/test/session-context.test.tsx` |
+| The browser values nothing: holdings, allocations, returns and totals are the API's figures combined exactly (BigInt on the API's own scales) with every unknown stated; a multiplier the API already applied is never applied again; an instance is created only from the owner's review; JSON downloads are the API's answers serialised as received, nothing is uploaded | `apps/web/src/features/portfolio/portfolio-model.ts`, `portfolio-view.tsx`, `instance-view.tsx`, `download.ts` | `apps/web/test/portfolio-model.test.ts` (independently expected sums), `apps/web/test/portfolio.test.tsx`, `e2e/portfolio.spec.ts` |
 
 ## Session model (F03)
 

@@ -21,6 +21,7 @@ import { WebApiError } from '../api/use-markov-api';
 import { useEffectiveLimits } from '../builder/queries';
 import { ISSUER_LABELS } from '../markets/labels';
 import { useInstrument } from '../markets/queries';
+import { useEnsureInstance } from '../portfolio/queries';
 import { useOwnVersion, usePublicVersion } from '../publishing/queries';
 import { useEligibility, useFunding, useVerifiedWallets } from '../wallets/queries';
 import { describeRefusal } from './plan-model';
@@ -231,6 +232,7 @@ export function StartReviewView() {
   const funding = useFunding(walletId);
   const reviewVersion = useReviewVersion(target);
   const create = useCreateIntent();
+  const ensureInstance = useEnsureInstance();
   /** One key per screen visit: a retry after a lost response answers the same intent. */
   const idempotencyKey = useRef(`web-${crypto.randomUUID()}`);
 
@@ -265,7 +267,8 @@ export function StartReviewView() {
     budget > 0n &&
     slippageError === null &&
     !slippageTooHigh &&
-    !create.isPending;
+    !create.isPending &&
+    !ensureInstance.isPending;
   const disabledReason =
     target === null
       ? 'Open this page from a strategy version or an instrument.'
@@ -275,7 +278,11 @@ export function StartReviewView() {
           ? 'Enter a budget.'
           : (slippageError ?? (slippageTooHigh ? 'Slippage is above your limit.' : null));
   const refusal =
-    create.error === null ? null : describeRefusal(create.error, { newReviewHref: null });
+    create.error !== null
+      ? describeRefusal(create.error, { newReviewHref: null })
+      : ensureInstance.error !== null
+        ? describeRefusal(ensureInstance.error, { newReviewHref: null })
+        : null;
 
   const submit = () => {
     if (!ready || target === null || walletId === null || budgetRaw === null) {
@@ -295,9 +302,21 @@ export function StartReviewView() {
       continuationOfIntentId: continueIntentId,
       idempotencyKey: idempotencyKey.current,
     };
-    create.mutate(request, {
-      onSuccess: (intent) => router.push(`/review/${intent.intentId}`),
-    });
+    const createIntent = () =>
+      create.mutate(request, {
+        onSuccess: (intent) => router.push(`/review/${intent.intentId}`),
+      });
+    if (target.kind === 'basket_investment') {
+      // A basket investment is tracked by the one active instance of the strategy in the paying
+      // wallet (created here when none exists), so its fills are attributed to a portfolio and not
+      // left at the wallet level. Bookkeeping only: nothing is bought until the plan is signed.
+      ensureInstance.mutate(
+        { strategyId: target.strategyId, versionId: target.versionId, walletId },
+        { onSuccess: createIntent },
+      );
+      return;
+    }
+    createIntent();
   };
 
   return (

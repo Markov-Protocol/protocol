@@ -131,7 +131,7 @@ describe('proxy allowlist', () => {
     expect(matchRoute('GET', '/v1/me/strategies')).not.toBeNull();
     expect(matchRoute('POST', '/v1/me/strategies')).not.toBeNull();
     // Nothing that pins or reaches operator routes.
-    expect(matchRoute('POST', '/v1/me/instances')).toBeNull();
+    expect(matchRoute('POST', `/v1/me/instances/${WALLET}/pin`)).toBeNull();
     expect(matchRoute('GET', '/v1/ops/research')).toBeNull();
   });
 
@@ -174,7 +174,7 @@ describe('proxy allowlist', () => {
     expect(matchRoute('DELETE', `/v1/me/follows/${WALLET}`)).not.toBeNull();
     expect(matchRoute('GET', `/v1/me/strategies/${WALLET}/versions/${WALLET}/diff`)).toBeNull();
     expect(matchRoute('DELETE', `/v1/me/publications/${WALLET}`)).toBeNull();
-    expect(matchRoute('POST', '/v1/me/instances')).toBeNull();
+    expect(matchRoute('POST', `/v1/me/instances/${WALLET}/pin`)).toBeNull();
     expect(matchRoute('GET', '/v1/registry/records')).toBeNull();
   });
 
@@ -225,8 +225,6 @@ describe('proxy allowlist', () => {
       ['POST', `/v1/me/intents/${WALLET}/transactions/x/submissions`],
       ['POST', `/v1/me/intents/${WALLET}/transactions/0/submissions/retry`],
       ['DELETE', `/v1/me/receipts/${WALLET}`],
-      ['GET', `/v1/me/wallets/${WALLET}/holdings`],
-      ['POST', `/v1/me/wallets/${WALLET}/reconciliations`],
       ['GET', `/v1/receipts/${WALLET}/keys`],
       ['GET', '/v1/receipts'],
     ] as const) {
@@ -235,6 +233,43 @@ describe('proxy allowlist', () => {
     expect(apiPathFrom(segments(`/v1/me/intents/${WALLET}/transactions/0/submissions`))).toBe(
       `/v1/me/intents/${WALLET}/transactions/0/submissions`,
     );
+  });
+
+  it('allows the portfolio operations added in F11 and nothing that pins, values or ranks', () => {
+    expect(matchRoute('GET', '/v1/me/instances')).not.toBeNull();
+    expect(matchRoute('POST', '/v1/me/instances')).not.toBeNull();
+    expect(matchRoute('GET', `/v1/me/instances/${WALLET}`)).not.toBeNull();
+    expect(matchRoute('GET', `/v1/me/wallets/${WALLET}/holdings`)).not.toBeNull();
+    expect(matchRoute('POST', `/v1/me/wallets/${WALLET}/reconciliations`)).not.toBeNull();
+    expect(matchRoute('GET', `/v1/me/wallets/${WALLET}/journal`)).not.toBeNull();
+    expect(matchRoute('POST', `/v1/me/journal/${WALLET}/acknowledgements`)).not.toBeNull();
+    expect(matchRoute('GET', `/v1/me/instances/${WALLET}/holdings`)).not.toBeNull();
+    expect(matchRoute('GET', `/v1/me/instances/${WALLET}/performance`)?.query).toBe(true);
+    expect(matchRoute('GET', `/v1/me/instances/${WALLET}/performance/export`)?.query).toBe(true);
+    expect(matchRoute('GET', `/v1/me/wallets/${WALLET}/performance`)?.query).toBe(true);
+    expect(matchRoute('GET', `/v1/me/wallets/${WALLET}/performance/export`)?.query).toBe(true);
+    const model = matchRoute('GET', `/v1/strategies/${WALLET}/versions/1/performance`);
+    expect(model?.public).toBe(true);
+    expect(model?.query).toBe(true);
+    expect(
+      matchRoute('GET', `/v1/strategies/${WALLET}/versions/12/performance/export`)?.public,
+    ).toBe(true);
+    expect(matchRoute('GET', '/v1/performance/methodology')?.public).toBe(true);
+    expect(matchRoute('GET', `/v1/me/wallets/${WALLET}/holdings`)?.public).toBeUndefined();
+    for (const route of [
+      ['POST', `/v1/me/instances/${WALLET}/pin`],
+      ['DELETE', `/v1/me/instances/${WALLET}`],
+      ['POST', `/v1/me/instances/${WALLET}/holdings`],
+      ['POST', `/v1/me/journal/projections`],
+      ['GET', `/v1/me/journal/${WALLET}`],
+      ['GET', `/v1/strategies/${WALLET}/versions/0/performance`],
+      ['GET', `/v1/strategies/${WALLET}/versions/${WALLET}/performance`],
+      ['GET', '/v1/rankings/model'],
+      ['POST', '/v1/operator/prices/observations'],
+      ['GET', '/v1/prices/sol'],
+    ] as const) {
+      expect(matchRoute(route[0], route[1]), route.join(' ')).toBeNull();
+    }
   });
 
   it('re-encodes a bounded query string and refuses the rest', () => {

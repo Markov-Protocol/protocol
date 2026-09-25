@@ -2,12 +2,27 @@
 
 import type { Receipt } from '@markov/contracts';
 import { formatInstant, shortenAddress } from '@markov/formatters';
-import { Button, EmptyState, ErrorBlock, Notice, SkeletonText, StatusBadge } from '@markov/ui';
+import {
+  Button,
+  EmptyState,
+  ErrorBlock,
+  Notice,
+  SkeletonText,
+  StatusBadge,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+} from '@markov/ui';
 import Link from 'next/link';
 import { useState } from 'react';
 import { WebApiError } from '../api/use-markov-api';
 import { useSession } from '../auth/session-context';
 import { CopyButton } from '../funding/copy-button';
+import { downloadJson } from '../portfolio/download';
+import { receiptFeeSummary, receiptLegRows } from '../portfolio/portfolio-model';
 import { formatSol } from '../review/plan-model';
 import { stateLabel } from './execution-model';
 import { describeExecutionFailure } from './execution-panel';
@@ -156,6 +171,86 @@ export function ReceiptView({ receiptId }: { readonly receiptId: string }) {
               : ''}
           </Row>
         </dl>
+      </section>
+
+      <section aria-labelledby="receipt-fills" className="space-y-2">
+        <h2 id="receipt-fills" className="text-heading-sm font-semibold">
+          Requested against filled
+        </h2>
+        <p className="text-caption text-text-muted">
+          Each approved leg with its bounds (at most this much in, at least this much out) next to
+          what the chain recorded. Raw base units: the receipt carries no decimals, so the exact
+          integers are shown. A leg without a fill was not executed.
+        </p>
+        <Table regionLabel="Requested against filled" data-testid="receipt-legs">
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Leg</TableHeaderCell>
+              <TableHeaderCell numeric>Approved max in</TableHeaderCell>
+              <TableHeaderCell numeric>Approved min out</TableHeaderCell>
+              <TableHeaderCell numeric>Filled in</TableHeaderCell>
+              <TableHeaderCell numeric>Filled out</TableHeaderCell>
+              <TableHeaderCell>Outcome</TableHeaderCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {receiptLegRows(body).map((leg) => (
+              <TableRow key={leg.legIndex} data-testid="receipt-leg" data-status={leg.status}>
+                <TableCell>
+                  {leg.legIndex + 1} · {leg.side}
+                </TableCell>
+                <TableCell numeric>
+                  <code className="font-mono">{leg.approvedMaxInputRaw}</code>
+                </TableCell>
+                <TableCell numeric>
+                  <code className="font-mono">{leg.approvedMinimumOutputRaw}</code>
+                </TableCell>
+                <TableCell numeric>
+                  <code className="font-mono">{leg.filledInputRaw ?? '—'}</code>
+                </TableCell>
+                <TableCell numeric>
+                  <code className="font-mono">{leg.filledOutputRaw ?? '—'}</code>
+                </TableCell>
+                <TableCell>
+                  {leg.status === 'filled' ? (
+                    <StatusBadge tone={leg.withinBounds ? 'success' : 'error'}>
+                      {leg.withinBounds ? 'filled within bounds' : 'filled outside bounds'}
+                    </StatusBadge>
+                  ) : (
+                    <StatusBadge tone="neutral">not filled</StatusBadge>
+                  )}
+                  {leg.signature ? (
+                    <code className="block font-mono text-caption text-text-muted">
+                      {shortenAddress(leg.signature, { head: 8, tail: 6 })}
+                    </code>
+                  ) : null}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <p className="text-caption text-text-muted" data-testid="receipt-fee-cap">
+          {(() => {
+            const fees = receiptFeeSummary(body);
+            return `Network fees actually paid ${formatSol(fees.spentLamports)} against the approved cap of ${formatSol(fees.capLamports)} (${fees.withinCap ? 'within the cap' : 'above the cap'}); chain evidence: ${body.chain.signatures.length} signature${body.chain.signatures.length === 1 ? '' : 's'}, finality ${body.chain.finality}${body.chain.slots.length > 0 ? `, slots ${body.chain.slots.join(', ')}` : ''}.`;
+          })()}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            data-testid="download-receipt"
+            onClick={() => downloadJson(`receipt-${body.receiptId.slice(0, 8)}.json`, receipt)}
+          >
+            Download receipt (JSON)
+          </Button>
+          {owner ? (
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/portfolio">Holdings in the portfolio</Link>
+            </Button>
+          ) : null}
+        </div>
       </section>
 
       <section aria-labelledby="receipt-signature" className="space-y-2">

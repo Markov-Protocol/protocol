@@ -437,6 +437,31 @@ function reviewServer(
   };
   const routes: Route[] = [
     { method: 'GET', path: `${P}/v1/me/wallets`, reply: ok(wallets) },
+    // F11: a basket investment is tracked by the one active instance of the strategy in the wallet.
+    { method: 'GET', path: `${P}/v1/me/instances`, reply: ok({ instances: [] }) },
+    {
+      method: 'POST',
+      path: `${P}/v1/me/instances`,
+      reply: (_url, init) => {
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return {
+          status: 201,
+          body: {
+            instanceId: '0e0e0e0e-0e0e-4e0e-8e0e-0e0e0e0e0e0e',
+            ownerUserId: ALICE_ID,
+            strategyId: body['strategyId'],
+            pinnedVersionId: body['versionId'],
+            pinnedVersionNumber: 1,
+            proposedVersionId: null,
+            walletId: body['walletId'],
+            label: null,
+            status: 'active',
+            createdAt: '2026-09-25T10:00:00.000Z',
+            updatedAt: '2026-09-25T10:00:00.000Z',
+          },
+        };
+      },
+    },
     { method: 'GET', path: `${P}/v1/me/wallets/${WALLET_ID}/funding`, reply: ok(funding) },
     { method: 'GET', path: `${P}/v1/me/limits`, reply: ok(limits) },
     { method: 'GET', path: `${P}/v1/me/eligibility`, reply: ok(eligibility) },
@@ -675,6 +700,15 @@ describe('start a review', () => {
     await waitFor(() => expect(create).not.toHaveAttribute('aria-disabled'));
     fireEvent.click(create);
     await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/review/${INTENT_ID}`));
+    // The instance the fills will be attributed to exists before the intent is created.
+    const tracked = calls('POST', '/v1/me/instances');
+    expect(tracked).toHaveLength(1);
+    expect(tracked[0]?.body).toEqual({
+      strategyId: S1,
+      versionId: V1,
+      walletId: WALLET_ID,
+      label: null,
+    });
     const posted = calls('POST', '/v1/me/intents');
     expect(posted).toHaveLength(1);
     expect(posted[0]?.body).toMatchObject({

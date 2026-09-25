@@ -19,6 +19,8 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const BASE58 = '[1-9A-HJ-NP-Za-km-z]{32,44}';
 /** A transaction index within a plan (at most 32 batches). */
 const INDEX = '(?:[0-9]|[12][0-9]|3[01])';
+/** A strategy version number (the analytics routes address a version by its number). */
+const VERSION_NUMBER = '[1-9][0-9]{0,5}';
 
 export const PROXY_ROUTES: readonly ProxyRoute[] = [
   // Public catalog reads (F05): admitted and paused instruments only; the API decides.
@@ -131,6 +133,43 @@ export const PROXY_ROUTES: readonly ProxyRoute[] = [
   { method: 'POST', pattern: new RegExp(`^/v1/me/receipts/${UUID}/visibility$`) },
   { method: 'GET', pattern: /^\/v1\/receipts\/keys$/, public: true },
   { method: 'GET', pattern: new RegExp(`^/v1/receipts/${UUID}$`), public: true },
+  // Portfolio (F11): strategy instances (B07), holdings and the journal against the chain with
+  // owner acknowledgements of external flows (B12), performance series, exports and the
+  // methodology (B13). The browser values nothing itself: every figure comes from the API with
+  // its completeness and reasons, and an instance is created only from the owner's review.
+  { method: 'GET', pattern: /^\/v1\/me\/instances$/ },
+  { method: 'POST', pattern: /^\/v1\/me\/instances$/ },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/instances/${UUID}$`) },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/wallets/${UUID}/holdings$`) },
+  { method: 'POST', pattern: new RegExp(`^/v1/me/wallets/${UUID}/reconciliations$`) },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/wallets/${UUID}/journal$`) },
+  { method: 'POST', pattern: new RegExp(`^/v1/me/journal/${UUID}/acknowledgements$`) },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/instances/${UUID}/holdings$`) },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/instances/${UUID}/performance$`), query: true },
+  {
+    method: 'GET',
+    pattern: new RegExp(`^/v1/me/instances/${UUID}/performance/export$`),
+    query: true,
+  },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/wallets/${UUID}/performance$`), query: true },
+  {
+    method: 'GET',
+    pattern: new RegExp(`^/v1/me/wallets/${UUID}/performance/export$`),
+    query: true,
+  },
+  {
+    method: 'GET',
+    pattern: new RegExp(`^/v1/strategies/${UUID}/versions/${VERSION_NUMBER}/performance$`),
+    public: true,
+    query: true,
+  },
+  {
+    method: 'GET',
+    pattern: new RegExp(`^/v1/strategies/${UUID}/versions/${VERSION_NUMBER}/performance/export$`),
+    public: true,
+    query: true,
+  },
+  { method: 'GET', pattern: /^\/v1\/performance\/methodology$/, public: true },
 ];
 
 const SEGMENT = /^[A-Za-z0-9_-]{1,64}$/;

@@ -30,12 +30,12 @@ and the [API contract map](../reference/frontend/api-contract-map.md).
 | `/strategies/[strategyId]`, `/strategies/[strategyId]/versions/[n]` | Publishing, immutable versions with chain evidence, follow, fork, diff, deprecation | F08 |
 | `/review/new`, `/review/[intentId]` | One review for basket investments and single buys: the API-built plan, fees, bounds, hash-bound approval | F09 |
 | `/activity`, `/activity/[intentId]` | Wallet signing of the exact prepared transaction, submission, the per-transaction timeline with recovery | F10 |
-| `/receipts/[receiptId]` | Signed receipts with their verification key status and public opt-in | F10 |
+| `/receipts/[receiptId]` | Signed receipts with their verification key status, requested against filled, the fee cap, public opt-in and a JSON download | F10, F11 |
+| `/portfolio`, `/portfolio/[instanceId]` | Holdings against the chain, reconciliation, external flows explained, strategy instances with allocation drift, lots, cost and fees, personal against model performance with methodology labels, history, exports | F11 |
 
 The authoritative table with journeys and states is
 [routes and journeys](../reference/frontend/routes-and-journeys.md).
-Portfolio, rankings and automations arrive with F11 to F13 over B13 and
-B14.
+Rankings and automations arrive with F12 and F13 over B14 and B16.
 
 ## Wallets and signing
 

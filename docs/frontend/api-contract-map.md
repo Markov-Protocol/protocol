@@ -62,6 +62,10 @@ against the document by `packages/api-client/test/compatibility.test.ts`.
 | Activity list `/activity` | `GET /v1/me/intents` | B09 | `AUTH_REQUIRED`; a failed read is a failure, never an empty list; filters are applied in the browser over the API's list and kept in the URL | IMPLEMENTED, FIXTURE_VERIFIED, e2e (F10) |
 | Receipts: issue for a finalized (or settled) intent, list per intent | `POST /v1/me/intents/{intentId}/receipts` (`kind`), `GET …/receipts` | B12 | `VALIDATION_FAILED` (no acknowledged plan, no attempt for an execution receipt), `PROVIDER_UNAVAILABLE` (no signing key: "receipts cannot be issued here"), 200 for the existing receipt | IMPLEMENTED, FIXTURE_VERIFIED, e2e (F10) |
 | Receipt page `/receipts/[receiptId]`; public opt-in; verification keys | `GET /v1/receipts/{receiptId}` (public route; the API decides by principal), `POST /v1/me/receipts/{receiptId}/visibility`, `GET /v1/receipts/keys` | B12 | `NOT_FOUND` for a private receipt read by anyone but its owner; the key's published status shown as active, retired or not published; cryptographic verification is the CLI's and the SDK's (offline), not this page's | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e (owner read, public read by an anonymous browser) (F10) |
+| Review: track a basket investment as the one active instance of the strategy in the paying wallet (created before the intent when none exists) | `GET /v1/me/instances`, `POST /v1/me/instances` | B07 | `VALIDATION_FAILED`, `NOT_FOUND` (the intent is not created; the refusal is shown) | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e (F11) |
+| Portfolio `/portfolio`: holdings against the chain, reconcile now, the journal, explain an external flow | `GET /v1/me/wallets/{walletId}/holdings`, `POST …/reconciliations`, `GET …/journal`, `POST /v1/me/journal/{entryId}/acknowledgements` | B12 | `PROVIDER_UNAVAILABLE` (nothing changed; try again), `RATE_LIMITED`, `VALIDATION_FAILED` (not awaiting acknowledgement), `NOT_FOUND`; a failed holdings read is a failure, never an empty portfolio | IMPLEMENTED, FIXTURE_VERIFIED (proxy and jsdom), e2e against the fixture chain (F11) |
+| Portfolio: the person's instances, one instance, its attributed holdings and lots | `GET /v1/me/instances`, `GET /v1/me/instances/{instanceId}`, `GET …/holdings` | B07/B12 | `NOT_FOUND` → "not found" for another person's instance | IMPLEMENTED, FIXTURE_VERIFIED, e2e (F11) |
+| Portfolio: personal performance of a wallet or an instance, the model series of the pinned version, the methodology, the complete record as a download | `GET /v1/me/wallets/{walletId}/performance[/export]?period=`, `GET /v1/me/instances/{instanceId}/performance[/export]?period=`, `GET /v1/strategies/{strategyId}/versions/{versionNumber}/performance[/export]?period=` (public; the owner's session lets an unpublished version through), `GET /v1/performance/methodology` | B13 | `NOT_FOUND` → "No series"; `RATE_LIMITED`; every unavailable window is shown with the API's reasons, never a substitute number; a refused export is reported, nothing is saved | IMPLEMENTED, FIXTURE_VERIFIED, e2e (F11) |
 | Component reference | none (fixture data, internal route) | n/a | n/a | IMPLEMENTED |
 | Formatters (`@markov/formatters`) | consume `TypedPrice`, raw amounts, basis points from `@markov/contracts` | contracts | n/a | FIXTURE_VERIFIED |
 
@@ -73,7 +77,10 @@ contract (`docs/markov/api.md`); F06 added the `instrumentId` filter and
 version; F09 added nothing and consumes the B09 planning routes as
 published; F10 added nothing and consumes the B10 to B12 execution and
 receipt routes as published (the e2e API launcher now enables execution
-writes and a throwaway receipt signing key for the fixture run). The other contract additions proposed by
+writes and a throwaway receipt signing key for the fixture run); F11 added
+nothing and consumes the B07 instance, B12 accounting and B13 analytics
+routes as published (the launcher records one operator SOL observation so
+fees and lamports can be valued in the fixture run). The other contract additions proposed by
 the frontend prompt and not yet present in the backend (capability
 bootstrap, preferences, notification read status, stream configuration,
 privacy export/deletion, device status, simulation reports) are tracked as
