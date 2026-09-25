@@ -300,6 +300,8 @@ export const publicStrategySchema = z.object({
   strategyId: idSchema,
   title: z.string(),
   forkOf: forkOfSchema.nullable(),
+  /** People following this strategy (F08); a count, never who. */
+  followerCount: z.number().int().nonnegative(),
   versions: z.array(
     z.object({
       versionId: idSchema,

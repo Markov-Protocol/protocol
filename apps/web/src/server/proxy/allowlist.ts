@@ -15,6 +15,8 @@ export interface ProxyRoute {
 }
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+/** A base58 Solana address (32 bytes): registry record addresses. */
+const BASE58 = '[1-9A-HJ-NP-Za-km-z]{32,44}';
 
 export const PROXY_ROUTES: readonly ProxyRoute[] = [
   // Public catalog reads (F05): admitted and paused instruments only; the API decides.
@@ -68,6 +70,36 @@ export const PROXY_ROUTES: readonly ProxyRoute[] = [
   { method: 'GET', pattern: new RegExp(`^/v1/me/strategies/${UUID}$`) },
   { method: 'PATCH', pattern: new RegExp(`^/v1/me/strategies/${UUID}$`) },
   { method: 'PUT', pattern: new RegExp(`^/v1/me/strategies/${UUID}/draft$`) },
+  // Publishing (F08): freeze, frozen versions, on-chain registration through the owner's wallet,
+  // public strategy and version views verified by the API, registry records, follows and forks.
+  { method: 'GET', pattern: /^\/v1\/registry$/, public: true },
+  { method: 'POST', pattern: new RegExp(`^/v1/me/strategies/${UUID}/versions$`) },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/strategies/${UUID}/versions/${UUID}$`) },
+  {
+    method: 'POST',
+    pattern: new RegExp(`^/v1/me/strategies/${UUID}/versions/${UUID}/publication$`),
+  },
+  {
+    method: 'GET',
+    pattern: new RegExp(`^/v1/me/strategies/${UUID}/versions/${UUID}/publication$`),
+  },
+  {
+    method: 'POST',
+    pattern: new RegExp(`^/v1/me/strategies/${UUID}/versions/${UUID}/status-changes$`),
+  },
+  {
+    method: 'GET',
+    pattern: new RegExp(`^/v1/me/strategies/${UUID}/versions/${UUID}/status-changes$`),
+  },
+  { method: 'POST', pattern: new RegExp(`^/v1/me/publications/${UUID}/submit$`) },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/publications/${UUID}$`) },
+  { method: 'POST', pattern: new RegExp(`^/v1/me/strategies/${UUID}/forks$`) },
+  { method: 'GET', pattern: new RegExp(`^/v1/strategies/${UUID}$`), public: true },
+  { method: 'GET', pattern: new RegExp(`^/v1/strategies/${UUID}/versions/${UUID}$`), public: true },
+  { method: 'GET', pattern: new RegExp(`^/v1/registry/records/${BASE58}$`), public: true },
+  { method: 'GET', pattern: /^\/v1\/me\/follows$/ },
+  { method: 'PUT', pattern: new RegExp(`^/v1/me/follows/${UUID}$`) },
+  { method: 'DELETE', pattern: new RegExp(`^/v1/me/follows/${UUID}$`) },
 ];
 
 const SEGMENT = /^[A-Za-z0-9_-]{1,64}$/;

@@ -164,6 +164,11 @@ export function NewBasketView() {
                     {formatRelativeAge(strategy.updatedAt)}
                   </p>
                 </div>
+                {strategy.currentVersion ? (
+                  <Button asChild size="sm" variant="ghost">
+                    <Link href={`/strategies/${strategy.strategyId}`}>Versions</Link>
+                  </Button>
+                ) : null}
                 <Button asChild size="sm" variant="secondary">
                   <Link href={`/strategies/${strategy.strategyId}/edit`}>Resume</Link>
                 </Button>

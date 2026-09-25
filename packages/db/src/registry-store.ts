@@ -168,8 +168,9 @@ export async function latestPublication(
   db: Database,
   ownerUserId: string,
   versionId: string,
-  operation: PublicationOperation,
+  operation: PublicationOperation | readonly PublicationOperation[],
 ): Promise<StrategyPublicationRow | null> {
+  const operations = typeof operation === 'string' ? [operation] : [...operation];
   const rows = await db
     .select()
     .from(strategyPublications)
@@ -177,7 +178,7 @@ export async function latestPublication(
       and(
         eq(strategyPublications.versionId, versionId),
         eq(strategyPublications.ownerUserId, ownerUserId),
-        eq(strategyPublications.operation, operation),
+        inArray(strategyPublications.operation, operations),
       ),
     )
     .orderBy(desc(strategyPublications.createdAt))

@@ -3,7 +3,9 @@ import { createIdentityVerifier, createTestIdentityIssuer, generateCredential } 
 import { loadConfig } from '@markov/config';
 import {
   encodeBase58,
+  type FollowListResponse,
   type Publication,
+  type PublicStrategy,
   type PublicVersion,
   type RegistryRecord,
   type StrategyDetail,
@@ -42,6 +44,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildApp,
   createCatalogService,
+  createFollowService,
   createIdentityService,
   createPolicyService,
   createProbes,
@@ -157,6 +160,7 @@ async function withHarness(
           genesisHash: GENESIS,
           rpcClients: [rpc],
         }),
+        follows: createFollowService({ db: client.db }),
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();
@@ -645,6 +649,96 @@ describe.skipIf(adminUrl === null)('registry API', () => {
           recordAddress: expectedAddress,
         }),
       ]);
+      expect((publicStrategy.json() as PublicStrategy).followerCount).toBe(0);
+
+      // Follow (F08): bookkeeping on the follower's account; the owner cannot follow their own.
+      const followUrl = `/v1/me/follows/${strategyId}`;
+      expect(
+        (await h.app.inject({ method: 'PUT', url: followUrl, headers: bearer(alice) })).statusCode,
+      ).toBe(400);
+      expect(
+        (
+          await h.app.inject({
+            method: 'PUT',
+            url: `/v1/me/follows/${BOGUS}`,
+            headers: bearer(bob),
+          })
+        ).statusCode,
+      ).toBe(404);
+      const followed = await h.app.inject({ method: 'PUT', url: followUrl, headers: bearer(bob) });
+      expect(followed.statusCode, followed.body).toBe(201);
+      expect((followed.json() as FollowListResponse).follows).toEqual([
+        {
+          strategyId,
+          followedAt: expect.any(String),
+          latestVersion: {
+            versionId: v1.versionId,
+            versionNumber: 1,
+            title: 'Aerospace tilt',
+            status: 'active',
+            registeredAt: expect.any(String),
+          },
+        },
+      ]);
+      expect(
+        (await h.app.inject({ method: 'PUT', url: followUrl, headers: bearer(bob) })).statusCode,
+      ).toBe(200);
+      expect(
+        (
+          await h.app
+            .inject({ method: 'GET', url: `/v1/strategies/${strategyId}` })
+            .then((r) => r.json() as PublicStrategy)
+        ).followerCount,
+      ).toBe(1);
+      expect(
+        (
+          await h.app
+            .inject({ method: 'GET', url: '/v1/me/follows', headers: bearer(alice) })
+            .then((r) => r.json() as FollowListResponse)
+        ).follows,
+      ).toEqual([]);
+      expect(JSON.stringify(followed.json())).not.toContain(me.user.id);
+      const unfollowed = await h.app.inject({
+        method: 'DELETE',
+        url: followUrl,
+        headers: bearer(bob),
+      });
+      expect(unfollowed.statusCode).toBe(200);
+      expect((unfollowed.json() as FollowListResponse).follows).toEqual([]);
+      expect(
+        (await h.app.inject({ method: 'DELETE', url: followUrl, headers: bearer(bob) })).statusCode,
+      ).toBe(200);
+      expect(
+        (
+          await h.app
+            .inject({ method: 'GET', url: `/v1/strategies/${strategyId}` })
+            .then((r) => r.json() as PublicStrategy)
+        ).followerCount,
+      ).toBe(0);
+      // Follow again so the deprecation below shows up on the follower's list.
+      await h.app.inject({ method: 'PUT', url: followUrl, headers: bearer(bob) });
+
+      // Fork (F08): a stranger forks the registered version into a draft of their own with attribution.
+      const forked = await h.app.inject({
+        method: 'POST',
+        url: `/v1/me/strategies/${strategyId}/forks`,
+        headers: bearer(bob),
+        payload: { versionId: v1.versionId },
+      });
+      expect(forked.statusCode, forked.body).toBe(201);
+      const fork = forked.json() as StrategyDetail;
+      expect(fork.strategy.forkOf).toEqual({ strategyId, versionId: v1.versionId });
+      expect(fork.draft.content.title).toBe('Aerospace tilt (fork)');
+      expect(fork.draft.content.legs.map((leg) => leg.weightBps).sort()).toEqual([3000, 6000]);
+      expect(
+        (
+          await h.app.inject({
+            method: 'GET',
+            url: `/v1/me/strategies/${strategyId}`,
+            headers: bearer(bob),
+          })
+        ).statusCode,
+      ).toBe(404);
 
       // Registered is terminal and idempotent.
       expect(
@@ -671,6 +765,15 @@ describe.skipIf(adminUrl === null)('registry API', () => {
       ).toBe('registered');
 
       // Deprecation: only the publisher wallet, only the status byte.
+      expect(
+        (
+          await h.app.inject({
+            method: 'GET',
+            url: `${base}/status-changes`,
+            headers: bearer(alice),
+          })
+        ).statusCode,
+      ).toBe(404);
       const otherWallet = await h.linkWallet(alice);
       const wrongWallet = await h.app.inject({
         method: 'POST',
@@ -692,6 +795,25 @@ describe.skipIf(adminUrl === null)('registry API', () => {
         state: 'awaiting_signature',
         recordAddress: expectedAddress,
       });
+      // The registration read stays the registration; the status change has its own read.
+      expect(
+        (
+          await h.app
+            .inject({ method: 'GET', url: `${base}/publication`, headers: bearer(alice) })
+            .then((r) => r.json() as Publication)
+        ).publicationId,
+      ).toBe(publication.publicationId);
+      const latestChange = await h.app.inject({
+        method: 'GET',
+        url: `${base}/status-changes`,
+        headers: bearer(alice),
+      });
+      expect(latestChange.statusCode).toBe(200);
+      expect((latestChange.json() as Publication).publicationId).toBe(dep.publicationId);
+      expect(
+        (await h.app.inject({ method: 'GET', url: `${base}/status-changes`, headers: bearer(bob) }))
+          .statusCode,
+      ).toBe(404);
       const depSubmitted = await h.app.inject({
         method: 'POST',
         url: `/v1/me/publications/${dep.publicationId}/submit`,
@@ -716,6 +838,14 @@ describe.skipIf(adminUrl === null)('registry API', () => {
             .then((r) => r.json() as PublicVersion)
         ).registration.status,
       ).toBe('deprecated');
+      // The follower's list reflects the chain-derived status, never a database flag.
+      expect(
+        (
+          await h.app
+            .inject({ method: 'GET', url: '/v1/me/follows', headers: bearer(bob) })
+            .then((r) => r.json() as FollowListResponse)
+        ).follows[0]?.latestVersion,
+      ).toMatchObject({ versionId: v1.versionId, status: 'deprecated' });
       expect(
         (
           await h.app

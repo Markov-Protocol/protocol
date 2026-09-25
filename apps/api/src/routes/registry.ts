@@ -135,6 +135,28 @@ export const registryRoutes: FastifyPluginAsyncZod<RegistryRoutesOptions> = asyn
     },
   );
 
+  app.get(
+    '/v1/me/strategies/:strategyId/versions/:versionId/status-changes',
+    {
+      preHandler: read,
+      schema: {
+        tags: ['registry'],
+        summary:
+          'The latest deprecation or reactivation attempt of a version, re-checked against the chain',
+        description:
+          'Registration attempts live under `…/publication`; this answers the newest status change only, or 404 before any was prepared.',
+        params: versionParams,
+        response: { 200: publicationSchema, ...errorResponses },
+      },
+    },
+    async (request) =>
+      registry.versionStatusChange(
+        principalOf(request),
+        request.params.strategyId,
+        request.params.versionId,
+      ),
+  );
+
   app.post(
     '/v1/me/publications/:publicationId/submit',
     {

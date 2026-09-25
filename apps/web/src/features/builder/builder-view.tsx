@@ -282,6 +282,9 @@ function Builder({ detail }: { readonly detail: StrategyDetail }) {
             >
               {archived ? 'Restore' : 'Archive'}
             </Button>
+            <Button asChild size="sm" variant="secondary">
+              <Link href={`/strategies/${strategyId}`}>Versions and publishing</Link>
+            </Button>
           </div>
         </div>
         <SaveStatus state={saveState} dirty={dirty} onRetry={runSave} />

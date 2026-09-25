@@ -149,6 +149,13 @@ export function signMessageFeature(wallet: Wallet): SignMessageFeature | null {
   return feature ? (feature as SignMessageFeature) : null;
 }
 
+export type SignTransactionFeature = SolanaSignTransactionFeature['solana:signTransaction'];
+
+export function signTransactionFeature(wallet: Wallet): SignTransactionFeature | null {
+  const feature = (wallet.features as Record<string, unknown>)['solana:signTransaction'];
+  return feature ? (feature as SignTransactionFeature) : null;
+}
+
 export async function connectWallet(
   wallet: Wallet,
   options: { readonly silent: boolean } = { silent: false },

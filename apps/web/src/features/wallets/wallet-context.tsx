@@ -23,9 +23,11 @@ import {
   disconnectWallet,
   onWalletChange,
   signMessageFeature,
+  signTransactionFeature,
   type WalletCapabilities,
   type WalletRegistry,
 } from './standard';
+import { base64ToBytes, bytesToBase64, checkSignedTransaction } from './transaction-bytes';
 
 /**
  * Explicit wallet connection states. A connected wallet is not a verified
@@ -72,6 +74,12 @@ export interface SignedMessage {
   readonly generation: number;
 }
 
+export interface SignedTransaction {
+  /** The wire transaction the wallet returned, base64: the prepared message with the fee-payer signature filled. */
+  readonly signedTransaction: string;
+  readonly generation: number;
+}
+
 export interface WalletContextValue {
   readonly wallets: readonly DiscoveredWallet[];
   readonly connection: WalletConnection;
@@ -86,6 +94,12 @@ export interface WalletContextValue {
   chooseAccount(address: string): void;
   disconnect(): Promise<void>;
   signMessage(message: string): Promise<SignedMessage>;
+  /**
+   * Signs a legacy transaction Markov prepared (base64 wire bytes with empty
+   * signature slots) through `solana:signTransaction`. Nothing is sent from
+   * here; the API submits after checking the message and signature itself.
+   */
+  signTransaction(unsignedTransaction: string): Promise<SignedTransaction>;
   dismissNotice(): void;
 }
 
@@ -381,6 +395,69 @@ export function WalletProvider({ children, registry }: WalletProviderProps) {
     [wallets],
   );
 
+  const signTransaction = useCallback(
+    async (unsignedTransaction: string): Promise<SignedTransaction> => {
+      const current = connectionRef.current;
+      if (current.status !== 'connected') {
+        throw new WalletSigningError('not-connected', 'connect a wallet first');
+      }
+      const discovered = wallets.find((candidate) => candidate.name === current.walletName);
+      const feature = discovered ? signTransactionFeature(discovered.wallet) : null;
+      if (!feature) {
+        throw new WalletSigningError(
+          'unsupported',
+          `${current.walletName} cannot sign transactions`,
+        );
+      }
+      if (!feature.supportedTransactionVersions.includes('legacy')) {
+        throw new WalletSigningError(
+          'unsupported',
+          `${current.walletName} does not sign legacy transactions`,
+        );
+      }
+      const chain = chainForCluster(platform.state === 'connected' ? platform.solanaCluster : null);
+      let unsigned: Uint8Array;
+      try {
+        unsigned = base64ToBytes(unsignedTransaction);
+      } catch {
+        throw new WalletSigningError('altered', 'the prepared transaction is not valid base64');
+      }
+      const startedIn = generationRef.current;
+      let outputs: Awaited<ReturnType<typeof feature.signTransaction>>;
+      try {
+        outputs = await feature.signTransaction({
+          account: current.account.account,
+          transaction: unsigned,
+          ...(chain ? { chain } : {}),
+        });
+      } catch (error) {
+        throw new WalletSigningError(
+          'declined',
+          errorMessage(error, 'the wallet declined to sign'),
+        );
+      }
+      if (startedIn !== generationRef.current) {
+        throw new WalletSigningError(
+          'context-changed',
+          'the wallet or account changed while the signature was pending',
+        );
+      }
+      const [output] = outputs;
+      if (!output || outputs.length !== 1) {
+        throw new WalletSigningError(
+          'altered',
+          'the wallet returned an unexpected number of transactions',
+        );
+      }
+      const check = checkSignedTransaction(unsigned, output.signedTransaction);
+      if (!check.ok) {
+        throw new WalletSigningError('altered', check.reason);
+      }
+      return { signedTransaction: bytesToBase64(output.signedTransaction), generation: startedIn };
+    },
+    [wallets, platform],
+  );
+
   useEffect(() => () => unsubscribeRef.current(), []);
 
   const expectedChain = chainForCluster(
@@ -405,6 +482,7 @@ export function WalletProvider({ children, registry }: WalletProviderProps) {
       chooseAccount,
       disconnect,
       signMessage,
+      signTransaction,
       dismissNotice: () => setNotice(null),
     }),
     [
@@ -418,6 +496,7 @@ export function WalletProvider({ children, registry }: WalletProviderProps) {
       chooseAccount,
       disconnect,
       signMessage,
+      signTransaction,
     ],
   );
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

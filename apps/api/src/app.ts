@@ -31,12 +31,14 @@ import { authPlugin } from './auth/plugin.js';
 import type { IdentityService } from './auth/service.js';
 import type { CatalogService } from './catalog/service.js';
 import { ApiError } from './errors.js';
+import type { FollowService } from './follows/service.js';
 import type { FundingService } from './funding/service.js';
 import type { NetworkIdentitySource } from './network-monitor.js';
 import type { PolicyService } from './policy/service.js';
 import type { RegistryService } from './registry/service.js';
 import type { ResearchService } from './research/service.js';
 import { catalogRoutes } from './routes/catalog.js';
+import { followRoutes } from './routes/follows.js';
 import { fundingRoutes } from './routes/funding.js';
 import { identityRoutes } from './routes/identity.js';
 import { policyRoutes } from './routes/policy.js';
@@ -83,6 +85,7 @@ export interface AppDependencies {
   readonly watchlists: WatchlistService;
   readonly strategies: StrategyService;
   readonly registry: RegistryService;
+  readonly follows: FollowService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -245,6 +248,11 @@ export async function buildApp(deps: AppDependencies) {
           description:
             'On-chain registration of frozen versions: prepare, sign with the owner wallet, submit, verify; public views with chain evidence',
         },
+        {
+          name: 'follows',
+          description:
+            'Following public strategies: bookkeeping on the account, never a pin or an order',
+        },
       ],
     },
     transform: jsonSchemaTransform,
@@ -391,6 +399,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(watchlistRoutes, { watchlists: deps.watchlists });
   await app.register(strategyRoutes, { strategies: deps.strategies });
   await app.register(registryRoutes, { registry: deps.registry });
+  await app.register(followRoutes, { follows: deps.follows });
 
   return app;
 }

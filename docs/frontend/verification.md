@@ -267,6 +267,65 @@ Readiness: IMPLEMENTED and FIXTURE_VERIFIED; LIVE_READ/WRITE_VERIFIED only
 against the local B05/B07 API in test mode, which is not production
 evidence.
 
+## F08 — public publishing, versions and forks (2026-09-25)
+
+Environment as for F07 plus the registry: the real API in test mode with
+`REGISTRY_PROGRAM_ID` set to the development placeholder program id, the
+fixture RPC's in-memory ledger executing the program's rules (B08) and the
+fixture wallet injected through the Wallet Standard signing legacy
+transactions with WebCrypto Ed25519. No deployed program, live cluster,
+issuer feed or real wallet was involved; nothing left this machine.
+
+| Check | Command | Result |
+| ----- | ------- | ------ |
+| Backend additions | `MARKOV_TEST_DATABASE_URL=… pnpm exec vitest run --project node apps/api/test/registry.test.ts apps/api/test/strategies.test.ts` | 4 tests: follows (owner refused, unknown strategy 404, follow 201 then 200, list with the newest registered version and its chain-derived status after the deprecation, unfollow idempotent, no user id in the payload), `followerCount` on the public strategy, a stranger's fork of a registered version with attribution while the private routes stay 404, the latest status-change read apart from the registration read; everything from B07/B08 unchanged |
+| App-owned API proxy | `pnpm exec vitest run --project node apps/web/test/server/proxy.test.ts` | 14 tests: freeze, version read, publication prepare/read, status changes, submit and publication read, forks, public strategy and version, registry status and records, follows allowlisted; diffs, record listings, pins and operator routes are not |
+| Contract matrix | `pnpm exec vitest run --project node packages/api-client` | every F08 route proven against the frozen OpenAPI document (registry status, freeze, own version, prepare, publication reads, status changes, submit, fork, public strategy and version, records, follows) |
+| Pure state and bytes | `pnpm exec vitest run --project web apps/web/test/publishing-state.test.ts` | 11 tests: the five displays from chain-derived states (a registered version stays registered under a later status change), failure text from the program error, status-change readings, polling only while undecided, lamports without floats, maintenance labels, the version difference with one-sided turnover (mirrors the backend), recipe legs from both version shapes, compact-u16 parsing and the signed-transaction check (message unchanged, fee-payer slot filled, signature count unchanged) |
+| Publishing client | `pnpm exec vitest run --project web apps/web/test/publishing.test.tsx` | 13 tests: review of what becomes public (mints, hash, publisher, never-published list, permanence, cost shown before the wallet), sign with the connected publisher wallet through `solana:signTransaction`, submit exactly the prepared message with the signature filled, Publishing then Registered on-chain only after the API's re-check, evidence and explorer links from the API; wrong network and a wallet that is not the publisher never asked to sign; an altered message submits nothing; a double click submits once; submitted, failed (with the program error), expired and unknown restored from the API; a registry without a program; an in-flight deprecation restored after a reload, signed and read back as deprecated; a stranger's public page with follow, unfollow, follower count and fork into the editor, no owner controls; anonymous public version with verification, canonical bytes, indexed record and the difference from the previous public version, never a `/v1/me/` call; a verification mismatch shown as an error; a private version "not found" for another signed-in person; the owner's strategy page with chain-derived version rows, freeze into the new version page, what others see, and freezing unavailable for an invalid draft |
+| Full unit and integration run | `pnpm test` (inside `pnpm verify`) | see the session log `docs/sessions/F08.md` |
+| Production build | `pnpm web:build` | 25 routes, all server-rendered on demand, including `/strategies/[strategyId]` and `/strategies/[strategyId]/versions/[versionId]` |
+| Browser evidence | `MARKOV_TEST_DATABASE_URL=… pnpm exec playwright test e2e/publishing.spec.ts` | 4 passed: the two journeys below on desktop and phone profiles |
+| Screenshots | `docs/frontend/evidence/F08/` | `publish-review-*.png`, `publish-registered-*.png`, `version-public-*.png`, `strategy-public-*.png` |
+
+Publishing journeys (desktop 1280×800 and the Pixel 7 profile):
+
+1. Sign in → the fixture wallet is chosen, verified and given lamports on
+   the fixture ledger → a two-constituent basket is built and saved →
+   "Versions and publishing" → "Freeze as version 1" opens the version
+   page as Saved privately → Prepare with the connected verified wallet
+   → the review shows both constituents by mint, the publisher address,
+   the permanence statement and the cost in SOL and lamports → the sign
+   button is unavailable until the statement is confirmed → "Sign with
+   Fixture Wallet" signs the real bytes → Publishing with the
+   transaction signature and no explorer link → the ledger finalizes →
+   "Re-check now" → Registered on-chain with the record and transaction
+   explorer links and "Verified against the chain" → a reload shows the
+   same state → Deprecate: prepared, signed, sent, finalized, registered;
+   the button now offers reactivation → the strategy page lists the
+   version as registered → an anonymous visitor sees the registered
+   version with the Deprecated marker, verification, the canonical bytes
+   and the indexed record, no registration panel, "Review investment"
+   unavailable, the strategy page with 0 followers and sign-in links →
+   another person signs in, follows (1 follower, kept after a reload) and
+   forks; the editor opens the fork "(fork)" with the same weights → the
+   owner's page counts the follower.
+2. A registration whose transaction lands with the program's
+   `WeightTotal` error on the fixture ledger is shown as Failed with that
+   error, offers "Try again" with the prepare step, shows no evidence, and
+   stays Failed after a reload.
+
+Not verified in F08: a deployed program, a validator or live cluster,
+real browser wallets (the fixture wallet signs whatever it is given), the
+hosted embedded wallet (OD-05), screen-reader journeys through the review
+and signing steps, and moderation (OD-20). Fees shown are the API's
+estimate from the rent-exempt minimum and the base fee, not a priority
+fee market.
+
+Readiness: IMPLEMENTED and FIXTURE_VERIFIED; the chain is the fixture
+ledger, which is not production evidence (`docs/markov/strategy-registry.md`
+lists the release gates).
+
 ## Acceptance matrix (build prompt section 12)
 
 | Journey or risk | Evidence | Status |
@@ -277,6 +336,8 @@ evidence.
 | CSRF or login redirect abuse | Same-origin guard tests, open-redirect vectors in node and browser tests | complete (F03) |
 | Private SSR/CDN response cached publicly | All routes dynamic, session responses `no-store` (build output and e2e header assertion); deployment headers still to be checked in F20 | partial (F03) |
 | Research → builder → saved draft | F06 journey 1: thesis started from an admitted instrument, fixture issuer source fetched and cited, a metadata address refused and recorded, a bounded run adopted as labelled interpretations, revisions saved, publication with "what becomes public", a basket draft created from the saved shortlist with exact integer weights and the backend's validation shown; jsdom tests for a refused save keeping the edits and for the two-tab revision notice | research, the saved draft (F06) and the builder (F07: exact weights, readable validation from the backend, two-tab revision conflict with compare and restore, offline copy, small-notional and limit checks in Activate) complete; review and execution arrive with F09/F10 |
+| Publish privately/publicly: correct public payload, actual registration state distinguished from the database save | F08 journey 1: the review lists exactly the manifest the API will register (constituents by mint and weight, cash, hashes, publisher, record address) and what never becomes public; every state on screen is the API's chain-derived reading, evidence and explorer links appear only after finality was read back, and a reload restores the same state; jsdom tests for wrong network, altered message, double click, failed / expired / unknown, verification mismatch | complete on the fixture ledger (F08); a deployed program, validator run and independent review remain release gates (OD-09, OD-10) |
+| Strategy registry: correct cluster, program, version and backend receipt | The registration panel and evidence show the platform network, the program id and genesis hash from `GET /v1/registry`, the version number and manifest hash, the record address, the finalized slot and transaction; the fixture wallet signs the prepared bytes and the API refuses anything else before the node (B08 tests); F08 journey 2 shows a landed program error truthfully | complete for the fixture ledger (F08) |
 | Untrusted research, token image or assistant content executes | jsdom asserts excerpts with markup render as text (no element created), a `javascript:` source URL is never linked, model output is labelled and adopted only by the person; the API sanitises and refuses retrievals (B06); no images are fetched (F05) | complete for research content (F06); assistant content arrives with F14 |
 
 Every other row is filled by the session that delivers it.

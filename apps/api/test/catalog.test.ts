@@ -20,6 +20,7 @@ import {
   createIdentityService,
   createPolicyService,
   createProbes,
+  type FollowService,
   type FundingService,
   type MarkovApi,
   type RegistryService,
@@ -197,6 +198,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         research: unavailableResearch,
         watchlists: unavailableWatchlists,
         registry: unavailable<RegistryService>('registry'),
+        follows: unavailable<FollowService>('follows'),
         strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

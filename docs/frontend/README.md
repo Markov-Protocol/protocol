@@ -66,7 +66,8 @@ combination at build time (`next.config.ts`) and at server start
 | Watchlists: versioned owner-scoped contract (`GET /v1/me/watchlist`, `PUT`/`DELETE …/items/{instrumentId}`), save from rows and detail, Watchlist tab with current statuses (delisted stays visible), conflict detection across devices, sign-in prompt for anonymous browsing | F05 | IMPLEMENTED, FIXTURE_VERIFIED (API, proxy, jsdom), e2e |
 | Research workspace `/research` and thesis editor `/research/[thesisId]`: typed statements (sourced fact, issuer assertion, opinion, labelled model interpretation) with citations, counterarguments, shortlist by canonical id with a catalog picker, research subjects with deterministic mapping, source records with fetched/refused/failed states and dates, bounded research runs with progress, cancel and adoption, private notes kept out of the hash and the public page, publish with "what becomes public", archive, saved revisions with two-tab notice, shortlist to a B07 basket draft; market Research tab (theses per instrument, start one), rights and evidence, honest route observations, "Add to a new basket draft"; Build page listing basket drafts | F06 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e against the local API with the fixture issuer source and fixture model adapter; no hosted model provider (OD-19); the basket editor arrives with F07 |
 | Basket builder `/strategies/new` and `/strategies/[strategyId]/edit`: four stages on one server draft identity (Research with linked thesis and shortlist import; Assemble with constituents by canonical id, exact basis-point weights, ±1% keyboard steps, move and remove buttons, explicit equal weights, cash remainder, notes; Set Rules with title, thesis, maintenance suggestion, references, effective limits and approval preference; Activate with wallet and budget apart from the recipe, exact split estimates, availability and readiness), revision-checked autosave with Saving / Saved / Offline changes / Conflict (compare and restore), archive and restore, persistent summary and phone sticky total | F07 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e against the local API with fixture instruments and the fixture wallet; review and execution arrive with F09/F10 |
-| Publishing, review, execution, portfolio, rankings, maintenance, companion, other settings | F08 onward | not started; each needs its backend session |
+| Publishing `/strategies/[strategyId]` and `/strategies/[strategyId]/versions/[versionId]`: freeze the validated draft, versions with chain-derived registration states, prepare with a verified wallet (what becomes public and what never does, permanence, cost), sign through `solana:signTransaction` with the byte check, submit, Saved privately / Publishing / Registered on-chain / Failed / Expired / Status unknown restored on reload, registration evidence with explorer links and verification, deprecation and reactivation by the publisher wallet, readable version differences; public strategy and version pages with evidence, canonical bytes and the indexed record; follow and unfollow; fork into a new draft with attribution | F08 | IMPLEMENTED, FIXTURE_VERIFIED (jsdom), e2e against the local API with the fixture ledger and the fixture wallet signing real bytes; no deployed program or live cluster (OD-09, OD-10); review and execution arrive with F09/F10 |
+| Review, execution, portfolio, rankings, maintenance, companion, other settings | F09 onward | not started; each needs its backend session |
 
 ## Backend prerequisites
 
@@ -83,6 +84,12 @@ public `/v1/research/theses/{thesisId}`) with the `instrumentId` filter
 added in F06, and the B07 draft routes (`/v1/strategies/limits`,
 `/v1/me/strategies`); F07 uses the B07 draft identity routes
 (`/v1/me/strategies/{strategyId}`, `…/draft`) and the B05 limits
-(`/v1/me/limits`); later sessions require later backend sessions. The app never reads provider
+(`/v1/me/limits`); F08 uses the B07 version routes (`…/versions`,
+`…/versions/{versionId}`, `…/forks`), the B08 registry routes
+(`/v1/registry`, `…/publication`, `…/status-changes`,
+`/v1/me/publications/{publicationId}`, `…/submit`, the public
+`/v1/strategies/{strategyId}`, `…/versions/{versionId}` and
+`/v1/registry/records/{address}`) and the follow contract added in F08
+(`/v1/me/follows`); later sessions require later backend sessions. The app never reads provider
 endpoints directly and the browser never calls the API: private calls go
 through the app's own `/api/markov/*` allowlist.

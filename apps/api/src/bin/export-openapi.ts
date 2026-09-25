@@ -9,6 +9,7 @@ import { createSilentLogger } from '@markov/observability';
 import { buildApp } from '../app.js';
 import type { IdentityService } from '../auth/service.js';
 import type { CatalogService } from '../catalog/service.js';
+import type { FollowService } from '../follows/service.js';
 import type { FundingService } from '../funding/service.js';
 import type { PolicyService } from '../policy/service.js';
 import type { RegistryService } from '../registry/service.js';
@@ -57,6 +58,11 @@ const unavailableRegistry = new Proxy({} as RegistryService, {
     throw new Error('registry service is unavailable in export mode');
   },
 });
+const unavailableFollows = new Proxy({} as FollowService, {
+  get: () => () => {
+    throw new Error('follow service is unavailable in export mode');
+  },
+});
 
 async function generate(): Promise<string> {
   const config = loadConfig({
@@ -95,6 +101,7 @@ async function generate(): Promise<string> {
     watchlists: unavailableWatchlists,
     strategies: unavailableStrategies,
     registry: unavailableRegistry,
+    follows: unavailableFollows,
     mintTestToken: null,
   });
   await app.ready();

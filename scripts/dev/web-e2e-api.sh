@@ -3,8 +3,9 @@
 # the web app's Playwright suite (apps/web/playwright.config.ts starts it when
 # MARKOV_TEST_DATABASE_URL is set). A fresh database is created and dropped
 # around the run; the fixture RPC (scripts/dev/fixture-rpc.mjs) answers the
-# network identity, the synthetic catalog mints and funding reads that the
-# browser tests fill through its control endpoint on MARKOV_E2E_RPC_PORT.
+# network identity, the synthetic catalog mints, funding reads and the
+# in-memory registry ledger that the browser tests drive through its control
+# endpoints on MARKOV_E2E_RPC_PORT.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADMIN_URL="${MARKOV_TEST_DATABASE_URL:?set MARKOV_TEST_DATABASE_URL}"
@@ -33,6 +34,10 @@ export API_TRUST_PROXY=true
 export RESEARCH_MODEL_PROVIDER=fixture
 # Synthetic stablecoin mint served by the fixture RPC (never a real token).
 export FUNDING_STABLECOIN_MINT=GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9ts
+# Development placeholder registry program id: the fixture RPC's in-memory ledger executes the
+# program's rules under it (scripts/dev/fixture-rpc.mjs), so publishing journeys sign real
+# transactions that never leave this machine. Nothing is deployed anywhere.
+export REGISTRY_PROGRAM_ID=6SAPG2iavaEAv628NpuZuSwgKxGhqU23C769w7FfGpuZ
 
 node apps/cli/dist/main.js db migrate --bound-by web-e2e >/dev/null
 node apps/api/dist/main.js &

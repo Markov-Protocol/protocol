@@ -170,10 +170,45 @@ and its own server-side exchange.
   estimate in exact base units, and the review button is unavailable
   with its reason until the execution sessions exist.
 
+## Publishing and public pages (F08)
+
+- The browser never builds, edits or sends a transaction. The API
+  prepares the registration (message, blockhash, cost) for the verified
+  wallet the owner chose; the app hands exactly those bytes to the wallet
+  through `solana:signTransaction` and checks that what comes back is the
+  same message with the fee-payer slot filled (`transaction-bytes.ts`).
+  Anything else is refused before it leaves the page, and the API
+  verifies the publisher's Ed25519 signature again before the node sees
+  the transaction. The wallet is asked to sign only when it is the
+  publisher wallet on the platform's network and the person has confirmed
+  the permanence statement after reading what becomes public and the cost.
+- Registration state is never a browser fact: every display (Saved
+  privately, Publishing, Registered on-chain, Failed, Expired, Status
+  unknown) is the API's chain-derived reading, polled while undecided and
+  restored on reload. Explorer links, network, program id, record address
+  and slot are shown only from the evidence the API validated against
+  finalized chain state; before that the page shows the signature alone.
+- What becomes public is what the API lists: the version's recipe by
+  mint, weights, cash, hashes, title, thesis, rule, references, the
+  publisher wallet address and the record address. The account, the
+  wallet-to-account link, budgets, balances, holdings, orders, notes,
+  chat, research runs and drafts never appear in a public payload, and
+  the public pages call only anonymous routes (jsdom asserts no `/v1/me/`
+  call on the anonymous version page).
+- Page titles for public pages are read anonymously from the public
+  projection on the server; a private or unknown id gets a generic title
+  and `noindex`, so no draft or owner leaks into metadata or a crawler.
+- Following and forking are bookkeeping and copying: neither places an
+  order, moves a pin or changes the original strategy; a fork starts a
+  private draft with `forkOf` attribution. Reference URLs on a version are
+  rendered as links only when they are `https://`; everything else is
+  text. The canonical manifest is rendered as text in a `<pre>`.
+
 ## Planned (with the sessions that own them)
 
 Full CSP with exact identity/wallet allowances and report-only rollout,
 HSTS at the deployment, the hosted identity provider browser adapter
-(BLOCKED on OD-05), transaction signing-path validation (F10), analytics consent and retention (F14/F20). Threat-model rows from the
-build prompt are tracked in `docs/frontend/verification.md` as they gain
-tests.
+(BLOCKED on OD-05), execution transaction signing-path validation (F10;
+registration signing is validated in F08), analytics consent and retention
+(F14/F20). Threat-model rows from the build prompt are tracked in
+`docs/frontend/verification.md` as they gain tests.

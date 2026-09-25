@@ -29,6 +29,7 @@ import {
   type Database,
   findInstance,
   findInstrumentsByIds,
+  findPublicVersion,
   findStrategy,
   findVersion,
   findVersionById,
@@ -561,11 +562,15 @@ export function createStrategyService(deps: StrategyServiceDeps): StrategyServic
     },
 
     async fork(principal, strategyId, versionId, requestId) {
-      const source = await ownedStrategy(principal, strategyId);
-      const version = await findVersion(db, source.id, versionId);
+      // The owner forks any of their versions; anyone else forks a registered, unmoderated one (F08).
+      const own = await findStrategy(db, ownerOf(principal), strategyId);
+      const version = own
+        ? await findVersion(db, own.id, versionId)
+        : ((await findPublicVersion(db, strategyId, versionId))?.version ?? null);
       if (!version) {
         throw new ApiError('NOT_FOUND', 'no version with that id');
       }
+      const source = { id: version.strategyId };
       const content: StrategyDraftContent = {
         title: `${version.title} (fork)`.slice(0, 120),
         thesis: version.thesis,

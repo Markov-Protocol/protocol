@@ -92,7 +92,7 @@ export async function installFixtureWallet(
         release = null;
       };
       fixtureWindow.__fixtureWalletAddress = address;
-      const calls = { connect: 0, sign: 0 };
+      const calls = { connect: 0, sign: 0, signTransaction: 0 };
       fixtureWindow.__fixtureWalletCalls = calls;
       const wallet = {
         version: '1.0.0',
@@ -145,8 +145,30 @@ export async function installFixtureWallet(
           'solana:signTransaction': {
             version: '1.0.0',
             supportedTransactionVersions: ['legacy', 0],
-            signTransaction: async () => {
-              throw new Error('fixture wallet does not sign transactions');
+            // Legacy wire transactions only: [signature count][64-byte slots][message]; the fixture
+            // account is the fee payer, so its signature fills the first slot and nothing else moves.
+            signTransaction: async (...inputs: { account: unknown; transaction: Uint8Array }[]) => {
+              calls.signTransaction += 1;
+              if (config.holdSignatures) {
+                await new Promise<void>((resolve) => {
+                  release = resolve;
+                });
+              }
+              const key = await keyPromise;
+              const outputs = [];
+              for (const input of inputs) {
+                const bytes = input.transaction;
+                const count = bytes[0] ?? 0;
+                const message = bytes.slice(1 + 64 * count);
+                const signature = new Uint8Array(
+                  await crypto.subtle.sign('Ed25519', key, message as BufferSource),
+                );
+                const signed = new Uint8Array(bytes.length);
+                signed.set(bytes);
+                signed.set(signature, 1);
+                outputs.push({ signedTransaction: signed });
+              }
+              return outputs;
             },
           },
         },

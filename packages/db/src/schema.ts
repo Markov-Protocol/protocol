@@ -1029,3 +1029,26 @@ export const registryIndexerState = pgTable('registry_indexer_state', {
   lastError: text('last_error'),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 });
+
+/* -------------------------------------------------------------------------
+ * Follows (F08): a person subscribes to a public strategy's registered
+ * versions. Bookkeeping only: no instance, no pin, no order.
+ * ------------------------------------------------------------------------- */
+
+export const strategyFollows = pgTable(
+  'strategy_follows',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    strategyId: uuid('strategy_id')
+      .notNull()
+      .references(() => strategies.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.strategyId] }),
+    index('strategy_follows_strategy_idx').on(table.strategyId),
+    index('strategy_follows_user_idx').on(table.userId, table.createdAt),
+  ],
+);

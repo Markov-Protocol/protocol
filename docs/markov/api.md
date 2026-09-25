@@ -240,6 +240,20 @@ chain observations (`docs/markov/strategy-registry.md`). `registered` is
 terminal for a registration and idempotent to prepare or submit again.
 Public routes answer 503 when the deployment has no registry program.
 
+### Additions for the app (F08)
+
+| Method | Path                                                     | Principal                                  | Purpose |
+| ------ | -------------------------------------------------------- | ------------------------------------------ | ------- |
+| GET    | /v1/me/strategies/{strategyId}/versions/{versionId}/status-changes | user, agent `portfolio:read`      | The latest deprecation or reactivation attempt of a version, re-checked against the chain; 404 before any was prepared. Registration attempts stay under `…/publication` |
+| GET    | /v1/me/follows                                           | user, agent `research:read`                | The public strategies the person follows, newest follow first, each with the strategy's newest registered, unmoderated version at read time (null when none is public any more) |
+| PUT    | /v1/me/follows/{strategyId}                              | user                                       | Follow a strategy that has a registered, unmoderated version (201 new, 200 existing; answers the list); `NOT_FOUND` otherwise, `VALIDATION_FAILED` for your own strategy or beyond 500 follows. A follow is bookkeeping: no instance, no pin, no order |
+| DELETE | /v1/me/follows/{strategyId}                              | user                                       | Unfollow (idempotent; answers the list) |
+
+`GET /v1/strategies/{strategyId}` carries `followerCount` (a count, never
+who). `POST /v1/me/strategies/{strategyId}/forks` accepts, from any
+signed-in person, a version that is registered and not withheld; the owner
+keeps forking any of their versions (`docs/markov/strategies.md`).
+
 ## Planned surface
 
 Discovery, portfolio,

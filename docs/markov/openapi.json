@@ -65235,7 +65235,7 @@
         "tags": [
           "strategies"
         ],
-        "description": "The new strategy starts with a draft copied from the version and keeps the provenance (`forkOf`); the original is untouched.",
+        "description": "The new strategy starts with a draft copied from the version and keeps the provenance (`forkOf`); the original is untouched. The owner may fork any of their versions; anyone else may fork a registered, unmoderated version (F08).",
         "requestBody": {
           "required": true,
           "content": {
@@ -75274,6 +75274,1387 @@
             }
           }
         }
+      },
+      "get": {
+        "summary": "The latest deprecation or reactivation attempt of a version, re-checked against the chain",
+        "tags": [
+          "registry"
+        ],
+        "description": "Registration attempts live under `…/publication`; this answers the newest status change only, or 404 before any was prepared.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "strategyId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "versionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "publicationId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "strategyId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "versionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "operation": {
+                      "type": "string",
+                      "enum": [
+                        "register",
+                        "deprecate",
+                        "reactivate"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "validated",
+                        "awaiting_signature",
+                        "submitted",
+                        "registered",
+                        "failed",
+                        "expired",
+                        "unknown"
+                      ]
+                    },
+                    "programId": {
+                      "type": "string",
+                      "minLength": 32,
+                      "maxLength": 44,
+                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                    },
+                    "network": {
+                      "type": "object",
+                      "properties": {
+                        "cluster": {
+                          "type": "string",
+                          "enum": [
+                            "localnet",
+                            "devnet",
+                            "testnet",
+                            "mainnet-beta"
+                          ]
+                        },
+                        "genesisHash": {
+                          "type": "string",
+                          "minLength": 43,
+                          "maxLength": 44,
+                          "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                        }
+                      },
+                      "required": [
+                        "cluster",
+                        "genesisHash"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "recordAddress": {
+                      "type": "string",
+                      "minLength": 32,
+                      "maxLength": 44,
+                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                    },
+                    "publisher": {
+                      "type": "object",
+                      "properties": {
+                        "walletId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "address": {
+                          "type": "string",
+                          "minLength": 32,
+                          "maxLength": 44,
+                          "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                        }
+                      },
+                      "required": [
+                        "walletId",
+                        "address"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "manifestHash": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "contentDigest": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "transaction": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "unsignedTransaction": {
+                              "type": "string",
+                              "minLength": 4,
+                              "maxLength": 1644,
+                              "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "recentBlockhash": {
+                              "type": "string",
+                              "minLength": 32,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            "lastValidBlockHeight": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "feePayer": {
+                              "type": "string",
+                              "minLength": 32,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            "estimatedCostLamports": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "unsignedTransaction",
+                            "message",
+                            "recentBlockhash",
+                            "lastValidBlockHeight",
+                            "feePayer",
+                            "estimatedCostLamports"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "signature": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 64,
+                          "maxLength": 88,
+                          "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "submittedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "confirmationStatus": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "processed",
+                            "confirmed",
+                            "finalized"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "evidence": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "signature": {
+                              "type": "string",
+                              "minLength": 64,
+                              "maxLength": 88,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            "slot": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "blockTime": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "recordAddress": {
+                              "type": "string",
+                              "minLength": 32,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            "publisher": {
+                              "type": "string",
+                              "minLength": 32,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "deprecated"
+                              ]
+                            },
+                            "transactionUrl": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uri"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "recordUrl": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uri"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "signature",
+                            "slot",
+                            "blockTime",
+                            "recordAddress",
+                            "publisher",
+                            "status",
+                            "transactionUrl",
+                            "recordUrl"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "failure": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "program_error",
+                                "transaction_error",
+                                "rejected_by_node",
+                                "blockhash_expired",
+                                "record_mismatch"
+                              ]
+                            },
+                            "programErrorCode": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "programError": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "message": {
+                              "type": "string",
+                              "maxLength": 500
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "programErrorCode",
+                            "programError",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "preview": {
+                      "type": "object",
+                      "properties": {
+                        "manifest": {
+                          "type": "object",
+                          "properties": {
+                            "schemaVersion": {
+                              "type": "string",
+                              "enum": [
+                                "1"
+                              ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "stock_spot_basket"
+                              ]
+                            },
+                            "network": {
+                              "type": "object",
+                              "properties": {
+                                "cluster": {
+                                  "type": "string",
+                                  "enum": [
+                                    "localnet",
+                                    "devnet",
+                                    "testnet",
+                                    "mainnet-beta"
+                                  ]
+                                },
+                                "genesisHash": {
+                                  "type": "string",
+                                  "minLength": 43,
+                                  "maxLength": 44,
+                                  "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                }
+                              },
+                              "required": [
+                                "cluster",
+                                "genesisHash"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "strategyId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "versionNumber": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "parentVersionId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "forkOf": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "strategyId": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "versionId": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    }
+                                  },
+                                  "required": [
+                                    "strategyId",
+                                    "versionId"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "thesis": {
+                              "type": "string"
+                            },
+                            "thesisId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "legs": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "instrumentId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "symbol": {
+                                    "type": "string"
+                                  },
+                                  "issuer": {
+                                    "type": "string",
+                                    "enum": [
+                                      "prestocks",
+                                      "xstocks",
+                                      "tessera"
+                                    ]
+                                  },
+                                  "mint": {
+                                    "type": "string",
+                                    "minLength": 32,
+                                    "maxLength": 44,
+                                    "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                  },
+                                  "tokenProgram": {
+                                    "type": "string",
+                                    "enum": [
+                                      "spl-token",
+                                      "token-2022",
+                                      "unknown"
+                                    ]
+                                  },
+                                  "weightBps": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 10000
+                                  }
+                                },
+                                "required": [
+                                  "instrumentId",
+                                  "symbol",
+                                  "issuer",
+                                  "mint",
+                                  "tokenProgram",
+                                  "weightBps"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "cashWeightBps": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000
+                            },
+                            "maintenance": {
+                              "type": "object",
+                              "properties": {
+                                "suggestion": {
+                                  "default": "hold",
+                                  "type": "string",
+                                  "enum": [
+                                    "hold",
+                                    "rebalance_on_drift",
+                                    "review_periodically"
+                                  ]
+                                },
+                                "driftThresholdBps": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 10000
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "reviewEveryDays": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 365
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "suggestion",
+                                "driftThresholdBps",
+                                "reviewEveryDays"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "references": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "manifestHash": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "contentDigest": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            }
+                          },
+                          "required": [
+                            "schemaVersion",
+                            "kind",
+                            "network",
+                            "strategyId",
+                            "versionNumber",
+                            "parentVersionId",
+                            "forkOf",
+                            "title",
+                            "thesis",
+                            "thesisId",
+                            "legs",
+                            "cashWeightBps",
+                            "maintenance",
+                            "references",
+                            "manifestHash",
+                            "contentDigest"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "onChain": {
+                          "type": "object",
+                          "properties": {
+                            "recordAddress": {
+                              "type": "string",
+                              "minLength": 32,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            "publisher": {
+                              "type": "string",
+                              "minLength": 32,
+                              "maxLength": 44,
+                              "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                            },
+                            "legs": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "mint": {
+                                    "type": "string",
+                                    "minLength": 32,
+                                    "maxLength": 44,
+                                    "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                  },
+                                  "tokenProgram": {
+                                    "type": "string",
+                                    "enum": [
+                                      "spl-token",
+                                      "token-2022",
+                                      "unknown"
+                                    ]
+                                  },
+                                  "weightBps": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 10000
+                                  }
+                                },
+                                "required": [
+                                  "mint",
+                                  "tokenProgram",
+                                  "weightBps"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "cashWeightBps": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000
+                            },
+                            "manifestHash": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "contentDigest": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "relation": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "revision",
+                                "fork"
+                              ]
+                            },
+                            "parentManifestHash": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^[0-9a-f]{64}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "parentRecordAddress": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 32,
+                                  "maxLength": 44,
+                                  "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "recordAddress",
+                            "publisher",
+                            "legs",
+                            "cashWeightBps",
+                            "manifestHash",
+                            "contentDigest",
+                            "relation",
+                            "parentManifestHash",
+                            "parentRecordAddress"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "neverPublished": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "permanence": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "manifest",
+                        "onChain",
+                        "neverPublished",
+                        "permanence"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "lastCheckedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "publicationId",
+                    "strategyId",
+                    "versionId",
+                    "operation",
+                    "state",
+                    "programId",
+                    "network",
+                    "recordAddress",
+                    "publisher",
+                    "manifestHash",
+                    "contentDigest",
+                    "transaction",
+                    "signature",
+                    "submittedAt",
+                    "confirmationStatus",
+                    "evidence",
+                    "failure",
+                    "preview",
+                    "lastCheckedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/me/publications/{publicationId}/submit": {
@@ -78103,6 +79484,11 @@
                         }
                       ]
                     },
+                    "followerCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -78167,6 +79553,7 @@
                     "strategyId",
                     "title",
                     "forkOf",
+                    "followerCount",
                     "versions"
                   ],
                   "additionalProperties": false
@@ -79411,6 +80798,1916 @@
           }
         }
       }
+    },
+    "/v1/me/follows": {
+      "get": {
+        "summary": "The public strategies the signed-in person follows, newest follow first",
+        "tags": [
+          "follows"
+        ],
+        "description": "Each row carries the strategy’s newest registered, unmoderated version at read time (null when none is public any more). A follow subscribes to updates; it never pins an instance or places an order.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "follows": {
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "strategyId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "followedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "latestVersion": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "versionId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "versionNumber": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "active",
+                                      "deprecated"
+                                    ]
+                                  },
+                                  "registeredAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "versionId",
+                                  "versionNumber",
+                                  "title",
+                                  "status",
+                                  "registeredAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "strategyId",
+                          "followedAt",
+                          "latestVersion"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "follows"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/follows/{strategyId}": {
+      "put": {
+        "summary": "Follow a public strategy (idempotent)",
+        "tags": [
+          "follows"
+        ],
+        "description": "NOT_FOUND unless the strategy has a registered, unmoderated version; VALIDATION_FAILED for your own strategy or beyond the follow limit. 201 for a new follow, 200 when it already existed; both answer the current list.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "strategyId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "follows": {
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "strategyId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "followedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "latestVersion": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "versionId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "versionNumber": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "active",
+                                      "deprecated"
+                                    ]
+                                  },
+                                  "registeredAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "versionId",
+                                  "versionNumber",
+                                  "title",
+                                  "status",
+                                  "registeredAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "strategyId",
+                          "followedAt",
+                          "latestVersion"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "follows"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "follows": {
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "strategyId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "followedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "latestVersion": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "versionId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "versionNumber": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "active",
+                                      "deprecated"
+                                    ]
+                                  },
+                                  "registeredAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "versionId",
+                                  "versionNumber",
+                                  "title",
+                                  "status",
+                                  "registeredAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "strategyId",
+                          "followedAt",
+                          "latestVersion"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "follows"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Unfollow a strategy (idempotent); answers the current list",
+        "tags": [
+          "follows"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "strategyId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "follows": {
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "strategyId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "followedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "latestVersion": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "versionId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "versionNumber": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "active",
+                                      "deprecated"
+                                    ]
+                                  },
+                                  "registeredAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "versionId",
+                                  "versionNumber",
+                                  "title",
+                                  "status",
+                                  "registeredAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "strategyId",
+                          "followedAt",
+                          "latestVersion"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "follows"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "VALIDATION_FAILED",
+                            "RATE_LIMITED",
+                            "ELIGIBILITY_UNKNOWN",
+                            "ASSET_NOT_ADMITTED",
+                            "QUOTE_EXPIRED",
+                            "INSUFFICIENT_FUNDS",
+                            "POLICY_DENIED",
+                            "PLAN_CHANGED",
+                            "SIGNATURE_MISMATCH",
+                            "PARTIAL_EXECUTION",
+                            "SUBMISSION_UNKNOWN",
+                            "PUBLICATION_EXPIRED",
+                            "PROVIDER_UNAVAILABLE",
+                            "IDEMPOTENCY_CONFLICT",
+                            "STEP_UP_REQUIRED",
+                            "CHALLENGE_INVALID",
+                            "WALLET_ALREADY_LINKED",
+                            "ADMISSION_BLOCKED",
+                            "SERVICE_NOT_READY",
+                            "INTERNAL"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -79445,6 +82742,10 @@
     {
       "name": "registry",
       "description": "On-chain registration of frozen versions: prepare, sign with the owner wallet, submit, verify; public views with chain evidence"
+    },
+    {
+      "name": "follows",
+      "description": "Following public strategies: bookkeeping on the account, never a pin or an order"
     }
   ]
 }

@@ -17,7 +17,9 @@ the target; only the rows marked *implemented* exist.
 | `/strategies/new` | Static path, never a strategy id: start a basket draft on the server or resume one; `?strategyId=` (older links) opens the editor | authenticated | implemented (F06, F07) |
 | `/strategies/[strategyId]/edit` | The owner's basket builder on one draft identity: 01 Research (linked thesis, shortlist import), 02 Assemble (constituents by canonical id, exact basis-point weights with keyboard steps, explicit equal weights, cash remainder, notes), 03 Set Rules (title, thesis text, maintenance suggestion, references, the person's effective limits and approval preference read from the policy), 04 Activate (verified wallet and budget kept apart from the recipe, exact split estimates, availability and readiness, "Review investment" honestly unavailable until F09/F10); autosave with revision checks, Saving / Saved / Offline changes / Conflict states with compare and restore; archive and restore | owner | implemented (F07) |
 | `/portfolio`, `/activity`, `/rankings`, `/automations`, `/status` | navigation targets | public shell | honest unavailable pages naming the delivering session (F02); real features arrive with F10 onward |
-| `/strategies/[strategyId]/*`, `/portfolio/[instanceId]`, `/review/[intentId]`, `/activity/[intentId]`, `/receipts/[receiptId]`, other `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
+| `/strategies/[strategyId]` | Owner: the working draft's state, "Freeze as version N" (unavailable with its reason when the draft breaks a rule or the strategy is archived), every frozen version with its chain-derived registration state (Saved privately / Publishing / Registered on-chain / Failed / Expired / Status unknown), and what others see (registered versions, followers). Anyone else: the registered projection (title, registered versions with status marker, record address and date, follower count, fork attribution), Follow / Unfollow, Fork, "Review investment" honestly unavailable until F09 | owner; registered projection public | implemented (F08) |
+| `/strategies/[strategyId]/versions/[versionId]` | Owner: the immutable version (recipe with mints, thesis, rules, disclosures, hashes, lineage and the difference from the previous version), the registration panel (prepare with a verified wallet → what becomes public, what never does, permanence, cost → sign with the connected publisher wallet through `solana:signTransaction` → submit → state read from the chain, restored on reload), registration evidence with explorer links and verification once registered, deprecation and reactivation by the publisher wallet, fork. Anyone else: the registered projection with evidence, verification, canonical bytes, the indexed record, the public difference from the previous public version, Follow and Fork | owner; registered projection public | implemented (F08) |
+| `/portfolio/[instanceId]`, `/review/[intentId]`, `/activity/[intentId]`, `/receipts/[receiptId]`, other `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
 
 ## Session journeys (F03)
 
@@ -227,3 +229,53 @@ Rules that already apply:
 - **Safe return.** Sign-in returns to the edit page; verifying a wallet
   happens on `/settings/wallets` and the draft is on the server when the
   person comes back.
+
+## Session journeys (F08)
+
+- **From draft to version.** The builder header and the Build page link to
+  `/strategies/<id>`, where "Freeze as version N" calls
+  `POST …/versions` with the draft revision. A frozen version is
+  immutable: the page says so, edits create a new version, and instances
+  pinned to an older version stay pinned until their owner accepts a
+  newer one (B07). Every version row carries its registration state as
+  the API derives it from the chain, never from a saved flag.
+- **Publish.** On the version page the owner chooses one of their
+  verified wallets (the connected one is preselected) and prepares the
+  registration. The API answers exactly what becomes public (version,
+  title, thesis, constituents by mint and weight, cash, rule, references,
+  manifest hash, content digest, publisher wallet, record address,
+  lineage), what never does, the permanence statement, the cost in SOL and
+  lamports, the fee payer and the block height after which the
+  transaction expires. Nothing is sent yet. The person confirms the
+  permanence statement; the sign button is unavailable with its reason
+  until the connected wallet is the publisher wallet on the platform's
+  network and can sign transactions. The wallet receives the prepared
+  bytes through `solana:signTransaction`; the app checks that what comes
+  back is the same message with the fee-payer slot filled, otherwise
+  nothing is submitted. The API verifies the signature before the node
+  sees the transaction.
+- **States.** Saved privately, Publishing (prepared or sent), Registered
+  on-chain, Failed (with the program's error), Expired and Status unknown
+  are distinct and read from the API on every load, so a reload lands in
+  the same place; while the network has not decided the page polls and
+  offers "Re-check now". Explorer links appear only from the finalized
+  evidence the API validated. A deployment without a registry program
+  keeps the prepare step unavailable with the reason.
+- **Deprecate.** Once registered, the publisher wallet can mark the record
+  deprecated (or active again) through the same review, sign and submit
+  steps; only the status byte moves and the public page shows the marker.
+- **Public pages.** Anyone can open a registered strategy and version:
+  the recipe, the hashes, the canonical bytes to recompute the hash, the
+  registration evidence (network, program, record, transaction, slot,
+  publisher, status) with explorer links, the API's verification of the
+  version against the indexed record (a mismatch is shown as an error),
+  the indexed record itself, and the readable difference from the
+  previous public version. A private or unknown id answers "not found"
+  whoever asks, without hinting at the owner.
+- **Follow and fork.** A signed-in person follows a public strategy
+  (bookkeeping on their account, listed with the newest registered
+  version) or forks a registered version into a private draft of their
+  own that opens in the editor with `forkOf` attribution; neither buys
+  anything or moves a pin, and the original strategy is untouched.
+  Anonymous readers get sign-in links. "Review investment" stays
+  unavailable with its reason until F09/F10.

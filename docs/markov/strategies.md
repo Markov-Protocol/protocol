@@ -86,7 +86,10 @@ by instrument id. `disclosures` aggregate weight by issuer and by
 underlying company. `authorPrincipal` is `user:<id>` or
 `agent:<credential id>`; it is API-visible to the owner and never part of
 the manifest. `parentVersionId` is the strategy's previous version;
-`forkOf` names the strategy and version a fork came from.
+`forkOf` names the strategy and version a fork came from. The owner may
+fork any of their versions; since F08 any signed-in person may fork a
+version that is registered on chain and not withheld, always into a new
+strategy of their own with `forkOf` set and the original untouched.
 
 A freeze of a draft whose economic content equals the current version's
 answers that version with status 200 instead of creating a twin (201).

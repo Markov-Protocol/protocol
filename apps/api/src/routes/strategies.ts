@@ -249,7 +249,7 @@ export const strategyRoutes: FastifyPluginAsyncZod<StrategyRoutesOptions> = asyn
         tags: ['strategies'],
         summary: 'Fork a version into a new strategy of your own',
         description:
-          'The new strategy starts with a draft copied from the version and keeps the provenance (`forkOf`); the original is untouched.',
+          'The new strategy starts with a draft copied from the version and keeps the provenance (`forkOf`); the original is untouched. The owner may fork any of their versions; anyone else may fork a registered, unmoderated version (F08).',
         params: strategyParams,
         body: forkRequestSchema,
         response: { 201: strategyDetailSchema, ...errorResponses },

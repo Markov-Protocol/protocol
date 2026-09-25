@@ -28,6 +28,7 @@ import {
   createProbes,
   createResearchService,
   createRetriever,
+  type FollowService,
   type FundingService,
   type MarkovApi,
   type RegistryService,
@@ -181,6 +182,7 @@ async function withHarness(
         research,
         watchlists: unavailableWatchlists,
         registry: unavailable<RegistryService>('registry'),
+        follows: unavailable<FollowService>('follows'),
         strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

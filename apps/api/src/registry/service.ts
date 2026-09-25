@@ -15,6 +15,7 @@ import {
   type StatusChangeRequest,
 } from '@markov/contracts';
 import {
+  countFollowers,
   createPublication,
   type Database,
   findOwnedWallet,
@@ -106,6 +107,12 @@ export interface RegistryService {
   ): Promise<Publication>;
   getPublication(principal: Principal, publicationId: string): Promise<Publication>;
   versionPublication(
+    principal: Principal,
+    strategyId: string,
+    versionId: string,
+  ): Promise<Publication>;
+  /** The latest deprecation or reactivation attempt of a version, re-checked against the chain (F08). */
+  versionStatusChange(
     principal: Principal,
     strategyId: string,
     versionId: string,
@@ -902,6 +909,20 @@ export function createRegistryService(deps: RegistryServiceDeps): RegistryServic
       return publicationOf(await refreshRow(latest));
     },
 
+    async versionStatusChange(principal, strategyId, versionId) {
+      const owner = ownerOf(principal);
+      const strategy = await findStrategy(db, owner, strategyId);
+      const version = strategy ? await findVersion(db, strategyId, versionId) : null;
+      if (!strategy || !version) {
+        throw new ApiError('NOT_FOUND', 'no version with that id');
+      }
+      const latest = await latestPublication(db, owner, versionId, ['deprecate', 'reactivate']);
+      if (!latest) {
+        throw new ApiError('NOT_FOUND', 'no status change has been prepared for this version');
+      }
+      return publicationOf(await refreshRow(latest));
+    },
+
     async refreshPublication(publicationId) {
       const row = await findPublicationById(db, publicationId);
       return row ? publicationOf(await refreshRow(row)) : null;
@@ -926,6 +947,7 @@ export function createRegistryService(deps: RegistryServiceDeps): RegistryServic
       return {
         strategyId: read.strategy.id,
         title: newest?.version.title ?? '',
+        followerCount: await countFollowers(db, strategyId),
         forkOf:
           read.strategy.forkOfStrategyId && read.strategy.forkOfVersionId
             ? {

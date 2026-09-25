@@ -6,6 +6,7 @@ import {
   type ApiProbes,
   buildApp,
   type CatalogService,
+  type FollowService,
   type FundingService,
   type IdentityService,
   type NetworkIdentitySnapshot,
@@ -116,6 +117,7 @@ async function makeApp(
     research: unavailableResearch,
     watchlists: unavailableWatchlists,
     registry: unavailable<RegistryService>('registry'),
+    follows: unavailable<FollowService>('follows'),
     strategies: unavailableStrategies,
     mintTestToken: null,
   });

@@ -18,6 +18,7 @@ import { SolanaRpcClient } from '@markov/solana-rpc';
 import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
 import { createIdentityService } from './auth/service.js';
 import { createCatalogService } from './catalog/service.js';
+import { createFollowService } from './follows/service.js';
 import { createFundingService } from './funding/service.js';
 import { createNetworkIdentityMonitor } from './network-monitor.js';
 import { createPolicyService } from './policy/service.js';
@@ -326,6 +327,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
       genesisHash: expectedGenesisHash,
       rpcClients: clients,
     }),
+    follows: createFollowService({ db: dbClient.db }),
     mintTestToken,
   });
 
