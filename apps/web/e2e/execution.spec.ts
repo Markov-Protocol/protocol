@@ -299,7 +299,7 @@ test.describe('signing, execution timeline and recovery', () => {
     await approvedSingleBuy(page, '100');
     await page.getByTestId('build-cta').click();
     await expect(page.getByTestId('sign-cta')).toBeVisible({ timeout: 15_000 });
-    await chain(context, 'lose-next-response');
+    await chain(context, 'lose-next-response', { payer: address });
     await page.getByTestId('sign-cta').click();
     await expect(page).toHaveURL(/\/activity\/[0-9a-f-]{36}$/, { timeout: 20_000 });
     await expect(page.getByTestId('execution-state')).toHaveText('Result unknown; reconciling');
@@ -380,7 +380,7 @@ test.describe('signing, execution timeline and recovery', () => {
 
     // Leg 2 lands with an error on the fixture chain: the run stops as partially completed,
     // what filled stays, and the unfilled leg can be completed under a new review.
-    await chain(context, 'land-error', { code: 1 });
+    await chain(context, 'land-error', { code: 1, payer: address });
     await buildAndSign(page, 'transaction 2 of 2');
     await expect(page.getByTestId('execution-state')).toHaveText(
       /Broadcast|Partially completed|Failed/,

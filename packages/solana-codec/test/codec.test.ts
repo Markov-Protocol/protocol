@@ -315,6 +315,45 @@ describe('fixture chain', () => {
     expect(chain.tokenBalance(owner.publicKey, MINT)).toBe(500n);
   });
 
+  it('scopes one-shot faults to one fee payer so parallel callers never receive them', () => {
+    const alice = signer();
+    const bob = signer();
+    const chain = chainWith(alice);
+    chain.setLamports(bob.publicKey, 5_000_000n);
+    const send = (who: typeof alice) => {
+      const { blockhash } = chain.latestBlockhash();
+      const message = compileLegacyMessage({
+        feePayer: who.publicKey,
+        instructions: [transfer(who.publicKey, OTHER, 1n)],
+        recentBlockhash: blockhash,
+      });
+      return chain.handle('sendTransaction', [
+        bytesToBase64(signTransaction(unsignedTransaction(message), who).bytes),
+        { encoding: 'base64' },
+      ]) as string;
+    };
+    chain.scheduleFault(alice.publicKey, { kind: 'land-error', code: 6008 });
+    // Bob submits first: his transaction is untouched, and Alice's fault waits for her.
+    expect(chain.transaction(send(bob))?.err).toBeNull();
+    expect(chain.transaction(send(alice))?.err).toEqual({
+      InstructionError: [0, { Custom: 6008 }],
+    });
+    expect(chain.transaction(send(alice))?.err).toBeNull();
+    chain.scheduleFault(alice.publicKey, { kind: 'drop' });
+    expect(chain.transaction(send(bob))).not.toBeNull();
+    expect(chain.transaction(send(alice))).toBeNull();
+    chain.scheduleFault(bob.publicKey, { kind: 'lose-response' });
+    send(alice);
+    expect(chain.takeLostResponse()).toBe(false);
+    const lost = send(bob);
+    expect(chain.takeLostResponse()).toBe(true);
+    expect(chain.takeLostResponse()).toBe(false);
+    expect(chain.transaction(lost)).not.toBeNull();
+    // Global controls still apply to whoever submits next.
+    expect(chain.dropNext).toBe(false);
+    expect(chain.landNextWithError).toBeNull();
+  });
+
   it('models fault controls: drop, land with an error, lost response and outage', () => {
     const owner = signer();
     const chain = chainWith(owner);

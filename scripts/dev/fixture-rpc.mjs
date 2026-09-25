@@ -21,7 +21,10 @@
  *     lamports and stablecoin balance exactly (unknown addresses hold nothing).
  *   POST /fixture/chain { action }  (also served at /fixture/registry):
  *     advance (slots), finalize, drop-next, land-error (code), lose-next-response,
- *     outage, online, fund (address, lamports).
+ *     outage, online, fund (address, lamports). drop-next, land-error and
+ *     lose-next-response take an optional `payer`: the fault then applies to
+ *     that fee payer's next submission only, so browser tests running in
+ *     parallel on this one chain never receive each other's faults.
  *   POST /fixture/ready raises the readiness flag the browser tests wait on.
  * Usage: node scripts/dev/fixture-rpc.mjs <port> [genesisHash]
  */
@@ -152,13 +155,20 @@ function control(action) {
       chain.finalize();
       break;
     case 'drop-next':
-      chain.dropNext = true;
+      if (action.payer) chain.scheduleFault(String(action.payer), { kind: 'drop' });
+      else chain.dropNext = true;
       break;
     case 'land-error':
-      chain.landNextWithError = Number(action.code ?? 0);
+      if (action.payer)
+        chain.scheduleFault(String(action.payer), {
+          kind: 'land-error',
+          code: Number(action.code ?? 0),
+        });
+      else chain.landNextWithError = Number(action.code ?? 0);
       break;
     case 'lose-next-response':
-      chain.loseNextResponse = true;
+      if (action.payer) chain.scheduleFault(String(action.payer), { kind: 'lose-response' });
+      else chain.loseNextResponse = true;
       break;
     case 'fill-shift':
       fillShiftBps = Number(action.bps ?? 0);
@@ -243,6 +253,11 @@ http
           return;
         }
         const answer = chain.handle(request.method, request.params);
+        if (request.method === 'sendTransaction' && chain.takeLostResponse()) {
+          // A payer-scoped lost answer: executed, but the caller never hears back.
+          req.socket.destroy();
+          return;
+        }
         if (answer && typeof answer === 'object' && 'rpcError' in answer) {
           res.end(JSON.stringify({ jsonrpc: '2.0', id, error: answer.rpcError }));
         } else {

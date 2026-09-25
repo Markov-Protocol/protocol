@@ -268,16 +268,17 @@ test.describe('public publishing, versions and forks', () => {
   }, testInfo) => {
     await installFixtureWallet(context, { keys: generateFixtureKeys() });
     await signIn(page, subjectFor('p-carol', testInfo), '/settings/wallets');
-    await verifyAndFundWallet(page, context);
+    const address = await verifyAndFundWallet(page, context);
     await freezeBasket(page, 'Rejected aerospace');
     await expect(page.getByTestId('prepare-button')).not.toHaveAttribute('aria-disabled', 'true', {
       timeout: 10_000,
     });
     await page.getByTestId('prepare-button').click();
     await expect(page.getByTestId('publish-preview')).toBeVisible();
-    // The next submission lands with a program error on the fixture ledger (WeightTotal, 6008); the
-    // page learns it from the API's next chain check, on its own poll or on a re-check.
-    await ledger(context, 'land-error', { code: 6008 });
+    // This wallet's next submission lands with a program error on the fixture ledger (WeightTotal,
+    // 6008); the page learns it from the API's next chain check, on its own poll or on a re-check.
+    // The fault is scoped to the fee payer so a test running in parallel never receives it.
+    await ledger(context, 'land-error', { code: 6008, payer: address });
     await page.getByTestId('permanence-checkbox').check();
     await page.getByTestId('sign-button').click();
     await expect(page.getByTestId('publication-state')).toHaveText(/Publishing|Failed/, {

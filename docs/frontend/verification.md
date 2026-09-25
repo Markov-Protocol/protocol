@@ -492,6 +492,18 @@ the unranked recipe and its reason, the rankings cohort with the
 methodology, the creator page, the proposal panel with the diff; desktop
 and phone).
 
+## Browser suite isolation (P01, CI run 1)
+
+Every browser journey shares one fixture chain (`scripts/dev/fixture-rpc.mjs`).
+The first CI run failed one phone-width publishing journey because a
+journey running in parallel set a chain-wide one-shot fault ("the next
+submission lands with an error") and finalized the chain while the other
+was submitting. One-shot faults (`drop-next`, `land-error`,
+`lose-next-response`) now take the fee payer they apply to, and every
+journey passes its own wallet; finality stays chain-wide, as on a real
+chain, so CI runs the web suite with one worker
+(`apps/web/playwright.config.ts`). Local runs stay parallel.
+
 ## Acceptance matrix (build prompt section 12)
 
 | Journey or risk | Evidence | Status |

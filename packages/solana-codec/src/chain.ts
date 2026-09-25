@@ -195,6 +195,12 @@ function u64le(data: Uint8Array, offset: number): bigint {
   return new ByteReader(data.subarray(offset, offset + 8)).u64();
 }
 
+/** A one-shot fault for the next submission of one fee payer. */
+export type PayerFault =
+  | { readonly kind: 'drop' }
+  | { readonly kind: 'land-error'; readonly code: number }
+  | { readonly kind: 'lose-response' };
+
 export class FixtureChain {
   readonly genesisHash: string;
   private readonly now: () => number;
@@ -205,12 +211,19 @@ export class FixtureChain {
   private readonly blockhashes = new Map<string, RegisteredBlockhash>();
   private readonly mints = new Map<string, MintInfo>();
   private readonly programs = new Map<string, { executor: ProgramExecutor; label: string }>();
-  /** Test controls. */
+  /** Test controls. The `…Next` ones apply to the next submission from anyone. */
   outage = false;
   dropNext = false;
   landNextWithError: number | null = null;
   /** The next `sendTransaction` executes, but its response is lost in transit (`fetchForChain` throws). */
   loseNextResponse = false;
+  /**
+   * One-shot faults for the next submission paid by one fee payer, so tests
+   * that share this chain in parallel never receive each other's faults.
+   */
+  private readonly payerFaults = new Map<string, PayerFault>();
+  /** Set by a submission whose payer asked for a lost response; the transport drops that answer. */
+  private lostResponse = false;
 
   constructor(options: FixtureChainOptions) {
     this.genesisHash = options.genesisHash;
@@ -398,6 +411,18 @@ export class FixtureChain {
   advance(slots = 1): void {
     this.slot += slots;
     this.blockHeight += slots;
+  }
+
+  /** Schedule a one-shot fault for the next submission this fee payer pays for. */
+  scheduleFault(feePayer: string, fault: PayerFault): void {
+    this.payerFaults.set(feePayer, fault);
+  }
+
+  /** True once after a submission whose fee payer asked for its response to be lost. */
+  takeLostResponse(): boolean {
+    const lost = this.lostResponse;
+    this.lostResponse = false;
+    return lost;
   }
 
   /** Advance far enough for everything landed so far to be finalized. */
@@ -920,13 +945,19 @@ export class FixtureChain {
         data: { err: 'InsufficientFundsForFee', logs: [] },
       });
     }
-    if (this.dropNext) {
-      this.dropNext = false;
+    const scoped = this.payerFaults.get(feePayer);
+    this.payerFaults.delete(feePayer);
+    if (scoped?.kind === 'lose-response') {
+      this.lostResponse = true;
+    }
+    if (scoped?.kind === 'drop' || this.dropNext) {
+      if (scoped?.kind !== 'drop') this.dropNext = false;
       return signature; // accepted by the node, never lands
     }
-    if (this.landNextWithError !== null) {
-      const code = this.landNextWithError;
-      this.landNextWithError = null;
+    const errorCode = scoped?.kind === 'land-error' ? scoped.code : this.landNextWithError;
+    if (errorCode !== null) {
+      if (scoped?.kind !== 'land-error') this.landNextWithError = null;
+      const code = errorCode;
       const last = parsed.message.instructions.length - 1;
       this.land(
         parsed,
@@ -1350,9 +1381,12 @@ export function fetchForChain(
   return (async (_input: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { id: number; method: string; params: unknown };
     const result = answer(body.method, body.params);
-    if (body.method === 'sendTransaction' && chain.loseNextResponse) {
-      chain.loseNextResponse = false;
-      throw new TypeError('fetch failed: connection reset after the request was sent');
+    if (body.method === 'sendTransaction') {
+      const scopedLoss = chain.takeLostResponse();
+      if (scopedLoss || chain.loseNextResponse) {
+        if (!scopedLoss) chain.loseNextResponse = false;
+        throw new TypeError('fetch failed: connection reset after the request was sent');
+      }
     }
     const envelope =
       typeof result === 'object' && result !== null && 'rpcError' in result

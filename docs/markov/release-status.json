@@ -1180,6 +1180,30 @@
   ],
   "ci": {
     "workflow": ".github/workflows/ci.yml",
-    "observedRuns": []
+    "observedRuns": [
+      {
+        "runId": 36181504146,
+        "runNumber": 1,
+        "url": "https://github.com/Markov-Protocol/protocol/actions/runs/36181504146",
+        "commit": "c52ecabd106d94a88bf443e8d23f4d2f6ddb6c2f",
+        "event": "push",
+        "conclusion": "failure",
+        "observedAt": "2026-09-25",
+        "jobs": {
+          "lint, typecheck, test, contracts": "failure",
+          "strategy registry program (Rust)": "success",
+          "secrets, advisories, licenses": "success",
+          "candidate evidence record": "success"
+        },
+        "summary": "First Actions run of this repository. Everything passed except one web browser journey at phone width (publishing registration): a parallel journey's chain-wide fault (land-error, finalize) on the shared fixture chain reached it. Fixed by payer-scoped faults and one worker in CI. All five artifacts were uploaded after redaction, verification and gitleaks (checks-reports, browser-evidence, program-reports, supply-chain-reports, candidate-evidence) and listed through the GitHub API; downloading them from the session container was refused by its network policy.",
+        "artifacts": {
+          "checks-reports": "sha256:e502a16b9196d74c95df78652f458e7b0ab83d21600b54b887cd9f5663cb9a25",
+          "browser-evidence": "sha256:145c5028689cad651dc4bd6cd0eea410626c7fff387e1073c9a74a1ff7f377cd",
+          "program-reports": "sha256:589c828d1ee1157d44fb4c9670222eb3600512bb0e71e69a7c798de9ea3456cf",
+          "supply-chain-reports": "sha256:9e7a960271dabb115ba05028a24b385cd2253d0a2bea109351a85c354fae9ffe",
+          "candidate-evidence": "sha256:248ca1be96bb36827b32ae198e8bfc55f6e45651eac02f9d73906e0238a0abbf"
+        }
+      }
+    ]
   }
 }

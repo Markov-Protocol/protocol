@@ -15,6 +15,10 @@ export default defineConfig({
   testDir: './e2e',
   outputDir: '../../.markov-tmp/playwright',
   fullyParallel: true,
+  // Every journey shares one fixture chain. One-shot faults are scoped to the test's own fee
+  // payer, but finality is chain-wide (slots advance for everyone), so CI runs one worker for
+  // a deterministic result; local runs stay parallel.
+  ...(process.env['CI'] ? { workers: 1 } : {}),
   retries: 0,
   // A stray test.only must fail CI instead of silently narrowing the evidence.
   forbidOnly: Boolean(process.env['CI']),
