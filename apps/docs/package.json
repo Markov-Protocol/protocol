@@ -9,6 +9,7 @@
     "prepare-content": "pnpm run sync && pnpm run generate",
     "start": "pnpm run prepare-content && docusaurus start --port 3200 --host 127.0.0.1",
     "build": "pnpm run prepare-content && docusaurus build",
+    "build:vercel": "pnpm run build && rm -rf out && mkdir -p out/docs && cp -R build/. out/docs/",
     "serve": "docusaurus serve --port 3200 --host 127.0.0.1 --no-open",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
