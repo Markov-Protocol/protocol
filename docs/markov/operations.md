@@ -534,15 +534,18 @@ Two Vercel projects, both linked to this repository (monorepo, pnpm):
 
 | Project | Root directory | Settings source | Production output |
 | ------- | -------------- | --------------- | ----------------- |
-| `markov-web` | `apps/web` | `apps/web/vercel.json`: Next.js preset, install at the repository root with the pinned pnpm, `pnpm --filter @markov/web... run build` (builds the workspace packages the app imports, then `next build`) | the app at `https://markov-web.vercel.app`, later `markov.pet` |
-| `markov-docs` | `apps/docs` | `apps/docs/vercel.json`: no framework preset, install at the root, `pnpm run build` (the CLI reference needs `apps/cli/dist`) then `pnpm --filter @markov/docs run build:vercel`, output `out` (the site staged under `out/docs/`, clean URLs, `/` redirects to `/docs/`) | `https://markov-docs.vercel.app/docs/`, proxied by the app under `markov.pet/docs` |
+| `markov-web` | `apps/web` | `apps/web/vercel.json`: Next.js preset, install at the repository root with the pinned pnpm, `pnpm --filter @markov/web... run build` (builds the workspace packages the app imports, then `next build`) | the app at `https://markov-web-theta.vercel.app` (Vercel assigned the hostname), later `markov.pet` |
+| `markov-docs` | `apps/docs` | `apps/docs/vercel.json`: no framework preset, install at the root, `pnpm run build` (the CLI reference needs `apps/cli/dist`) then `pnpm --filter @markov/docs run build:vercel`, output `out` (the site staged under `out/docs/`, clean URLs, `/` redirects to `/docs/`) | `https://markov-docs.vercel.app/docs/`, proxied by the app under `/docs` |
 
-Prerequisites: the Vercel GitHub App installed for the `Markov-Protocol`
-organisation with access to `protocol` (linking answers `repo_no_access`
-otherwise), Node 22.x in both projects, and the environment variables
-below. Production deployments are created from the branch under review
-until `main` carries the code; every push to a linked branch also makes a
-preview deployment.
+First deployed 2026-09-25 from commit `7840da2` of the branch under review
+through the Vercel API with the repository as the git source: the
+repository is public, so Vercel fetches it without the GitHub App, but
+nothing deploys on push until the Vercel GitHub App is installed for the
+`Markov-Protocol` organisation with access to `protocol` (linking a
+project answers `repo_no_access` until then). Node 22.x in both projects,
+deployment protection off (both are public), and the environment below.
+Production deployments are created from the branch under review until
+`main` carries the code.
 
 Environment of `markov-web` (all targets unless noted):
 
