@@ -35,7 +35,7 @@ test.describe('instrument evidence and strategy theses', () => {
   }, testInfo) => {
     const width = page.viewportSize()?.width;
     // Sign in and open FXAERO by its canonical id.
-    await page.goto('/explore');
+    await page.goto('/explore?tab=instruments');
     const aeroRow = page.getByTestId('instrument-row').filter({ hasText: 'FXAERO' });
     await aeroRow.getByRole('link', { name: /Fixture Aerospace pre-IPO exposure/ }).click();
     await expect(page).toHaveURL(/\/markets\/[0-9a-f-]{36}$/);

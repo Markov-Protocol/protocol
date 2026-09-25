@@ -101,6 +101,11 @@ export const PROXY_ROUTES: readonly ProxyRoute[] = [
   { method: 'GET', pattern: new RegExp(`^/v1/strategies/${UUID}$`), public: true },
   { method: 'GET', pattern: new RegExp(`^/v1/strategies/${UUID}/versions/${UUID}$`), public: true },
   { method: 'GET', pattern: new RegExp(`^/v1/registry/records/${BASE58}$`), public: true },
+  // Discovery (F12): the public explorer, creator pages and the model ranking (B13, B14). Public
+  // reads; the answers carry no per-person state, so the browser cache may be shared.
+  { method: 'GET', pattern: /^\/v1\/strategies$/, public: true, query: true },
+  { method: 'GET', pattern: new RegExp(`^/v1/creators/${BASE58}$`), public: true, query: true },
+  { method: 'GET', pattern: /^\/v1\/rankings\/model$/, public: true, query: true },
   { method: 'GET', pattern: /^\/v1\/me\/follows$/ },
   { method: 'PUT', pattern: new RegExp(`^/v1/me/follows/${UUID}$`) },
   { method: 'DELETE', pattern: new RegExp(`^/v1/me/follows/${UUID}$`) },
@@ -140,6 +145,8 @@ export const PROXY_ROUTES: readonly ProxyRoute[] = [
   { method: 'GET', pattern: /^\/v1\/me\/instances$/ },
   { method: 'POST', pattern: /^\/v1\/me\/instances$/ },
   { method: 'GET', pattern: new RegExp(`^/v1/me/instances/${UUID}$`) },
+  // Accepting a proposed version (F12): the only way a pin moves, by the instance owner, explicitly.
+  { method: 'POST', pattern: new RegExp(`^/v1/me/instances/${UUID}/pin$`) },
   { method: 'GET', pattern: new RegExp(`^/v1/me/wallets/${UUID}/holdings$`) },
   { method: 'POST', pattern: new RegExp(`^/v1/me/wallets/${UUID}/reconciliations$`) },
   { method: 'GET', pattern: new RegExp(`^/v1/me/wallets/${UUID}/journal$`) },

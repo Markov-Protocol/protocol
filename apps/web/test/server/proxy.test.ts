@@ -130,12 +130,12 @@ describe('proxy allowlist', () => {
     expect(matchRoute('GET', '/v1/strategies/limits')?.public).toBe(true);
     expect(matchRoute('GET', '/v1/me/strategies')).not.toBeNull();
     expect(matchRoute('POST', '/v1/me/strategies')).not.toBeNull();
-    // Nothing that pins or reaches operator routes.
-    expect(matchRoute('POST', `/v1/me/instances/${WALLET}/pin`)).toBeNull();
+    // Nothing that reaches operator routes.
+    expect(matchRoute('POST', `/v1/operator/strategies/${WALLET}/moderation`)).toBeNull();
     expect(matchRoute('GET', '/v1/ops/research')).toBeNull();
   });
 
-  it('allows the basket builder operations added in F07 and nothing that pins', () => {
+  it('allows the basket builder operations added in F07 and nothing that deletes', () => {
     expect(matchRoute('GET', `/v1/me/strategies/${WALLET}`)).not.toBeNull();
     expect(matchRoute('PATCH', `/v1/me/strategies/${WALLET}`)).not.toBeNull();
     expect(matchRoute('PUT', `/v1/me/strategies/${WALLET}/draft`)).not.toBeNull();
@@ -145,7 +145,7 @@ describe('proxy allowlist', () => {
     expect(matchRoute('PUT', '/v1/me/limits')).toBeNull();
   });
 
-  it('allows the publishing operations added in F08 and nothing that pins, lists records or diffs', () => {
+  it('allows the publishing operations added in F08 and nothing that lists records or diffs', () => {
     const RECORD = '4uFNLZ8GKBUywsX48vYhMeGjgpjdQC2iN6pQxo1JTG3X';
     expect(matchRoute('GET', '/v1/registry')?.public).toBe(true);
     expect(matchRoute('POST', `/v1/me/strategies/${WALLET}/versions`)).not.toBeNull();
@@ -174,8 +174,24 @@ describe('proxy allowlist', () => {
     expect(matchRoute('DELETE', `/v1/me/follows/${WALLET}`)).not.toBeNull();
     expect(matchRoute('GET', `/v1/me/strategies/${WALLET}/versions/${WALLET}/diff`)).toBeNull();
     expect(matchRoute('DELETE', `/v1/me/publications/${WALLET}`)).toBeNull();
-    expect(matchRoute('POST', `/v1/me/instances/${WALLET}/pin`)).toBeNull();
     expect(matchRoute('GET', '/v1/registry/records')).toBeNull();
+  });
+
+  it('allows the discovery reads and the explicit pin added in F12 and nothing that moderates', () => {
+    const PUBLISHER = '4uFNLZ8GKBUywsX48vYhMeGjgpjdQC2iN6pQxo1JTG3X';
+    expect(matchRoute('GET', '/v1/strategies')).toMatchObject({ public: true, query: true });
+    expect(matchRoute('GET', `/v1/creators/${PUBLISHER}`)).toMatchObject({
+      public: true,
+      query: true,
+    });
+    expect(matchRoute('GET', '/v1/creators/not-a-wallet')).toBeNull();
+    expect(matchRoute('GET', '/v1/rankings/model')).toMatchObject({ public: true, query: true });
+    expect(matchRoute('POST', `/v1/me/instances/${WALLET}/pin`)).not.toBeNull();
+    expect(matchRoute('POST', `/v1/me/instances/${WALLET}/pin`)?.public).toBeUndefined();
+    expect(matchRoute('GET', `/v1/operator/strategies/${WALLET}/moderation`)).toBeNull();
+    expect(
+      matchRoute('POST', `/v1/operator/strategies/${WALLET}/versions/${WALLET}/moderation`),
+    ).toBeNull();
   });
 
   it('allows the review operations added in F09 and nothing that signs, submits or reads another owner', () => {
@@ -257,14 +273,12 @@ describe('proxy allowlist', () => {
     expect(matchRoute('GET', '/v1/performance/methodology')?.public).toBe(true);
     expect(matchRoute('GET', `/v1/me/wallets/${WALLET}/holdings`)?.public).toBeUndefined();
     for (const route of [
-      ['POST', `/v1/me/instances/${WALLET}/pin`],
       ['DELETE', `/v1/me/instances/${WALLET}`],
       ['POST', `/v1/me/instances/${WALLET}/holdings`],
       ['POST', `/v1/me/journal/projections`],
       ['GET', `/v1/me/journal/${WALLET}`],
       ['GET', `/v1/strategies/${WALLET}/versions/0/performance`],
       ['GET', `/v1/strategies/${WALLET}/versions/${WALLET}/performance`],
-      ['GET', '/v1/rankings/model'],
       ['POST', '/v1/operator/prices/observations'],
       ['GET', '/v1/prices/sol'],
     ] as const) {

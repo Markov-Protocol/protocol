@@ -17,7 +17,9 @@ export const PAGE_SIZE = 25;
 export const MAX_PAGES = 8;
 
 export type ExploreTab = 'instruments' | 'watchlist' | 'strategies';
-const TABS: readonly ExploreTab[] = ['instruments', 'watchlist', 'strategies'];
+const TABS: readonly ExploreTab[] = ['strategies', 'instruments', 'watchlist'];
+/** The reference lands Explore on Strategies (F12); the stock list and the watchlist keep their tab values. */
+export const DEFAULT_TAB: ExploreTab = 'strategies';
 
 export function parseFilters(params: URLSearchParams): InstrumentFilters {
   const issuer = params.get('issuer');
@@ -34,7 +36,7 @@ export function parseFilters(params: URLSearchParams): InstrumentFilters {
 
 export function parseTab(params: URLSearchParams): ExploreTab {
   const tab = params.get('tab');
-  return TABS.includes(tab as ExploreTab) ? (tab as ExploreTab) : 'instruments';
+  return TABS.includes(tab as ExploreTab) ? (tab as ExploreTab) : DEFAULT_TAB;
 }
 
 /** Query string for the URL bar (and the API, which takes the same names). */
@@ -47,7 +49,7 @@ export function serializeFilters(
   } = {},
 ): string {
   const params = new URLSearchParams();
-  if (extra.tab && extra.tab !== 'instruments') {
+  if (extra.tab && extra.tab !== DEFAULT_TAB) {
     params.set('tab', extra.tab);
   }
   if (filters.q !== '') {

@@ -1,5 +1,7 @@
 import {
   corporateActionListResponseSchema,
+  creatorProfileSchema,
+  discoveryResponseSchema,
   effectiveLimitsResponseSchema,
   errorResponseSchema,
   executionPlanSchema,
@@ -25,6 +27,7 @@ import {
   publicStrategySchema,
   publicThesisSchema,
   publicVersionSchema,
+  rankingResponseSchema,
   receiptKeysResponseSchema,
   receiptListResponseSchema,
   receiptSchema,
@@ -764,6 +767,40 @@ export const CONTRACT_MATRIX: readonly ContractMatrixEntry[] = [
     status: 200,
     responseSchema: methodologySummarySchema,
     handledErrors: [],
+  },
+  // Discovery (F12 over B13 and B14).
+  {
+    consumer:
+      'Explore, Strategies tab: public strategy rows with chain provenance, follower counts and the model ranking entry for the period',
+    method: 'get',
+    path: '/v1/strategies',
+    status: 200,
+    responseSchema: discoveryResponseSchema,
+    handledErrors: ['VALIDATION_FAILED', 'RATE_LIMITED'],
+  },
+  {
+    consumer: 'Creator page: the strategies whose newest public version a wallet registered',
+    method: 'get',
+    path: '/v1/creators/{publisherWallet}',
+    status: 200,
+    responseSchema: creatorProfileSchema,
+    handledErrors: ['NOT_FOUND', 'RATE_LIMITED'],
+  },
+  {
+    consumer: 'Rankings: the model-series cohort for one period and methodology version',
+    method: 'get',
+    path: '/v1/rankings/model',
+    status: 200,
+    responseSchema: rankingResponseSchema,
+    handledErrors: ['RATE_LIMITED'],
+  },
+  {
+    consumer: 'Portfolio instance: accept a proposed version by moving the pin explicitly',
+    method: 'post',
+    path: '/v1/me/instances/{instanceId}/pin',
+    status: 200,
+    responseSchema: portfolioInstanceSchema,
+    handledErrors: ['NOT_FOUND', 'VALIDATION_FAILED', 'AUTH_REQUIRED'],
   },
 ];
 

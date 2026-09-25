@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { WebApiError } from '../api/use-markov-api';
 import { useSession } from '../auth/session-context';
 import { useStrategy } from '../builder/queries';
+import { StrategyProvenance } from '../discovery/strategy-provenance';
 import { ReviewInvestmentLink } from '../review/review-link';
 import { FollowButton } from './follow-button';
 import { ForkButton } from './fork-button';
@@ -263,6 +264,7 @@ function PublicStrategyView({ strategy }: { readonly strategy: PublicStrategy })
             .
           </p>
         ) : null}
+        <StrategyProvenance strategy={strategy} />
       </header>
 
       <section aria-label="Actions" className="space-y-2">
@@ -283,10 +285,10 @@ function PublicStrategyView({ strategy }: { readonly strategy: PublicStrategy })
           />
         </div>
         <p className="text-caption text-text-muted">
-          Following subscribes you to new versions on your Build page. Forking copies a version into
-          a private draft of your own, with attribution to this strategy. Neither buys anything or
-          moves a pin. Reviewing an investment quotes the newest registered version for your own
-          wallet and budget; nothing is bought until you approve and sign.
+          Following lists this strategy under Following on Explore and nothing more. Forking copies
+          a version into a private draft of your own, with attribution to this strategy. Neither
+          buys anything or moves a pin. Reviewing an investment quotes the newest registered version
+          for your own wallet and budget; nothing is bought until you approve and sign.
         </p>
       </section>
 

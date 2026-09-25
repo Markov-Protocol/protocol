@@ -8,6 +8,7 @@ import { SessionProvider } from '../src/features/auth/session-context';
 import type { PlatformSnapshot, SessionSnapshot } from '../src/features/auth/session-types';
 import { ExploreView } from '../src/features/markets/explore-view';
 import { MarketDetailView } from '../src/features/markets/market-detail-view';
+import { discoveryResponse } from './discovery-fixtures';
 
 /* ------------------------------------------------------------ navigation */
 
@@ -277,7 +278,11 @@ function Harness({
 
 let stub: ReturnType<typeof stubFetch>;
 
-function mountExplore(routes: Route[], session: SessionSnapshot = anonymous, search = '') {
+function mountExplore(
+  routes: Route[],
+  session: SessionSnapshot = anonymous,
+  search = '?tab=instruments',
+) {
   nav.search = search;
   nav.pathname = '/explore';
   stub = stubFetch(routes, session);
@@ -337,7 +342,7 @@ describe('Explore instruments', () => {
     ).toBeInTheDocument();
     expect(within(aero).getByRole('link', { name: 'Sign in to save FXAERO' })).toHaveAttribute(
       'href',
-      '/sign-in?next=%2Fexplore',
+      '/sign-in?next=%2Fexplore%3Ftab%3Dinstruments',
     );
 
     // Two exposures to the same company are told apart by issuer, symbol and category.
@@ -364,7 +369,9 @@ describe('Explore instruments', () => {
     mountExplore([{ ...LIST, reply: listReply([instrument()]) }]);
     await screen.findAllByTestId('instrument-row');
     fireEvent.click(screen.getByRole('button', { name: 'PreStocks collection' }));
-    expect(nav.replace).toHaveBeenLastCalledWith('/explore?issuer=prestocks', { scroll: false });
+    expect(nav.replace).toHaveBeenLastCalledWith('/explore?tab=instruments&issuer=prestocks', {
+      scroll: false,
+    });
     await waitFor(() =>
       expect(stub.calls.at(-1)?.url).toBe(
         '/api/markov/v1/catalog/instruments?issuer=prestocks&limit=25',
@@ -380,9 +387,12 @@ describe('Explore instruments', () => {
     });
     expect(nav.replace).toHaveBeenCalledTimes(1);
     await waitFor(() =>
-      expect(nav.replace).toHaveBeenLastCalledWith('/explore?q=Aero+%3Cb%3E&issuer=prestocks', {
-        scroll: false,
-      }),
+      expect(nav.replace).toHaveBeenLastCalledWith(
+        '/explore?tab=instruments&q=Aero+%3Cb%3E&issuer=prestocks',
+        {
+          scroll: false,
+        },
+      ),
     );
     await waitFor(() =>
       expect(stub.calls.at(-1)?.url).toBe(
@@ -395,7 +405,7 @@ describe('Explore instruments', () => {
     mountExplore(
       [{ ...LIST, reply: listReply([instrument()]) }],
       anonymous,
-      '?issuer=evil&kind=unknown&q=fx',
+      '?tab=instruments&issuer=evil&kind=unknown&q=fx',
     );
     await screen.findAllByTestId('instrument-row');
     expect(stub.calls[0]?.url).toBe('/api/markov/v1/catalog/instruments?q=fx&limit=25');
@@ -416,7 +426,7 @@ describe('Explore instruments', () => {
       },
     ]);
     expect(await screen.findByRole('status', { name: 'Loading instruments' })).toBeInTheDocument();
-    act(() => nav.replace('/explore?q=Aero'));
+    act(() => nav.replace('/explore?tab=instruments&q=Aero'));
     expect((await screen.findAllByTestId('instrument-row')).length).toBe(1);
     await act(async () => {
       (resolveFirst as unknown as (reply: Reply) => void)({
@@ -584,17 +594,29 @@ describe('Explore instruments', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers sign-in instead of a watchlist to anonymous people and says when strategies arrive', async () => {
-    mountExplore([{ ...LIST, reply: listReply([]) }], anonymous, '?tab=watchlist');
+  it('offers sign-in instead of a watchlist to anonymous people and lands on strategies by default', async () => {
+    mountExplore(
+      [
+        { ...LIST, reply: listReply([]) },
+        {
+          method: 'GET',
+          path: '/api/markov/v1/strategies',
+          reply: () => ({ status: 200, body: discoveryResponse([]) }),
+        },
+      ],
+      anonymous,
+      '?tab=watchlist',
+    );
     expect(await screen.findByText('Sign in to keep a watchlist')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
       'href',
       '/sign-in?next=%2Fexplore%3Ftab%3Dwatchlist',
     );
     activateTab('Strategies');
-    expect(nav.replace).toHaveBeenLastCalledWith('/explore?tab=strategies', { scroll: false });
-    expect(await screen.findByText('Strategies arrive with F12')).toBeInTheDocument();
-    activateTab('Instruments');
+    expect(nav.replace).toHaveBeenLastCalledWith('/explore', { scroll: false });
+    expect(await screen.findByText('No public strategy matches')).toBeInTheDocument();
+    activateTab('Stocks');
+    expect(nav.replace).toHaveBeenLastCalledWith('/explore?tab=instruments', { scroll: false });
     expect(await screen.findByText('No admitted instrument matches')).toBeInTheDocument();
   });
 });

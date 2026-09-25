@@ -6,7 +6,6 @@ import {
   Button,
   EmptyState,
   ErrorBlock,
-  Notice,
   SkeletonText,
   StatusBadge,
   Table,
@@ -20,6 +19,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo } from 'react';
 import { WebApiError } from '../api/use-markov-api';
+import { ProposalPanel } from '../discovery/proposal-panel';
 import { useOwnVersion, usePublicVersion } from '../publishing/queries';
 import { useVerifiedWallets } from '../wallets/queries';
 import { downloadJson } from './download';
@@ -233,12 +233,7 @@ export function InstanceView({ instanceId }: { readonly instanceId: string }) {
           {' · tracked since '}
           {formatInstant(instance.data.createdAt)} UTC
         </p>
-        {instance.data.proposedVersionId ? (
-          <Notice tone="info" title="A newer version awaits your acceptance">
-            The creator published a newer version. Your pin does not move until you accept it, and
-            accepting never trades by itself.
-          </Notice>
-        ) : null}
+        <ProposalPanel instance={instance.data} pinned={own.data ?? pub.data ?? null} />
       </header>
 
       <section aria-labelledby="allocation-heading" className="space-y-3">

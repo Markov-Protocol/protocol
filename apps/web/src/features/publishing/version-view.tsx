@@ -1,11 +1,12 @@
 'use client';
 
 import type { PublicVersion, SolanaCluster, StrategyVersion } from '@markov/contracts';
-import { formatBasisPoints, formatInstant } from '@markov/formatters';
+import { formatBasisPoints, formatInstant, shortenAddress } from '@markov/formatters';
 import { Button, EmptyState, ErrorBlock, Skeleton, SkeletonText, StatusBadge } from '@markov/ui';
 import Link from 'next/link';
 import { WebApiError } from '../api/use-markov-api';
 import { useSession } from '../auth/session-context';
+import { ModelPerformanceSection } from '../discovery/model-performance-section';
 import { CopyButton } from '../funding/copy-button';
 import { clusterOf, ISSUER_LABELS } from '../markets/labels';
 import { ReviewInvestmentLink } from '../review/review-link';
@@ -361,7 +362,16 @@ function PublicVersionView({ version }: { readonly version: PublicVersion }) {
         </div>
         <p className="text-caption text-text-muted">
           Frozen {formatInstant(version.frozenAt)} UTC. Immutable: the recipe below is what the hash
-          on chain commits to.
+          on chain commits to. Registered by{' '}
+          <Link
+            href={`/creators/${version.registration.publisher}`}
+            className="font-mono underline underline-offset-2"
+            title={version.registration.publisher}
+            data-testid="version-creator-link"
+          >
+            {shortenAddress(version.registration.publisher)}
+          </Link>
+          , the wallet that signed it; Markov attaches no name.
         </p>
         <ForkOfLine version={version} />
       </header>
@@ -406,6 +416,8 @@ function PublicVersionView({ version }: { readonly version: PublicVersion }) {
           cluster={cluster}
         />
       </section>
+
+      <ModelPerformanceSection strategyId={strategyId} versionNumber={version.versionNumber} />
 
       <VersionFacts version={version} />
 

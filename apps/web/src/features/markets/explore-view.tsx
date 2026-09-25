@@ -23,6 +23,12 @@ import { WebApiError } from '../api/use-markov-api';
 import { signInHref } from '../auth/return-path';
 import { useSession } from '../auth/session-context';
 import {
+  parseStrategyFilters,
+  sameStrategyFilters,
+  serializeStrategyFilters,
+} from '../discovery/filters';
+import { StrategiesTab } from '../discovery/strategies-tab';
+import {
   EMPTY_FILTERS,
   type ExploreTab,
   type InstrumentFilters,
@@ -422,15 +428,20 @@ function formatRelative(iso: string, now: Date): string {
 }
 
 /**
- * Explore: the Instruments tab lists real backend-admitted instruments
- * with their issuer; the Watchlist tab is the person's own; Strategies
- * arrive with F12. Filter state lives in the URL (validated values only).
+ * Explore: the Strategies tab lists strategies registered on chain with the
+ * model ranking's own entry (F12); the Stocks tab lists real
+ * backend-admitted instruments with their issuer; the Watchlist tab is the
+ * person's own. Filter state lives in the URL (validated values only).
  */
 export function ExploreView() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const filters = useMemo(() => parseFilters(new URLSearchParams(params.toString())), [params]);
+  const strategyFilters = useMemo(
+    () => parseStrategyFilters(new URLSearchParams(params.toString())),
+    [params],
+  );
   const tab = useMemo(() => parseTab(new URLSearchParams(params.toString())), [params]);
   const navigate = (nextFilters: InstrumentFilters, nextTab: ExploreTab) => {
     const query = serializeFilters(nextFilters, { tab: nextTab });
@@ -438,20 +449,43 @@ export function ExploreView() {
   };
   const returnTo = `${pathname}${serializeFilters(filters, { tab })}`;
   return (
-    <section className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-6">
+    <section className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6">
       <header className="space-y-2">
         <h1 className="text-heading-lg font-semibold">Explore</h1>
         <p className="text-supporting text-text-muted">
-          Tokenised exposures admitted by Markov operators, named by company, issuer and network. A
-          token is the issuer&apos;s exposure, not the company&apos;s shares.
+          Strategies their creators registered on chain, and the tokenised exposures Markov
+          operators admitted, named by company, issuer and network. A token is the issuer&apos;s
+          exposure, not the company&apos;s shares.
         </p>
       </header>
-      <Tabs value={tab} onValueChange={(value) => navigate(filters, value as ExploreTab)}>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => {
+          const next = value as ExploreTab;
+          // The tabs share the URL: the search text and issuer carry over, the rest stays with its tab.
+          router.replace(
+            next === 'strategies'
+              ? `${pathname}${serializeStrategyFilters(strategyFilters)}`
+              : `${pathname}${serializeFilters(filters, { tab: next })}`,
+            { scroll: false },
+          );
+        }}
+      >
         <TabsList aria-label="Explore sections">
-          <TabsTrigger value="instruments">Instruments</TabsTrigger>
-          <TabsTrigger value="watchlist">Watchlist</TabsTrigger>
           <TabsTrigger value="strategies">Strategies</TabsTrigger>
+          <TabsTrigger value="instruments">Stocks</TabsTrigger>
+          <TabsTrigger value="watchlist">Watchlist</TabsTrigger>
         </TabsList>
+        <TabsContent value="strategies">
+          <StrategiesTab
+            filters={strategyFilters}
+            onFiltersChange={(next) => {
+              if (!sameStrategyFilters(next, strategyFilters)) {
+                router.replace(`${pathname}${serializeStrategyFilters(next)}`, { scroll: false });
+              }
+            }}
+          />
+        </TabsContent>
         <TabsContent value="instruments">
           <InstrumentsTab
             filters={filters}
@@ -465,12 +499,6 @@ export function ExploreView() {
         </TabsContent>
         <TabsContent value="watchlist">
           <WatchlistTab returnTo={returnTo} />
-        </TabsContent>
-        <TabsContent value="strategies">
-          <EmptyState
-            title="Strategies arrive with F12"
-            description="Public strategy versions, following and methodology-aware rankings need backend sessions B13 and B14. Nothing is simulated here."
-          />
         </TabsContent>
       </Tabs>
     </section>

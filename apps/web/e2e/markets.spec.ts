@@ -33,7 +33,7 @@ test.describe('issuer-aware discovery and watchlists', () => {
     page,
   }, testInfo) => {
     const width = page.viewportSize()?.width;
-    await page.goto('/explore');
+    await page.goto('/explore?tab=instruments');
     await expect(page.getByRole('heading', { level: 1, name: 'Explore' })).toBeVisible();
     const rows = page.getByTestId('instrument-row');
     await expect(rows.filter({ hasText: 'FXAERO' })).toHaveCount(1);

@@ -141,9 +141,15 @@ must not be built, routed or linked in the stocks app.
    wordmark leading home, and the build-state chip showing the real
    environment outside production. Still open for a shell pass: the
    reference's single-row top-bar link layout in place of the rail and
-   bottom bar, the Explore Strategies tab table and the Set Rules right
-   rail exactly as drawn; those come with the sessions that own Explore
-   (F12) and the shell polish (F19).
+   bottom bar and the Set Rules right rail exactly as drawn; those come
+   with the shell polish (F19). F12 built the Explore Strategies tab to
+   this screen: Strategies first and by default, then Stocks and
+   Watchlist, one search field, rows with the title and thesis line, the
+   universe and issuer mix, the assets and cash, `View thesis →`, the
+   "Build your own" row, the rail with the three promises and
+   `Create strategy →`, and a footer that names the real data source and
+   read time instead of "Illustrative"; the reference's ALLOCATION and
+   UNIVERSE columns are derived only from the version's constituents.
 2. Every visual change keeps the documented rules: exact formatters, no
    fabricated data, honest unavailable states, the production guards, and
    WCAG 2.2 AA contrast measured in `packages/ui/test/tokens.test.ts`.

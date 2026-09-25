@@ -284,6 +284,35 @@ and its own server-side exchange.
   operator route is proxied. Filters live in the URL as validated values
   only; no transaction bytes, hashes or balances go into URLs.
 
+## Discovery, rankings and following (F12)
+
+- **Public reads stay public.** The explorer (`GET /v1/strategies`), the
+  creator page (`GET /v1/creators/{wallet}`) and the ranking
+  (`GET /v1/rankings/model`) are allowlisted as public, bounded-query
+  routes. Their React Query keys hold only the filters (`strategiesKey`,
+  `creatorKey`, `rankingsKey`), so a cache entry can never carry who is
+  reading; the API answers the same rows to everyone and the rows have
+  no field for a follower's identity, an instance, a wallet other than
+  the publishing one, a draft or a hidden version.
+- **Followed state is private and composed.** "Following" badges and the
+  Following section come from `GET /v1/me/follows`, a private query the
+  per-principal cache clears on sign-out and account switch (F03); the
+  view intersects the two lists at render time and never writes the
+  result into the public entries. Signed-out people trigger no follows
+  read at all (asserted in `apps/web/test/discovery.test.tsx`).
+- **Provenance is the chain's.** A creator is the wallet on the indexed
+  record; the app links it to its page and Solana Explorer and adds no
+  name, badge or track record. The ranking column is the API's own model
+  ranking entry (same population, period and methodology version), so
+  the app cannot show a rank the leaderboard does not.
+- **Accepting a version moves the pin only.** The proposal panel computes
+  the difference from the two public payloads, sends one explicit
+  `POST /v1/me/instances/{id}/pin` with the version id the person read,
+  and states that nothing is bought or sold; a proposed version that is
+  no longer public (withheld or unregistered) cannot be accepted. Moving a
+  pin needs the instance owner's session; the proxy refuses moderation
+  routes entirely.
+
 ## Planned (with the sessions that own them)
 
 Full CSP with exact identity/wallet allowances and report-only rollout,
