@@ -18,9 +18,11 @@ import {
   TableRow,
 } from '@markov/ui';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { WebApiError } from '../api/use-markov-api';
 import { useStrategy } from '../builder/queries';
+import { ExecutionPanel } from '../execution/execution-panel';
 import { CopyButton } from '../funding/copy-button';
 import { ISSUER_LABELS } from '../markets/labels';
 import { usePublicStrategy } from '../publishing/queries';
@@ -43,9 +45,6 @@ import {
   transactionCount,
 } from './plan-model';
 import { useAcknowledgePlan, useBuildPlan, useCancelIntent, useIntent, usePlan } from './queries';
-
-const SIGNING_UNAVAILABLE =
-  'Wallet signing arrives with F10 (backend B10). Your approval is bound to this plan hash; a plan with another hash needs a new review.';
 
 function isNotFound(error: unknown): boolean {
   return error instanceof WebApiError && error.status === 404;
@@ -354,7 +353,13 @@ function ValiditySection({
           )}
         </Definition>
         <Definition term="Simulation">
-          not simulated yet; whole-transaction simulation arrives with the builder (B10/B11)
+          {plan.validity.simulation
+            ? `${plan.validity.simulation.status}${
+                plan.validity.simulation.unitsConsumed !== null
+                  ? ` (${plan.validity.simulation.unitsConsumed} compute units at slot ${plan.validity.simulation.slot ?? '?'})`
+                  : ''
+              }${plan.validity.simulation.err ? `: ${plan.validity.simulation.err}` : ''} at plan time; each transaction is simulated again when it is built`
+            : 'not simulated at plan time (single leg or staged plan); each transaction is simulated when it is built'}
         </Definition>
         <Definition term="Quote source">
           {first ? `${first.quote.venue} · ${first.quote.mode} · ${first.quote.sourceRef}` : 'none'}
@@ -495,6 +500,7 @@ function RefusalPanel({
 
 function ReviewBody({ intent }: { readonly intent: Intent }) {
   const now = useNow();
+  const router = useRouter();
   const wallet = useWallet();
   const build = useBuildPlan(intent.intentId);
   const cancel = useCancelIntent(intent.intentId);
@@ -571,7 +577,9 @@ function ReviewBody({ intent }: { readonly intent: Intent }) {
     ? `${intent.strategy.title} · version ${intent.strategy.versionNumber}`
     : plan?.legs[0]
       ? `Buy ${plan.legs[0].symbol}`
-      : 'Single buy';
+      : intent.kind === 'single_sell'
+        ? 'Single sell'
+        : 'Single buy';
   const refreshReason = !open
     ? `This review is ${stateReading.label.toLowerCase()}.`
     : build.isPending
@@ -613,7 +621,11 @@ function ReviewBody({ intent }: { readonly intent: Intent }) {
               <StatusBadge tone="attention">Fixture quotes</StatusBadge>
             ) : null}
             <StatusBadge tone="neutral">
-              {intent.kind === 'basket_investment' ? 'Basket investment' : 'Single buy'}
+              {intent.kind === 'basket_investment'
+                ? 'Basket investment'
+                : intent.kind === 'single_sell'
+                  ? 'Single sell'
+                  : 'Single buy'}
             </StatusBadge>
           </div>
         </div>
@@ -813,7 +825,7 @@ function ReviewBody({ intent }: { readonly intent: Intent }) {
                   {shortenAddress(plan.planHash, { head: 12, tail: 8 })}
                 </code>
                 {plan.review.stagedAcknowledged ? ', staged execution acknowledged' : ''}. Nothing
-                is reserved, signed or bought; the wallet signature comes next.
+                is reserved, signed or bought until your wallet signs the exact transaction below.
               </Notice>
             ) : (
               <>
@@ -854,11 +866,7 @@ function ReviewBody({ intent }: { readonly intent: Intent }) {
               </Notice>
             ) : null}
             <div className="flex flex-wrap items-center gap-2">
-              {acknowledged ? (
-                <Button type="button" disabledReason={SIGNING_UNAVAILABLE} data-testid="sign-cta">
-                  {validity ? ctaLabel(plan, validity) : 'Sign transaction'}
-                </Button>
-              ) : validity && validity.phase === 'expired' ? (
+              {acknowledged ? null : validity && validity.phase === 'expired' ? (
                 <Button
                   type="button"
                   onClick={() => build.mutate()}
@@ -918,12 +926,27 @@ function ReviewBody({ intent }: { readonly intent: Intent }) {
                   </Button>
                 )
               ) : null}
-              <StatusBadge tone="neutral">No signature, no order</StatusBadge>
+              {acknowledged ? null : (
+                <StatusBadge tone="neutral">No signature, no order</StatusBadge>
+              )}
             </div>
             {cancel.error ? (
               <p className="text-supporting text-error">{cancel.error.message}</p>
             ) : null}
           </section>
+          {acknowledged &&
+          termsCurrent &&
+          validity !== null &&
+          validity.phase !== 'expired' &&
+          validity.phase !== 'superseded' ? (
+            <ExecutionPanel
+              intent={intent}
+              plan={plan}
+              approvedPlanHash={plan.review.acknowledgedHash}
+              variant="review"
+              onSubmitted={(status) => router.push(`/activity/${status.intentId}`)}
+            />
+          ) : null}
         </>
       )}
     </div>

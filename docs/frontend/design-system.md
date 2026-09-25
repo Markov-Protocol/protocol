@@ -17,15 +17,16 @@ formatters are unchanged.
 
 | Token          | Value     | Purpose |
 | -------------- | --------- | ------- |
-| frameCream     | `#ECEBE6` | Mark I exterior perimeter |
-| frameLight     | `#F6F5F0` | Small material highlights |
-| screen         | `#080B10` | Main display background |
-| surface        | `#121820` | Panels and readable regions |
-| surfaceRaised  | `#19212C` | Menus, dialogs, selected blocks |
+| frameCream     | `#E6DCD1` | Mark I exterior perimeter (sampled from the design reference, F10) |
+| frameLight     | `#F3ECE4` | Small material highlights |
+| screen         | `#070909` | Main display background (reference) |
+| surface        | `#121416` | Panels, inputs, selects and chips (reference) |
+| surfaceRaised  | `#1A1D21` | Menus, dialogs, selected blocks |
 | text           | `#F3F1E9` | Primary content |
 | textMuted      | `#A8B2C1` | Supporting labels and timestamps |
-| accent         | `#89C9FF` | Active affordances and pixel eyes |
+| accent         | `#8299FD` | Periwinkle: primary buttons, links, active tab and step, slider fill (reference) |
 | accentInk      | `#09121D` | Text on filled accent buttons |
+| eyes           | `#578FFE` | The pixel eyes only; never an affordance (reference) |
 | success        | `#80D8AE` | Verified positive status (always with icon and text) |
 | attention      | `#F0C77A` | Pending review or stale information |
 | error          | `#FF9C9C` | Failures with recovery text |
@@ -38,20 +39,21 @@ Tailwind utilities use the same names (`bg-surface`, `text-text-muted`,
 
 | Use                                  | Pair                    | Ratio   | Minimum |
 | ------------------------------------ | ----------------------- | ------- | ------- |
-| body text on the screen              | text / screen           | 17.43:1 | 4.5:1 |
-| body text on panels                  | text / surface          | 15.77:1 | 4.5:1 |
-| body text on dialogs and menus       | text / surfaceRaised    | 14.34:1 | 4.5:1 |
-| supporting labels and timestamps     | textMuted / surface     | 8.33:1  | 4.5:1 |
-| supporting labels in dialogs         | textMuted / surfaceRaised | 7.57:1 | 4.5:1 |
-| text on filled accent buttons        | accentInk / accent      | 10.63:1 | 4.5:1 |
-| links and active labels              | accent / surface        | 10.08:1 | 4.5:1 |
-| success status text                  | success / surface       | 10.49:1 | 4.5:1 |
-| attention status text                | attention / surface     | 11.17:1 | 4.5:1 |
-| error status text                    | error / surface         | 8.91:1  | 4.5:1 |
-| control boundaries (non-text)        | border / surface        | 3.76:1  | 3:1 |
-| focus ring against the screen        | accent / screen         | 11.13:1 | 3:1 |
-| focus ring against panels            | accent / surface        | 10.08:1 | 3:1 |
-| wordmark on the cream frame          | accentInk / frameCream  | 15.77:1 | 4.5:1 |
+| body text on the screen              | text / screen           | 17.65:1 | 4.5:1 |
+| body text on panels                  | text / surface          | 16.33:1 | 4.5:1 |
+| body text on dialogs and menus       | text / surfaceRaised    | 14.96:1 | 4.5:1 |
+| supporting labels and timestamps     | textMuted / surface     | 8.62:1  | 4.5:1 |
+| supporting labels in dialogs         | textMuted / surfaceRaised | 7.90:1 | 4.5:1 |
+| text on filled accent buttons        | accentInk / accent      | 7.10:1  | 4.5:1 |
+| the pixel eyes against the screen (non-text) | eyes / screen   | 6.43:1  | 3:1 |
+| links and active labels              | accent / surface        | 6.97:1  | 4.5:1 |
+| success status text                  | success / surface       | 10.86:1 | 4.5:1 |
+| attention status text                | attention / surface     | 11.57:1 | 4.5:1 |
+| error status text                    | error / surface         | 9.22:1  | 4.5:1 |
+| control boundaries (non-text)        | border / surface        | 3.89:1  | 3:1 |
+| focus ring against the screen        | accent / screen         | 7.53:1  | 3:1 |
+| focus ring against panels            | accent / surface        | 6.97:1  | 3:1 |
+| wordmark on the cream frame          | accentInk / frameCream  | 13.91:1 | 4.5:1 |
 
 Hover states darken the fill by 10 percent. Disabled and `aria-disabled`
 controls never rely on opacity: they switch to `textMuted` on

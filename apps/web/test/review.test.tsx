@@ -17,6 +17,7 @@ import { ReviewView } from '../src/features/review/review-view';
 import { StartReviewView } from '../src/features/review/start-review-view';
 import { describeWallet, type WalletRegistry } from '../src/features/wallets/standard';
 import { useWallet, WalletProvider } from '../src/features/wallets/wallet-context';
+import { batch, status as executionStatus } from './execution-fixtures';
 import {
   AERO,
   GENESIS,
@@ -501,6 +502,43 @@ function reviewServer(
         return { status: 200, body: state.intent };
       },
     },
+    {
+      // F10: the execution status the panel reads once the plan is acknowledged; nothing is built here.
+      method: 'GET',
+      path: `${P}/v1/me/intents/${INTENT_ID}/execution`,
+      reply: () => {
+        const current = state.intent.latestPlanId
+          ? (state.plans.get(state.intent.latestPlanId) ?? null)
+          : null;
+        if (current === null || current.review.acknowledgedHash !== current.planHash) {
+          return refuse(409, 'INVALID_STATE', 'the plan is not acknowledged');
+        }
+        const live =
+          state.intent.state === 'AWAITING_APPROVAL' || state.intent.state === 'AUTHORIZED';
+        return {
+          status: 200,
+          body: executionStatus({
+            state: state.intent.state,
+            stateReason: state.intent.stateReason,
+            planId: current.planId,
+            planHash: current.planHash,
+            batches: current.grouping.batches.map((entry) =>
+              batch({
+                batch: entry.batch,
+                legIndexes: entry.legIndexes,
+                state: live ? 'pending' : 'cancelled',
+              }),
+            ),
+            nextAction: live ? 'build' : 'none',
+          }),
+        };
+      },
+    },
+    {
+      method: 'GET',
+      path: `${P}/v1/me/intents/${INTENT_ID}/receipts`,
+      reply: () => ({ status: 200, body: { receipts: [] } }),
+    },
   ];
   for (const planId of [PLAN_ID, PLAN_ID_2]) {
     routes.push({
@@ -740,11 +778,13 @@ describe('the review', () => {
         'Approved, awaiting your signature',
       ),
     );
-    const sign = screen.getByTestId('sign-cta');
-    expect(sign).toHaveTextContent('Sign transaction 1 of 2');
-    expect(sign).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByText(/Wallet signing arrives with F10/)).toBeInTheDocument();
+    // F10: the execution panel takes over; the first step builds on the API, nothing is signed yet.
+    expect(await screen.findByTestId('build-cta')).toHaveTextContent('Build transaction 1 of 2');
+    expect(screen.getByTestId('execution-state')).toHaveTextContent('Approved; nothing built yet');
+    expect(screen.queryByTestId('sign-cta')).not.toBeInTheDocument();
     expect(screen.queryByTestId('approve')).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId('confirm-cancel')).toHaveLength(0);
+    expect(calls('POST', '/transactions')).toHaveLength(0);
   });
 
   it('never enables approval behind changed terms: a refreshed plan shows the difference first', async () => {
@@ -949,7 +989,8 @@ describe('the review', () => {
       '1 signature across 1 transaction',
     );
     expect(screen.getByTestId('approved')).toBeInTheDocument();
-    expect(screen.getByTestId('sign-cta')).toHaveTextContent('Sign transaction 1 of 1');
+    expect(await screen.findByTestId('build-cta')).toHaveTextContent('Build transaction 1 of 1');
+    expect(screen.queryByTestId('sign-cta')).not.toBeInTheDocument();
     expect(screen.queryByTestId('staged-checkbox')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('cancel-review'));

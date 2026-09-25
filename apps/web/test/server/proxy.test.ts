@@ -202,6 +202,41 @@ describe('proxy allowlist', () => {
     expect(matchRoute('POST', '/v1/me/intents')?.public).toBeUndefined();
   });
 
+  it('allows the execution and receipt operations added in F10 and nothing that bypasses the API', () => {
+    expect(matchRoute('POST', `/v1/me/intents/${WALLET}/transactions`)).not.toBeNull();
+    expect(
+      matchRoute('POST', `/v1/me/intents/${WALLET}/transactions/0/submissions`),
+    ).not.toBeNull();
+    expect(
+      matchRoute('POST', `/v1/me/intents/${WALLET}/transactions/31/submissions`),
+    ).not.toBeNull();
+    expect(matchRoute('GET', `/v1/me/intents/${WALLET}/execution`)).not.toBeNull();
+    expect(matchRoute('POST', `/v1/me/intents/${WALLET}/execution/reconciliations`)).not.toBeNull();
+    expect(matchRoute('POST', `/v1/me/intents/${WALLET}/receipts`)).not.toBeNull();
+    expect(matchRoute('GET', `/v1/me/intents/${WALLET}/receipts`)).not.toBeNull();
+    expect(matchRoute('GET', '/v1/me/receipts')).not.toBeNull();
+    expect(matchRoute('POST', `/v1/me/receipts/${WALLET}/visibility`)).not.toBeNull();
+    expect(matchRoute('GET', '/v1/receipts/keys')?.public).toBe(true);
+    expect(matchRoute('GET', `/v1/receipts/${WALLET}`)?.public).toBe(true);
+    expect(matchRoute('GET', `/v1/me/intents/${WALLET}/execution`)?.public).toBeUndefined();
+    for (const route of [
+      ['GET', `/v1/me/intents/${WALLET}/transactions`],
+      ['POST', `/v1/me/intents/${WALLET}/transactions/32/submissions`],
+      ['POST', `/v1/me/intents/${WALLET}/transactions/x/submissions`],
+      ['POST', `/v1/me/intents/${WALLET}/transactions/0/submissions/retry`],
+      ['DELETE', `/v1/me/receipts/${WALLET}`],
+      ['GET', `/v1/me/wallets/${WALLET}/holdings`],
+      ['POST', `/v1/me/wallets/${WALLET}/reconciliations`],
+      ['GET', `/v1/receipts/${WALLET}/keys`],
+      ['GET', '/v1/receipts'],
+    ] as const) {
+      expect(matchRoute(route[0], route[1]), route.join(' ')).toBeNull();
+    }
+    expect(apiPathFrom(segments(`/v1/me/intents/${WALLET}/transactions/0/submissions`))).toBe(
+      `/v1/me/intents/${WALLET}/transactions/0/submissions`,
+    );
+  });
+
   it('re-encodes a bounded query string and refuses the rest', () => {
     expect(safeQuery('')).toBe('');
     expect(safeQuery('?q=Fixture%20Aero&issuer=prestocks&limit=25')).toBe(

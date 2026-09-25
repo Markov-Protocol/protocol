@@ -38,6 +38,10 @@ export FUNDING_STABLECOIN_MINT=GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9ts
 export EXECUTION_VENUE_PROVIDER=fixture
 # The web journeys review a staged basket: the fixture venue composes at most one leg per transaction here.
 export EXECUTION_VENUE_FIXTURE_COMPOSE_MAX_LEGS=1
+# Execution (F10): submissions go to the fixture chain; receipts are signed with a throwaway key for this run only.
+export EXECUTION_WRITES_ENABLED=true RECEIPT_SIGNING_PROVIDER=local_key RECEIPT_SIGNING_KEY_ID=web-e2e-key-1
+RECEIPT_SIGNING_KEY=$(node -e 'console.log(require("node:crypto").generateKeyPairSync("ed25519").privateKey.export({format:"der",type:"pkcs8"}).toString("base64"))')
+export RECEIPT_SIGNING_KEY
 # Development placeholder registry program id: the fixture RPC's in-memory ledger executes the
 # program's rules under it (scripts/dev/fixture-rpc.mjs), so publishing journeys sign real
 # transactions that never leave this machine. Nothing is deployed anywhere.

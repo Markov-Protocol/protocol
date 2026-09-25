@@ -14,6 +14,7 @@ test.describe('Mark I shell', () => {
       await page.setViewportSize({ width, height: width < 640 ? 720 : 860 });
       await page.goto('/');
       const frame = page.locator('.markov-frame');
+      await expect(frame).toBeVisible();
       const box = await frame.boundingBox();
       expect(box?.x).toBe(0);
       expect(box?.y).toBe(0);

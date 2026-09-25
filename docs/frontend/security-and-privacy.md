@@ -226,14 +226,62 @@ and its own server-side exchange.
 - Context differences are visible: the connected wallet (or its network)
   differing from the plan's wallet, no connected wallet, and a newer
   version of the strategy are called out next to the approval. The final
-  call to action names the next real step ("Sign transaction 1 of N")
-  and is unavailable until F10 wires the wallet; nothing claims a trade
+  call to action names the next real step ("Build transaction 1 of N",
+  then "Sign transaction 1 of N", wired by F10); nothing claims a trade
   or an investment completed.
 - Intents are private: another person's intent is "not found" whoever
   asks, review pages are `noindex`, and the proxy allowlists only the
   intent, plan, acknowledgement and cancel routes (no operator routes).
   Nothing about a plan is stored in the browser beyond the query cache
   of the signed-in principal; a reload reads the plan from the API.
+
+## Execution and receipts (F10)
+
+- The browser never builds, edits or composes a transaction. The API
+  builds each transaction of the approved plan, decodes and validates it
+  against the plan and simulates it; the panel shows that transaction
+  (legs, bounds, network cost, signer, blockhash validity, simulation,
+  decoded instructions, message hash) and hands the exact bytes to the
+  wallet. Before the wallet opens the browser checks the intent and plan
+  ids, the approved plan hash, the expected signer against the connected
+  account, the cluster against the wallet account's chain, the wallet's
+  signing capability, the plan expiry, the simulation result and that the
+  unsigned bytes hash to the message the API validated (SHA-256 written
+  out in `features/execution/sha256.ts`, test vectors in
+  `apps/web/test/execution-bytes.test.ts`). After the wallet answers, the
+  returned bytes must carry the same message with the fee-payer slot
+  filled and hash to the same message; anything else is refused and
+  nothing is sent. The API repeats every check at submission.
+- One click is one wallet request and at most one submission. A declined
+  signature, a silent wallet ("Stop waiting" discards a late signature),
+  mutated bytes, a wallet, account or session that changed while the popup
+  was open, and an API refusal all end with nothing sent and the built
+  transaction kept for a fresh request; a lost HTTP answer after the
+  bytes left the browser is treated as unknown and reconciled from chain
+  evidence, never re-signed. The panel never creates a second intent or
+  transaction on its own; retries are the person's, against the same
+  prepared transaction, and the API answers the same attempt for the same
+  bytes.
+- Status is the API's record, read on a bounded schedule (2 s while the
+  network is watched, 5 s after half a minute, 15 s in a hidden tab, off
+  when the intent is settled or waits for the person) through the
+  session-bound proxy; there is no event stream in the backend yet, so the
+  polling is the transport and a failed read shows the last state as
+  stale. Nothing about an execution is stored in the browser beyond the
+  signed-in principal's query cache; a reload, another tab and a closed
+  popup read the same record. A signature is never shown as a result.
+- Receipts are private by default: the proxy attaches the session to the
+  public receipt route, so the owner gets the complete record and anyone
+  else only a receipt the owner opted into public reading, with the owner
+  id omitted by the API. The signed body carries commitments, never raw
+  account ids. The page shows the signing key's published status and the
+  canonical hash and hands the JSON to the CLI for offline verification;
+  it never calls a receipt a proof of ownership or settlement.
+- Activity and timeline pages are `noindex`, owner-scoped (another
+  person's intent is "not found") and reachable only through the
+  allowlisted execution, reconciliation, receipt and visibility routes; no
+  operator route is proxied. Filters live in the URL as validated values
+  only; no transaction bytes, hashes or balances go into URLs.
 
 ## Planned (with the sessions that own them)
 

@@ -132,11 +132,18 @@ must not be built, routed or linked in the stocks app.
 
 ## How the frontend sessions use this
 
-1. The next frontend session (F10) builds its new screens to this
-   language directly and runs a realignment pass over the shell (top bar,
-   bezel tone, wordmark), Explore (tabs and table) and the builder's Set
-   Rules stage, updating tokens, the measured-contrast table and the
-   evidence screenshots in the same session.
+1. F10 built its new screens (execution timeline, activity, receipts) to
+   this language and realigned what the reference fixes globally: the
+   colour tokens (periwinkle accent `#8299FD`, eyes `#578FFE`, bezel
+   `#E6DCD1`, screen `#070909`, panels `#121416`) with the measured
+   contrast table in `docs/frontend/design-system.md`, the primary
+   sections (Explore, Build, Portfolio, Activity) with the eyes and
+   wordmark leading home, and the build-state chip showing the real
+   environment outside production. Still open for a shell pass: the
+   reference's single-row top-bar link layout in place of the rail and
+   bottom bar, the Explore Strategies tab table and the Set Rules right
+   rail exactly as drawn; those come with the sessions that own Explore
+   (F12) and the shell polish (F19).
 2. Every visual change keeps the documented rules: exact formatters, no
    fabricated data, honest unavailable states, the production guards, and
    WCAG 2.2 AA contrast measured in `packages/ui/test/tokens.test.ts`.

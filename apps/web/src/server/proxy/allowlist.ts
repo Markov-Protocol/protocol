@@ -17,6 +17,8 @@ export interface ProxyRoute {
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 /** A base58 Solana address (32 bytes): registry record addresses. */
 const BASE58 = '[1-9A-HJ-NP-Za-km-z]{32,44}';
+/** A transaction index within a plan (at most 32 batches). */
+const INDEX = '(?:[0-9]|[12][0-9]|3[01])';
 
 export const PROXY_ROUTES: readonly ProxyRoute[] = [
   // Public catalog reads (F05): admitted and paused instruments only; the API decides.
@@ -112,6 +114,23 @@ export const PROXY_ROUTES: readonly ProxyRoute[] = [
     pattern: new RegExp(`^/v1/me/intents/${UUID}/plans/${UUID}/acknowledgements$`),
   },
   { method: 'POST', pattern: new RegExp(`^/v1/me/intents/${UUID}/cancel$`) },
+  // Execution (F10): the API builds, validates and simulates each transaction of an approved plan;
+  // the browser hands the exact bytes to the wallet and submits the signed bytes once; status and
+  // reconciliation are read from chain evidence. Receipts (B12) are issued per intent and read by
+  // their owner, or publicly once the owner opted a receipt in (the API redacts it).
+  { method: 'POST', pattern: new RegExp(`^/v1/me/intents/${UUID}/transactions$`) },
+  {
+    method: 'POST',
+    pattern: new RegExp(`^/v1/me/intents/${UUID}/transactions/${INDEX}/submissions$`),
+  },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/intents/${UUID}/execution$`) },
+  { method: 'POST', pattern: new RegExp(`^/v1/me/intents/${UUID}/execution/reconciliations$`) },
+  { method: 'POST', pattern: new RegExp(`^/v1/me/intents/${UUID}/receipts$`) },
+  { method: 'GET', pattern: new RegExp(`^/v1/me/intents/${UUID}/receipts$`) },
+  { method: 'GET', pattern: /^\/v1\/me\/receipts$/ },
+  { method: 'POST', pattern: new RegExp(`^/v1/me/receipts/${UUID}/visibility$`) },
+  { method: 'GET', pattern: /^\/v1\/receipts\/keys$/, public: true },
+  { method: 'GET', pattern: new RegExp(`^/v1/receipts/${UUID}$`), public: true },
 ];
 
 const SEGMENT = /^[A-Za-z0-9_-]{1,64}$/;

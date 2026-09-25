@@ -7,15 +7,19 @@
  */
 
 export const colorTokens = {
-  frameCream: '#ECEBE6',
-  frameLight: '#F6F5F0',
-  screen: '#080B10',
-  surface: '#121820',
-  surfaceRaised: '#19212C',
+  /** Mark I bezel, sampled from the design reference (docs/frontend/design-reference). */
+  frameCream: '#E6DCD1',
+  frameLight: '#F3ECE4',
+  screen: '#070909',
+  surface: '#121416',
+  surfaceRaised: '#1A1D21',
   text: '#F3F1E9',
   textMuted: '#A8B2C1',
-  accent: '#89C9FF',
+  /** Periwinkle: primary buttons, links, the active tab and step, the slider fill. */
+  accent: '#8299FD',
   accentInk: '#09121D',
+  /** The pixel eyes keep their own blue; they are not an affordance. */
+  eyes: '#578FFE',
   success: '#80D8AE',
   attention: '#F0C77A',
   error: '#FF9C9C',
@@ -113,6 +117,12 @@ export const contrastRequirements: ReadonlyArray<{
     background: 'accent',
     minimum: 4.5,
     use: 'text on filled accent buttons',
+  },
+  {
+    foreground: 'eyes',
+    background: 'screen',
+    minimum: 3,
+    use: 'the pixel eyes against the screen (non-text)',
   },
   { foreground: 'accent', background: 'surface', minimum: 4.5, use: 'links and active labels' },
   { foreground: 'success', background: 'surface', minimum: 4.5, use: 'success status text' },

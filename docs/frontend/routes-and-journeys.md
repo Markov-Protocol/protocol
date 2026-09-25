@@ -16,13 +16,16 @@ the target; only the rows marked *implemented* exist.
 | `/research/[thesisId]` | Owner: the thesis editor (typed statements with citations, counterarguments, shortlist by canonical id with a catalog picker, research subjects with deterministic mapping, sources with fetched/refused/failed states and dates, bounded research runs with progress and cancel, private notes, publish with "what becomes public", archive, saved revisions, shortlist to basket draft). Anyone else: the published projection or "not found or private" | owner; published projection public | implemented (F06) |
 | `/strategies/new` | Static path, never a strategy id: start a basket draft on the server or resume one; `?strategyId=` (older links) opens the editor | authenticated | implemented (F06, F07) |
 | `/strategies/[strategyId]/edit` | The owner's basket builder on one draft identity: 01 Research (linked thesis, shortlist import), 02 Assemble (constituents by canonical id, exact basis-point weights with keyboard steps, explicit equal weights, cash remainder, notes), 03 Set Rules (title, thesis text, maintenance suggestion, references, the person's effective limits and approval preference read from the policy), 04 Activate (verified wallet and budget kept apart from the recipe, exact split estimates, availability and readiness, "Review investment" opening `/review/new` for the newest frozen version with the wallet and budget carried over, unavailable with its reason until a version is frozen); autosave with revision checks, Saving / Saved / Offline changes / Conflict states with compare and restore; archive and restore | owner | implemented (F07) |
-| `/portfolio`, `/activity`, `/rankings`, `/automations`, `/status` | navigation targets | public shell | honest unavailable pages naming the delivering session (F02); real features arrive with F10 onward |
+| `/portfolio`, `/rankings`, `/automations`, `/status` | navigation targets | public shell | honest unavailable pages naming the delivering session (F02); real features arrive with F11 onward |
+| `/activity` | The person's orders newest first with URL filters (`?filter=open|in-flight|attention|settled`, validated values only): kind, state, budget, wallet, last update; each row a stable deep link to the review (while the plan is reviewed) or the execution timeline | owner | implemented (F10) |
+| `/activity/[intentId]` | Restorable execution status and per-transaction timeline: state and its reason, the next real step (build, sign, waiting for the network, check with the network, review the unfilled legs, issue a receipt), the built transaction shown before the wallet opens (legs with max input and minimum output, network cost at most, signer, blockhash validity, simulation, decoded instructions, message hash), the signing preconditions checked in the browser and again by the API, the wallet handoff through `solana:signTransaction` with the returned bytes checked against the prepared message, cancel or cancellation request with the consequence spelled out, one stage list per transaction (built, signed, broadcast, confirmed, finalized, fills recorded) with the signature, explorer link, fills, the fee actually paid, the reconciliation evidence and the last check; receipts issued from here. Everything is server state: a reload, a second tab and a closed wallet popup come back to the same record. Another person's intent is "not found" | owner | implemented (F10) |
+| `/receipts/[receiptId]` | One signed receipt: what was requested, approved, submitted, filled, charged and reconciled with timestamps and version references; the signing key with its published status, the canonical hash, the JSON to verify offline with the CLI; the owner opts the receipt into or out of public reading. Public receipts are readable by anyone with the link, with the owner id omitted; private ones are "not found" to anyone else | owner; public once opted in | implemented (F10); export arrives with F11 |
 | `/strategies/[strategyId]` | Owner: the working draft's state, "Freeze as version N" (unavailable with its reason when the draft breaks a rule or the strategy is archived), every frozen version with its chain-derived registration state (Saved privately / Publishing / Registered on-chain / Failed / Expired / Status unknown), and what others see (registered versions, followers). Anyone else: the registered projection (title, registered versions with status marker, record address and date, follower count, fork attribution), Follow / Unfollow, Fork, "Review investment (version N)" into `/review/new` for the newest registered version | owner; registered projection public | implemented (F08, F09) |
 | `/strategies/[strategyId]/versions/[versionId]` | Owner: the immutable version (recipe with mints, thesis, rules, disclosures, hashes, lineage and the difference from the previous version), the registration panel (prepare with a verified wallet → what becomes public, what never does, permanence, cost → sign with the connected publisher wallet through `solana:signTransaction` → submit → state read from the chain, restored on reload), registration evidence with explorer links and verification once registered, deprecation and reactivation by the publisher wallet, fork. Anyone else: the registered projection with evidence, verification, canonical bytes, the indexed record, the public difference from the previous public version, Follow and Fork; both views offer "Review investment" for this exact version | owner; registered projection public | implemented (F08, F09) |
 | `/review/new` | Start a review: the target from the query (`?strategyId=&versionId=` for a basket investment in that exact version, owner's copy or public projection; `?instrumentId=` for a single buy of an admitted instrument), one of the person's verified wallets with its observed balances, an exact stablecoin budget (`?walletId=&budget=` prefilled from the builder), budget mode, a slippage limit defaulting to the platform's 0.50% capped by the person's policy limit (tighten only), eligibility; "Get quotes and review" creates the intent with a per-visit idempotency key and opens the review. Nothing is quoted, reserved or bought here | authenticated | implemented (F09) |
-| `/review/[intentId]` | The one review for basket investments and single buys: the plan the API built for the exact budget (input and allocation, constituents with max input, expected and minimum output, price impact, slippage limit and transaction, cash that stays, fees with basis and fee payer, signatures and transactions, atomic or staged semantics with batch order, policy evidence per leg, validity with countdown, funds observed, quote references, plan id and hash); approval bound to the plan hash with the staged acknowledgement when required; refusals as actions (add funds and check again, eligibility, another budget, try again); expired terms refreshed with a difference view before any approval; connected wallet, network and newer version differences called out; cancel; "Sign transaction 1 of N" unavailable until F10. Another person's intent is "not found" | owner | implemented (F09) |
+| `/review/[intentId]` | The one review for basket investments and single buys: the plan the API built for the exact budget (input and allocation, constituents with max input, expected and minimum output, price impact, slippage limit and transaction, cash that stays, fees with basis and fee payer, signatures and transactions, atomic or staged semantics with batch order, policy evidence per leg, validity with countdown, funds observed, quote references, plan id and hash); approval bound to the plan hash with the staged acknowledgement when required; refusals as actions (add funds and check again, eligibility, another budget, try again); expired terms refreshed with a difference view before any approval; connected wallet, network and newer version differences called out; cancel; after approval the F10 execution panel builds, checks and signs each transaction and hands off to the timeline. Another person's intent is "not found" | owner | implemented (F09) |
 | `/review` | The person's reviews, newest first, with state and budget | authenticated | implemented (F09) |
-| `/portfolio/[instanceId]`, `/activity/[intentId]`, `/receipts/[receiptId]`, other `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
+| `/portfolio/[instanceId]`, other `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
 
 ## Session journeys (F03)
 
@@ -318,15 +321,16 @@ Rules that already apply:
   back), the policy version, eligibility decision and per-constituent
   decisions with their expiry, the plan's validity with a live countdown,
   the funds observed, the quote references and the plan id and hash. The
-  page states what has not happened: no simulation yet, nothing reserved,
-  nothing signed. A preview amount is not a reserved fill.
+  page states what has not happened: nothing reserved, nothing signed (the
+  simulation row reads the plan-time simulation of a composed basket, and
+  every transaction is simulated again when it is built). A preview amount
+  is not a reserved fill.
 - **Approval bound to the hash.** "Approve plan" (or "Approve staged
   plan" after the acknowledgement) records the person's approval against
   the plan hash; the API refuses an approval whose hash is not the current
   plan (`PLAN_CHANGED`) or whose plan expired (`QUOTE_EXPIRED`). After
-  approval the next action reads "Sign transaction 1 of N" and is
-  unavailable with its reason until F10 wires the wallet; nothing says
-  "investment complete".
+  approval the execution panel (F10) takes over with "Build transaction 1
+  of N"; nothing says "investment complete".
 - **Changed terms.** A refreshed plan (by choice, or because the terms
   expired) never replaces the one on screen behind an enabled approval
   button: the page shows what changed (budget, spend, cash, SOL bound,
@@ -349,3 +353,84 @@ Rules that already apply:
 - **Cancel and list.** Cancelling is explicit (confirm) and final for the
   intent; `/review` lists the person's reviews with their state. Another
   person's intent is "not found".
+
+## Session journeys (F10)
+
+- **From approval to a signed submission.** Under the recorded approval
+  the execution panel asks the API to build the plan's next transaction
+  (decoded, validated against the plan and simulated before anyone sees
+  it) and shows exactly what the wallet will show: each leg's mint, the
+  most it may spend and the least it must receive, the network cost at
+  most (fee, priority, rent for the accounts it creates) and who pays it,
+  the signer, the blockhash and the last block it can land in, the
+  simulation result, the decoded instructions and the message hash. "Sign
+  transaction k of N" stays unavailable, with the reason, until every
+  check passes in the browser: the transaction belongs to this intent and
+  to the plan whose hash the person approved, the connected wallet account
+  is the plan's wallet and sits on the app's cluster, the wallet can sign
+  transactions, the plan has not expired, the unsigned bytes hash to the
+  message the API validated, and the simulation passed. The wallet
+  receives the exact prepared bytes through `solana:signTransaction`; what
+  comes back must be the same message with the fee-payer slot filled and
+  must hash to the same message, or nothing is sent. One click, one
+  wallet request, one submission; the API verifies the signature, the
+  message, the plan, the blockhash and the policy again before the one
+  broadcast.
+- **Wallet outcomes.** A declined signature keeps the built transaction
+  and sends nothing; a wallet that stays silent is called out after a
+  while with "Stop waiting", after which a late signature is discarded;
+  a wallet that returns different bytes, a wallet or account that changed
+  while the popup was open, and a connected account that is not the plan's
+  wallet all refuse without submitting. A session that changed mid-flow
+  submits nothing. No wallet outcome creates a new intent or a new
+  transaction on its own.
+- **Submission outcomes.** A refusal from the API (signature mismatch,
+  expired plan, expired blockhash, policy denial, an attempt already in
+  flight, a batch not ready) says what was and was not sent and leaves
+  the next real step (build again, review again, wait). An answer lost
+  after the bytes left the browser is treated as unknown: the panel
+  reconciles the existing attempt from chain evidence and never asks for
+  a second signature; a node that gave no answer leaves the intent
+  "Result unknown; reconciling" until the chain decides.
+- **The timeline.** After a submission the review hands off to
+  `/activity/[intentId]`, which survives reloads, wallet popups and other
+  tabs because it is the API's record: per transaction, the stages built
+  → signed → broadcast → confirmed → finalized → fills recorded, each
+  done, now, pending, failed, unknown or skipped with its evidence (the
+  node's confirmation and slot, resends of the same bytes, the landed
+  error, the expiry), the signature with an explorer link where the
+  cluster has one, the fills read from the landed transaction's balance
+  changes with their bounds, the network fee actually paid, and the
+  reconciliation evidence and last check. Status is read on a bounded
+  schedule while the network is being watched (2 s, then 5 s, 15 s in a
+  hidden tab, off when settled or when the person is the next actor); a
+  failed read shows the last state as stale and retries with backoff;
+  meaningful changes are announced to assistive technology, never every
+  poll. A signature is never a result; "Finalized" and the recorded fills
+  are.
+- **Recovery.** Cancel is offered before any signature (with what it
+  does: nothing sent, or "stop here" after earlier fills with what stays
+  in the wallet), a cancellation request after a broadcast (the signed
+  transaction can still land; the chain decides), and nothing once a
+  transaction landed. A partially completed basket shows the filled leg
+  and the stale or failed leg with its reason and offers "Review the
+  unfilled legs": a reviewed completion on the same review screen with the
+  budget equal to the unfilled targets, which the API refuses otherwise.
+  An expired transaction is built again; an expired plan goes back to the
+  review; a frozen intent (a fill outside its bounds, an unknown result)
+  waits for a person and retries nothing.
+- **Receipts.** Once every transaction finalized, "Issue a receipt" asks
+  the API for the execution receipt (idempotent per intent, kind and
+  state) and opens `/receipts/[receiptId]`: the signed record of what was
+  requested, approved, submitted, filled, charged and reconciled, the
+  signing key with its published status, the canonical hash and the JSON
+  to verify offline (`markov receipts verify`). The receipt is private
+  until the owner opts it into public reading, where the owner id is
+  omitted and the signed body stays intact. The page says what a receipt
+  is: an attestation to the record, with settlement resting on the chain
+  evidence it references, never a proof of ownership.
+- **Design reference.** The top bar now leads home through the eyes and
+  wordmark, the primary sections are Explore, Build, Portfolio and
+  Activity, a chip names the real environment outside production, and the
+  tokens follow the reference (periwinkle accent, blue eyes, cream bezel,
+  near-black screen) with the measured contrast table updated.

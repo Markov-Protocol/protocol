@@ -211,22 +211,24 @@ test.describe('unified investment and trade review', () => {
       timeout: 15_000,
     });
     await expect(page.getByTestId('intent-state')).toHaveText('Approved, awaiting your signature');
-    const sign = page.getByTestId('sign-cta');
-    await expect(sign).toHaveText('Sign transaction 1 of 2');
-    await expect(sign).toHaveAttribute('aria-disabled', 'true');
+    // The execution panel (F10) takes over: the next step is to build transaction 1 of 2; nothing is signed here.
+    const build = page.getByTestId('build-cta');
+    await expect(build).toHaveText('Build transaction 1 of 2');
+    await expect(build).not.toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByTestId('sign-cta')).toHaveCount(0);
     await page.screenshot({ path: `${evidenceDir}review-approved-${width}.png`, fullPage: true });
 
     // Reload: the same approved plan comes back from the API, nothing is rebuilt.
     await page.reload();
     await expect(page.getByTestId('approved')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('intent-state')).toHaveText('Approved, awaiting your signature');
-    await expect(page.getByTestId('sign-cta')).toHaveText('Sign transaction 1 of 2');
+    await expect(page.getByTestId('build-cta')).toHaveText('Build transaction 1 of 2');
 
-    // Fixture quotes live 30 seconds: the approved terms expire on screen, the signature stays
-    // unavailable and refreshing builds a new plan whose difference is shown before any approval.
+    // Fixture quotes live 30 seconds: the approved terms expire on screen, the execution step
+    // disappears and refreshing builds a new plan whose difference is shown before any approval.
     await expect(page.getByTestId('terms-expired')).toBeVisible({ timeout: 45_000 });
     await expect(page.getByTestId('valid-until')).toContainText('expired');
-    await expect(page.getByTestId('sign-cta')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByTestId('build-cta')).toHaveCount(0);
     await page.screenshot({ path: `${evidenceDir}review-expired-${width}.png`, fullPage: true });
     await page.getByTestId('refresh-terms').first().click();
     await expect(page.getByTestId('plan-difference')).toContainText('Valid until', {
@@ -298,7 +300,7 @@ test.describe('unified investment and trade review', () => {
     await expect(page.getByTestId('approve')).toHaveText('Approve plan');
     await page.getByTestId('approve').click();
     await expect(page.getByTestId('approved')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId('sign-cta')).toHaveText('Sign transaction 1 of 1');
+    await expect(page.getByTestId('build-cta')).toHaveText('Build transaction 1 of 1');
     await page.screenshot({ path: `${evidenceDir}review-single-${width}.png`, fullPage: true });
   });
 });

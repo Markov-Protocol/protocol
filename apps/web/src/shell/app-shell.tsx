@@ -5,6 +5,7 @@ import {
   MarkovShell,
   type NavigationItem,
   navigationItemClass,
+  PixelEyes,
   type RenderLink,
   TopBar,
   useShellMode,
@@ -40,20 +41,35 @@ import { SessionExpiredNotice } from '@/features/auth/session-expired-notice';
 import { WalletChip } from '@/features/wallets/wallet-chip';
 import { routeInfoFor } from './routes';
 
+/** The four sections of the design reference; the eyes and wordmark in the top bar lead home. */
 const primaryItems: readonly NavigationItem[] = [
-  { key: 'home', label: 'Home', href: '/', icon: House, match: 'exact' },
   { key: 'explore', label: 'Explore', href: '/explore', icon: Compass, match: 'prefix' },
   { key: 'build', label: 'Build', href: '/strategies/new', icon: Wrench, match: 'exact' },
   { key: 'portfolio', label: 'Portfolio', href: '/portfolio', icon: PieChart, match: 'prefix' },
+  { key: 'activity', label: 'Activity', href: '/activity', icon: Activity, match: 'prefix' },
 ];
 
 const moreItems = [
+  { href: '/', label: 'Home', icon: House },
   { href: '/research', label: 'Research', icon: BookOpen },
-  { href: '/activity', label: 'Activity', icon: Activity },
   { href: '/rankings', label: 'Rankings', icon: Trophy },
   { href: '/automations', label: 'Automations', icon: SlidersHorizontal },
   { href: '/settings', label: 'Settings', icon: Settings },
 ] as const;
+
+/** The build-state chip of the reference: the real environment, never a made-up label; nothing in production. */
+function environmentLabel(markovEnv: string): string | null {
+  switch (markovEnv) {
+    case 'local':
+      return 'Local build';
+    case 'test':
+      return 'Test build';
+    case 'staging':
+      return 'Staging';
+    default:
+      return null;
+  }
+}
 
 const renderLink: RenderLink = ({ href, className, children, ...rest }) => (
   <Link href={href} className={className} aria-current={rest['aria-current']}>
@@ -118,6 +134,37 @@ function ConnectionStatus() {
   );
 }
 
+function EnvironmentChip() {
+  const { platform } = useSession();
+  const label = platform.state === 'connected' ? environmentLabel(platform.markovEnv) : null;
+  if (label === null) {
+    return null;
+  }
+  return (
+    <StatusBadge tone="neutral" className="whitespace-nowrap" data-testid="environment-chip">
+      {label}
+    </StatusBadge>
+  );
+}
+
+/** Eyes and wordmark lead home, as in the reference; the page title follows on wide screens. */
+function HomeMark({ title }: { readonly title: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <Link
+        href="/"
+        className="flex items-center gap-2 text-supporting font-semibold text-text"
+        aria-label="Home"
+      >
+        <PixelEyes size="compact" />
+        <span className="hidden sm:inline">markov.pet</span>
+      </Link>
+      <span aria-hidden="true" className="hidden h-4 w-px bg-border/60 sm:block" />
+      <span className="truncate text-supporting text-text-muted">{title}</span>
+    </div>
+  );
+}
+
 /**
  * The app-owned composition of the Mark I shell. The connection status and
  * the account control come from the verified session; the wallet chip says
@@ -136,14 +183,10 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
       navigationTrailing={(variant) => <MoreMenu variant={variant} />}
       topBar={
         <TopBar
-          title={info.title}
-          presence={
-            mode === 'workspace' ? (
-              <CompanionPresence status="Markov is ready" size="compact" />
-            ) : null
-          }
+          title={<HomeMark title={info.title} />}
           status={
             <div className="flex flex-wrap items-center gap-2">
+              <EnvironmentChip />
               <WalletChip />
               <ConnectionStatus />
             </div>

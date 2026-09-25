@@ -261,7 +261,19 @@ B09 planning routes below through its own proxy: it creates the intent
 with a per-visit idempotency key, asks for a plan with an empty JSON
 object as the body (the proxy requires a JSON body on mutations; the
 route ignores it), reads the plan it points to, acknowledges by plan hash
-and cancels. Signing and submission arrive with B10/F10.
+and cancels.
+
+### Additions for the app (F10)
+
+None. The app's execution panel and activity pages consume the B10 to B12
+routes below as published: build (empty JSON body), submission of the
+owner-signed bytes, execution status read on a bounded polling schedule
+(there is no event stream), on-demand reconciliation, cancel, the
+continuation intent, receipts per intent and per owner, the public
+verification keys and the public receipt read (the proxy attaches the
+session, so the owner receives the complete receipt and anyone else only
+a receipt opted into public reading). The e2e API launcher enables
+execution writes and a throwaway receipt signing key for the fixture run.
 
 ## Endpoints (B09)
 

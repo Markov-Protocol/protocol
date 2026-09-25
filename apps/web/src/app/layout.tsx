@@ -1,3 +1,4 @@
+import { colorTokens } from '@markov/ui';
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import type { ReactNode } from 'react';
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#ECEBE6',
+  themeColor: colorTokens.frameCream,
   viewportFit: 'cover',
   width: 'device-width',
   initialScale: 1,

@@ -1,15 +1,16 @@
 /* GENERATED from packages/ui/src/tokens.ts by `pnpm tokens:build`. Do not edit by hand. */
 
 :root {
-  --markov-color-frame-cream: #ECEBE6;
-  --markov-color-frame-light: #F6F5F0;
-  --markov-color-screen: #080B10;
-  --markov-color-surface: #121820;
-  --markov-color-surface-raised: #19212C;
+  --markov-color-frame-cream: #E6DCD1;
+  --markov-color-frame-light: #F3ECE4;
+  --markov-color-screen: #070909;
+  --markov-color-surface: #121416;
+  --markov-color-surface-raised: #1A1D21;
   --markov-color-text: #F3F1E9;
   --markov-color-text-muted: #A8B2C1;
-  --markov-color-accent: #89C9FF;
+  --markov-color-accent: #8299FD;
   --markov-color-accent-ink: #09121D;
+  --markov-color-eyes: #578FFE;
   --markov-color-success: #80D8AE;
   --markov-color-attention: #F0C77A;
   --markov-color-error: #FF9C9C;
@@ -69,6 +70,7 @@
   --color-text-muted: var(--markov-color-text-muted);
   --color-accent: var(--markov-color-accent);
   --color-accent-ink: var(--markov-color-accent-ink);
+  --color-eyes: var(--markov-color-eyes);
   --color-success: var(--markov-color-success);
   --color-attention: var(--markov-color-attention);
   --color-error: var(--markov-color-error);

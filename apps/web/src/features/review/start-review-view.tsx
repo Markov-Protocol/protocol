@@ -210,6 +210,11 @@ export function StartReviewView() {
   const target = useMemo(() => targetOf(params), [params]);
   const prefillWallet = params.get('walletId');
   const prefillBudget = params.get('budget');
+  /** A reviewed completion (F10): the unfilled legs of a partially completed basket at their original targets. */
+  const continueIntentId = (() => {
+    const value = params.get('continueIntentId');
+    return value && UUID.test(value) ? value : null;
+  })();
   const wallets = useVerifiedWallets(true);
   const limits = useEffectiveLimits(true);
   const eligibility = useEligibility(true);
@@ -287,7 +292,7 @@ export function StartReviewView() {
       executionPreference: 'atomic_or_explicit_staged_review',
       approvalMode: 'owner_each_plan',
       slippageBps: slippageBps === null ? null : effectiveSlippage,
-      continuationOfIntentId: null,
+      continuationOfIntentId: continueIntentId,
       idempotencyKey: idempotencyKey.current,
     };
     create.mutate(request, {
@@ -309,6 +314,17 @@ export function StartReviewView() {
           Markov builds a bounded plan from real quotes for this exact budget and shows every term
           before anything is approved or signed. Nothing is reserved or bought on this page.
         </p>
+        {continueIntentId ? (
+          <Notice tone="info" title="Reviewed completion" data-testid="continuation-notice">
+            This review completes a partially completed basket: only the legs it left unfilled, at
+            their original targets, in the same wallet and version. The budget must equal their sum;
+            Markov refuses anything else. Nothing already filled is touched.{' '}
+            <Link href={`/activity/${continueIntentId}`} className="underline underline-offset-2">
+              See the earlier run
+            </Link>
+            .
+          </Notice>
+        ) : null}
       </header>
 
       <section className="space-y-2" aria-labelledby="target-heading">

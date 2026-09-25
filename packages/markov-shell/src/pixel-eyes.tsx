@@ -62,7 +62,7 @@ export function PixelEyes({ expression = 'ready', size = 'hero', className }: Pi
           ? 'text-text-muted'
           : expression === 'attention'
             ? 'text-attention'
-            : 'text-accent',
+            : 'text-eyes',
         className,
       )}
       data-expression={expression}
