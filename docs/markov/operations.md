@@ -525,9 +525,42 @@ served under the `/docs/` path prefix by any static host or by the docs
 origin. The app (`apps/web`) proxies `/docs` and `/docs/*` to that origin
 only when `MARKOV_DOCS_ORIGIN` is configured (a bare origin, https outside
 local and test); unset means `/docs` is not served by the app, never a
-fallback. Deploying the site to `markov.pet` is a deployment step outside
-this repository (DNS and hosting are out of scope; see OD-24) and is not
-performed by any session.
+fallback. DNS for `markov.pet` stays out of scope (OD-24); the hosting of
+both frontends on Vercel is described below.
+
+## Frontends on Vercel
+
+Two Vercel projects, both linked to this repository (monorepo, pnpm):
+
+| Project | Root directory | Settings source | Production output |
+| ------- | -------------- | --------------- | ----------------- |
+| `markov-web` | `apps/web` | `apps/web/vercel.json`: Next.js preset, install at the repository root with the pinned pnpm, `pnpm --filter @markov/web... run build` (builds the workspace packages the app imports, then `next build`) | the app at `https://markov-web.vercel.app`, later `markov.pet` |
+| `markov-docs` | `apps/docs` | `apps/docs/vercel.json`: no framework preset, install at the root, `pnpm run build` (the CLI reference needs `apps/cli/dist`) then `pnpm --filter @markov/docs run build:vercel`, output `out` (the site staged under `out/docs/`, clean URLs, `/` redirects to `/docs/`) | `https://markov-docs.vercel.app/docs/`, proxied by the app under `markov.pet/docs` |
+
+Prerequisites: the Vercel GitHub App installed for the `Markov-Protocol`
+organisation with access to `protocol` (linking answers `repo_no_access`
+otherwise), Node 22.x in both projects, and the environment variables
+below. Production deployments are created from the branch under review
+until `main` carries the code; every push to a linked branch also makes a
+preview deployment.
+
+Environment of `markov-web` (all targets unless noted):
+
+| Variable | Value | Why |
+| -------- | ----- | --- |
+| `MARKOV_ENV` | `staging` | The web guards refuse fixtures and require an https API origin; `production` additionally requires the public origin and is reserved for the release candidate |
+| `MARKOV_API_ORIGIN` | `https://api.markov.pet` (or wherever the API is hosted) | Server-only. Until the API is deployed the app reports the API as unreachable on every signed-in screen rather than showing fake data |
+| `NEXT_PUBLIC_APP_ORIGIN` | the project's production URL, later `https://markov.pet` | Absolute links, callback validation, the session cookie's `Secure` attribute |
+| `MARKOV_DOCS_ORIGIN` | `https://markov-docs.vercel.app` | Proxies `/docs` to the documentation site; unset means `/docs` is not served |
+| `MARKOV_WEB_INTERNAL_ROUTES`, `MARKOV_WEB_FIXTURES` | `false` | Never enabled outside local and test |
+
+`markov-docs` needs no variables. Neither project holds a secret: provider
+keys, RPC credentials, signing keys and the JWT secrets live with the API
+and the worker, which Vercel does not host (long-running processes,
+PostgreSQL and Temporal belong on a container platform or VMs, see
+Readiness below). After the API exists, point `MARKOV_API_ORIGIN` at it,
+add the app origin to the API's `API_ALLOWED_ORIGINS`, and redeploy the
+app; the identity provider's callback must list the app origin as well.
 
 Theme: the site reads `packages/ui/src/styles/tokens.css` at build time
 (`src/css/markov-tokens.generated.css`), uses the Inter files under

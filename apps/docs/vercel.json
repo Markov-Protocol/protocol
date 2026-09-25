@@ -1,5 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cd ../.. && npx -y pnpm@10.33.0 install --frozen-lockfile",
+  "buildCommand": "cd ../.. && npx -y pnpm@10.33.0 run build && npx -y pnpm@10.33.0 --filter @markov/docs run build:vercel",
+  "outputDirectory": "out",
   "cleanUrls": true,
   "redirects": [{ "source": "/", "destination": "/docs/", "permanent": false }]
 }
