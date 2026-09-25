@@ -27,6 +27,7 @@
     "@markov/accounting": "workspace:*",
     "@markov/agent-tools": "workspace:*",
     "@markov/maintenance": "workspace:*",
+    "@markov/model-xai": "workspace:*",
     "@markov/notifications": "workspace:*",
     "@markov/analytics": "workspace:*",
     "@markov/amounts": "workspace:*",

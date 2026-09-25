@@ -131,7 +131,9 @@ markov research thesis publish <thesisId> --visibility public --token <session> 
 `RESEARCH_MODEL_PROVIDER` is `disabled` by default: theses, sources and
 mapping work without a model, and runs answer 503. `fixture` is a
 deterministic adapter for local and test only (configuration refuses it
-elsewhere); no hosted provider exists yet (OD-19). Source retrieval goes
+elsewhere); `xai` (B17) is the chosen hosted provider, configured as
+described under Agents and companion below and unverified live from the
+build environment (OD-19, SR-XAI-01). Source retrieval goes
 out from the API process under the safe-retrieval policy
 (`docs/markov/research.md`): if the deployment sits behind an egress
 proxy, allow public https to the sources people cite; nothing needs
@@ -418,7 +420,20 @@ it reads, which is what the adversarial tests rely on. No hosted provider
 exists yet (OD-19); before one is configured, record its terms, retention
 and the exact data sent in `docs/markov/agent-permissions.md`.
 `COMPANION_DAILY_COST_LIMIT_MICROS` (default 5 000 000) caps an account's
-rolling daily spend; a refused run answers `BUDGET_EXHAUSTED`.
+rolling daily spend; a refused run answers `BUDGET_EXHAUSTED`. `xai` (B17)
+selects xAI Grok for either adapter through `@markov/model-xai`: set
+`XAI_API_KEY` (refused without a provider set to `xai`, required with one),
+`XAI_MODEL` (default `grok-4`), `XAI_BASE_URL` (https outside local/test),
+`XAI_TIMEOUT_MS` and the per-token prices in micros
+(`XAI_INPUT_MICROS_PER_TOKEN`, `XAI_OUTPUT_MICROS_PER_TOKEN`) that the
+cost budgets are measured in. The key is never logged; `markov config
+show` reports only that it is configured. A `401`/`403` from the provider
+fails the run with `unauthorized` (fix the key), `429` and `5xx` fail it as
+retryable (the person retries), and a reply that is not the JSON protocol
+fails a research run and becomes plain answer text in a companion run;
+nothing a model says can call an unlisted tool. No live call has been
+verified from the build environment (SR-XAI-01); record the first one in
+`docs/markov/provider-capabilities.md`.
 
 Operating: a run's `provenance.steps` lists every tool call the model
 asked for with its outcome; a burst of `refused` steps naming tools that

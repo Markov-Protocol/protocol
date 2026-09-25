@@ -44,6 +44,9 @@
       "path": "packages/notifications"
     },
     {
+      "path": "packages/model-xai"
+    },
+    {
       "path": "packages/strategy"
     },
     {

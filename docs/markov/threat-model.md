@@ -122,9 +122,10 @@ not claimed here.
   (OD-22).
 - The research retriever's `node:https` transport is exercised only through
   its in-memory stand-in (the policy, classification, pinning and caps are
-  tested; the socket path is not); no live page has been retrieved. No
-  hosted model provider is integrated (OD-19); the fixture adapter is
-  refused outside local/test.
+  tested; the socket path is not); no live page has been retrieved. The
+  xAI adapter (B17) is verified against an in-process stand-in only and
+  no live model call has been made (OD-19, SR-XAI-01); the fixture
+  adapter is refused outside local/test.
 - Registered versions are anchored on chain and verified on every public
   read; unregistered versions remain database rows that a database role
   could alter. The program was verified under `solana-program-test`, not

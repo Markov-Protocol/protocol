@@ -1,0 +1,28 @@
+{
+  "name": "@markov/model-xai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@markov/agent-tools": "workspace:*",
+    "@markov/contracts": "workspace:*",
+    "@markov/research": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {},
+  "description": "xAI (Grok) model adapters over the OpenAI-compatible chat completions API for research runs and companion steps: bearer authentication, timeouts, byte caps, redacted errors, strict JSON parsing and deterministic post-validation; no provider SDK"
+}

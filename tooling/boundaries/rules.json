@@ -61,6 +61,9 @@
     "@markov/notifications": {
       "allow": ["@markov/contracts"]
     },
+    "@markov/model-xai": {
+      "allow": ["@markov/contracts", "@markov/research", "@markov/agent-tools"]
+    },
     "@markov/strategy": {
       "allow": ["@markov/contracts"]
     },

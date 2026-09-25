@@ -56,6 +56,9 @@
       "path": "../../packages/maintenance"
     },
     {
+      "path": "../../packages/model-xai"
+    },
+    {
       "path": "../../packages/notifications"
     },
     {

@@ -88,9 +88,21 @@ export const rawEnvSchema = z.object({
   /** Stablecoin mint whose balance funding readiness observes; defaults to USDC on mainnet-beta only. */
   FUNDING_STABLECOIN_MINT: base58AddressSchema.optional(),
   /** Research model adapter (B06): `disabled` keeps research manual; `fixture` is allowed in local/test only. */
-  RESEARCH_MODEL_PROVIDER: z.enum(['disabled', 'fixture']).default('disabled'),
+  RESEARCH_MODEL_PROVIDER: z.enum(['disabled', 'fixture', 'xai']).default('disabled'),
   /** Companion model adapter (B15): `disabled` answers 503 on runs (tools still work); `fixture` is allowed in local/test only. */
-  COMPANION_MODEL_PROVIDER: z.enum(['disabled', 'fixture']).default('disabled'),
+  COMPANION_MODEL_PROVIDER: z.enum(['disabled', 'fixture', 'xai']).default('disabled'),
+  /**
+   * xAI (Grok) chat completions (B17): the API key, the base URL (https outside local/test), the
+   * model, the request timeout and the price the cost budgets are measured in (micros of a dollar
+   * per token; check the current price list). The key is required by, and only allowed with, a
+   * model provider set to `xai`.
+   */
+  XAI_API_KEY: z.string().min(20).max(4000).optional(),
+  XAI_BASE_URL: z.url().default('https://api.x.ai/v1'),
+  XAI_MODEL: z.string().min(1).max(100).default('grok-4'),
+  XAI_TIMEOUT_MS: intFromEnv(1000, 120_000).default(30_000),
+  XAI_INPUT_MICROS_PER_TOKEN: intFromEnv(0, 100_000).default(3),
+  XAI_OUTPUT_MICROS_PER_TOKEN: intFromEnv(0, 100_000).default(15),
   /** Companion runs an account may spend per rolling day, in cost micros; runs beyond it answer BUDGET_EXHAUSTED. */
   COMPANION_DAILY_COST_LIMIT_MICROS: intFromEnv(1000, 1_000_000_000).default(5_000_000),
   /**
@@ -231,13 +243,23 @@ export interface MarkovConfig {
   };
   readonly research: {
     /** Null when no model provider is configured; manual research works without one. */
-    readonly modelProvider: 'fixture' | null;
+    readonly modelProvider: 'fixture' | 'xai' | null;
   };
   readonly companion: {
     /** Null when no companion model provider is configured; the typed tools work without one. */
-    readonly modelProvider: 'fixture' | null;
+    readonly modelProvider: 'fixture' | 'xai' | null;
     /** Cost micros an account may spend on companion runs per rolling day. */
     readonly dailyCostLimitMicros: number;
+  };
+  readonly xai: {
+    /** Never logged or described; null unless a model provider is `xai`. */
+    readonly apiKey: string | null;
+    readonly baseUrl: string;
+    readonly model: string;
+    readonly timeoutMs: number;
+    /** Micros of a dollar per token, the unit of the companion cost budgets. */
+    readonly inputMicrosPerToken: number;
+    readonly outputMicrosPerToken: number;
   };
   readonly notifications: {
     /** Null when no email provider is configured; in-app notifications work without one. */

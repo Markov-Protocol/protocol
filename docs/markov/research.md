@@ -99,8 +99,10 @@ so a fixture URL can never turn into a real fetch.
 ## Runs and the model adapter
 
 `RESEARCH_MODEL_PROVIDER` selects the adapter: `disabled` (default; runs
-answer `PROVIDER_UNAVAILABLE`, everything else works) or `fixture`
-(deterministic, local/test only). The adapter contract
+answer `PROVIDER_UNAVAILABLE`, everything else works), `fixture`
+(deterministic, local/test only) or `xai` (xAI Grok over the chat
+completions API, B17, `@markov/model-xai`; the canonical prompt is sent
+verbatim and the reply is validated as one JSON object). The adapter contract
 (`ResearchModelAdapter`) receives a `ModelInput` and returns plain text
 and identifiers; it has no tools, no network of its own and no
 credentials. The companion adapter of B15 (`CompanionModelAdapter`) is a

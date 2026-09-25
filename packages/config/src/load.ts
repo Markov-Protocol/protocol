@@ -123,6 +123,14 @@ function structure(raw: RawEnv): MarkovConfig {
         raw.COMPANION_MODEL_PROVIDER === 'disabled' ? null : raw.COMPANION_MODEL_PROVIDER,
       dailyCostLimitMicros: raw.COMPANION_DAILY_COST_LIMIT_MICROS,
     },
+    xai: {
+      apiKey: raw.XAI_API_KEY ?? null,
+      baseUrl: raw.XAI_BASE_URL,
+      model: raw.XAI_MODEL,
+      timeoutMs: raw.XAI_TIMEOUT_MS,
+      inputMicrosPerToken: raw.XAI_INPUT_MICROS_PER_TOKEN,
+      outputMicrosPerToken: raw.XAI_OUTPUT_MICROS_PER_TOKEN,
+    },
     notifications: {
       emailProvider:
         raw.NOTIFICATIONS_EMAIL_PROVIDER === 'disabled' ? null : raw.NOTIFICATIONS_EMAIL_PROVIDER,
@@ -411,6 +419,26 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
       message: `the fixture companion model is not allowed when MARKOV_ENV=${env}`,
     });
   }
+  const usesXai =
+    config.research.modelProvider === 'xai' || config.companion.modelProvider === 'xai';
+  if (usesXai && config.xai.apiKey === null) {
+    issues.push({
+      path: 'XAI_API_KEY',
+      message: 'is required when RESEARCH_MODEL_PROVIDER or COMPANION_MODEL_PROVIDER is xai',
+    });
+  }
+  if (!usesXai && config.xai.apiKey !== null) {
+    issues.push({
+      path: 'XAI_API_KEY',
+      message: 'is set but no model provider is xai; remove it or set a provider to xai',
+    });
+  }
+  if (usesXai && !isDev && !config.xai.baseUrl.startsWith('https://')) {
+    issues.push({
+      path: 'XAI_BASE_URL',
+      message: `must use https when MARKOV_ENV=${env}`,
+    });
+  }
   if (config.notifications.emailProvider === 'fixture' && !isDev) {
     issues.push({
       path: 'NOTIFICATIONS_EMAIL_PROVIDER',
@@ -626,6 +654,14 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
     funding: config.funding,
     research: config.research,
     companion: config.companion,
+    xai: {
+      configured: config.xai.apiKey !== null,
+      baseUrl: redactUrl(config.xai.baseUrl),
+      model: config.xai.model,
+      timeoutMs: config.xai.timeoutMs,
+      inputMicrosPerToken: config.xai.inputMicrosPerToken,
+      outputMicrosPerToken: config.xai.outputMicrosPerToken,
+    },
     notifications: {
       emailProvider: config.notifications.emailProvider,
       emailUrl:

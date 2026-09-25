@@ -284,6 +284,59 @@ describe('identity and credential configuration', () => {
     expect(() => loadConfig({ ...base, COMPANION_DAILY_COST_LIMIT_MICROS: '1' })).toThrow();
   });
 
+  it('configures the xAI model provider fail-closed (B17)', () => {
+    expect(loadConfig(base).xai).toEqual({
+      apiKey: null,
+      baseUrl: 'https://api.x.ai/v1',
+      model: 'grok-4',
+      timeoutMs: 30_000,
+      inputMicrosPerToken: 3,
+      outputMicrosPerToken: 15,
+    });
+    const key = 'xai-test-key-0123456789abcdef';
+    const configured = loadConfig({
+      ...base,
+      RESEARCH_MODEL_PROVIDER: 'xai',
+      COMPANION_MODEL_PROVIDER: 'xai',
+      XAI_API_KEY: key,
+      XAI_MODEL: 'grok-3-mini',
+      XAI_INPUT_MICROS_PER_TOKEN: '1',
+    });
+    expect(configured.research.modelProvider).toBe('xai');
+    expect(configured.companion.modelProvider).toBe('xai');
+    expect(configured.xai).toMatchObject({
+      apiKey: key,
+      model: 'grok-3-mini',
+      inputMicrosPerToken: 1,
+    });
+    expect(JSON.stringify(describeConfig(configured))).not.toContain(key);
+    const missingKey = tryLoadConfig({ ...base, COMPANION_MODEL_PROVIDER: 'xai' });
+    expect(missingKey.ok).toBe(false);
+    if (!missingKey.ok) {
+      expect(missingKey.issues.map((issue) => issue.path)).toContain('XAI_API_KEY');
+    }
+    const strayKey = tryLoadConfig({ ...base, XAI_API_KEY: key });
+    expect(strayKey.ok).toBe(false);
+    if (!strayKey.ok) {
+      expect(strayKey.issues.map((issue) => issue.path)).toContain('XAI_API_KEY');
+    }
+    const insecure = tryLoadConfig({
+      ...base,
+      MARKOV_ENV: 'staging',
+      DATABASE_SSL: 'require',
+      SOLANA_RPC_SECONDARY_URL: 'https://rpc-b.example.invalid',
+      CREDENTIAL_PEPPER: 'p'.repeat(40),
+      RESEARCH_MODEL_PROVIDER: 'xai',
+      XAI_API_KEY: key,
+      XAI_BASE_URL: 'http://127.0.0.1:9',
+    });
+    expect(insecure.ok).toBe(false);
+    if (!insecure.ok) {
+      expect(insecure.issues.map((issue) => issue.path)).toContain('XAI_BASE_URL');
+    }
+    expect(() => loadConfig({ ...base, XAI_API_KEY: 'short' })).toThrow();
+  });
+
   it('configures notification email and the maintenance driver fail-closed (B16)', () => {
     expect(loadConfig(base).notifications).toEqual({
       emailProvider: null,

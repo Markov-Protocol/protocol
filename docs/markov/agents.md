@@ -98,9 +98,12 @@ question, in a source excerpt or in a tool output, one per step, then
 answers with a summary of what each call returned or why it was refused.
 That is what makes the adversarial tests meaningful: the fixture will ask
 for `policy.limits.update`, for another wallet, for an unattended approval
-and for a wider slippage, and the tool layer refuses each one. No hosted
-provider is integrated (OD-19); `disabled` keeps the tools working and
-answers 503 on runs.
+and for a wider slippage, and the tool layer refuses each one. The hosted
+provider is xAI Grok (`COMPANION_MODEL_PROVIDER=xai`, B17,
+`@markov/model-xai`): one JSON step per call, prose treated as the answer
+and never as a call, verified against an in-process stand-in only until a
+live run is recorded (OD-19, SR-XAI-01); `disabled` keeps the tools
+working and answers 503 on runs.
 
 ## Proposals
 
@@ -151,7 +154,7 @@ preferences (`docs/markov/maintenance.md`); B15 records the facts.
 
 | Variable | Default | Meaning |
 | -------- | ------- | ------- |
-| `COMPANION_MODEL_PROVIDER` | `disabled` | `fixture` (local and test only; refused elsewhere) or `disabled` (tools work, runs answer 503) |
+| `COMPANION_MODEL_PROVIDER` | `disabled` | `fixture` (local and test only; refused elsewhere), `xai` (B17; needs `XAI_API_KEY`, `XAI_MODEL`, per-token prices in micros) or `disabled` (tools work, runs answer 503) |
 | `COMPANION_DAILY_COST_LIMIT_MICROS` | `5000000` | Rolling 24 h cost cap per account, in millionths of the billing currency; the fixture charges one micro per token |
 
 ## Adversarial verification
@@ -191,9 +194,10 @@ CLI (`markov agent`, `markov companion`, `markov proposals`,
 
 ## What B15 does not do
 
-No hosted model provider (OD-19): the adapter contract and the fixture
-exist; the terms, retention and exact data sent to a provider must be
-recorded before one is configured. Notification delivery is B16's outbox
+No live model provider was exercised (OD-19): the adapter contract, the
+fixture and, since B17, the xAI adapter exist; the provider's terms and
+retention must be recorded and one live run verified before `xai` is
+configured outside local. Notification delivery is B16's outbox
 (in-app always, email to a verified address). No device gateway or firmware: paired devices
 read the same event log the app reads. No unattended execution of any
 kind: `approvalMode` is `owner_each_plan` in every proposal and the

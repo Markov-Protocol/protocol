@@ -69,6 +69,7 @@ packages/analytics  pure performance analytics: typed price resolution with fres
 packages/agent-tools pure agent tool rules: the typed tool catalog with its scope matrix, strict input validation, canonical digests and identifier-only provenance summaries, budget accounting, denial explanations, the bounded companion adapter contract and its deterministic fixture (B15)
 packages/maintenance pure maintenance rules: time-zone-aware cadences and occurrence generation, due occurrences under missed-run policies, drift decisions and leg sizing, the mandate envelope evaluator (B16)
 packages/notifications pure notification rules: event and schedule-outcome routing, channel selection from preferences, credential-free rendering, verification hashing, the email adapter contract with its recording fixture and the configured HTTP adapter, retry backoff (B16)
+packages/model-xai  xAI (Grok) adapters for the research and companion model contracts over the OpenAI-compatible chat completions API: bounded client with redacted errors and per-token pricing, strict JSON parsing, deterministic post-validation; no provider SDK (B17)
 programs/strategy-registry  Anchor program recording immutable version recipes, program-test suite and shared vectors (B08); programs/idl-build generates its IDL
 packages/api-client generated OpenAPI client with runtime contract validation, used by the app server (F03)
 packages/testkit    test-only helpers (never imported by production code)

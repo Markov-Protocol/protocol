@@ -83,6 +83,9 @@ importers:
       '@markov/maintenance':
         specifier: workspace:*
         version: link:../../packages/maintenance
+      '@markov/model-xai':
+        specifier: workspace:*
+        version: link:../../packages/model-xai
       '@markov/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
@@ -571,6 +574,21 @@ importers:
       react-dom:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
+
+  packages/model-xai:
+    dependencies:
+      '@markov/agent-tools':
+        specifier: workspace:*
+        version: link:../agent-tools
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@markov/research':
+        specifier: workspace:*
+        version: link:../research
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   packages/notifications:
     dependencies:

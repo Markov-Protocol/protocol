@@ -42,6 +42,7 @@ export default defineConfig({
             'packages/agent-tools/test/**/*.test.ts',
             'packages/maintenance/test/**/*.test.ts',
             'packages/notifications/test/**/*.test.ts',
+            'packages/model-xai/test/**/*.test.ts',
             'packages/strategy/test/**/*.test.ts',
             'packages/solana-rpc/test/**/*.test.ts',
             'packages/testkit/test/**/*.test.ts',

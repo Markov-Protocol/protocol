@@ -15,6 +15,11 @@ import {
   listCapabilityReadiness,
   readPlatformIdentity,
 } from '@markov/db';
+import {
+  createXaiClient,
+  createXaiCompanionAdapter,
+  createXaiResearchAdapter,
+} from '@markov/model-xai';
 import { createConfiguredEmailAdapter, createFixtureEmailAdapter } from '@markov/notifications';
 import { createLogger, type Logger } from '@markov/observability';
 import { createFixtureModelAdapter } from '@markov/research';
@@ -340,11 +345,42 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
         : 'execution venue configured',
     );
   }
+  // Hosted model provider (B17): one bounded xAI client shared by the research and companion adapters.
+  const xai =
+    config.xai.apiKey !== null &&
+    (config.research.modelProvider === 'xai' || config.companion.modelProvider === 'xai')
+      ? createXaiClient({
+          apiKey: config.xai.apiKey,
+          baseUrl: config.xai.baseUrl,
+          model: config.xai.model,
+          timeoutMs: config.xai.timeoutMs,
+          pricing: {
+            inputMicrosPerToken: config.xai.inputMicrosPerToken,
+            outputMicrosPerToken: config.xai.outputMicrosPerToken,
+          },
+          allowInsecure: nonproduction,
+        })
+      : null;
+  if (xai !== null) {
+    logger.info(
+      {
+        model: xai.model,
+        research: config.research.modelProvider,
+        companion: config.companion.modelProvider,
+      },
+      'xai model provider configured; no live call has been verified from this build until an operator records one',
+    );
+  }
   const researchService = createResearchService({
     config,
     db: dbClient.db,
     retriever: createRetriever({ fixtures: nonproduction }),
-    model: config.research.modelProvider === 'fixture' ? createFixtureModelAdapter() : null,
+    model:
+      config.research.modelProvider === 'fixture'
+        ? createFixtureModelAdapter()
+        : config.research.modelProvider === 'xai' && xai !== null
+          ? createXaiResearchAdapter(xai)
+          : null,
   });
   if (config.research.modelProvider === null) {
     logger.info('no research model provider is configured; research runs answer 503');
@@ -403,7 +439,12 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     funding: fundingService,
     accounting: accountingService,
     analytics: analyticsService,
-    model: config.companion.modelProvider === 'fixture' ? createFixtureCompanionAdapter() : null,
+    model:
+      config.companion.modelProvider === 'fixture'
+        ? createFixtureCompanionAdapter()
+        : config.companion.modelProvider === 'xai' && xai !== null
+          ? createXaiCompanionAdapter(xai)
+          : null,
   });
   // Notifications (B16): in-app always; email only through a configured adapter.
   const emailAdapter =
