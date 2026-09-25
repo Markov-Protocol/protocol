@@ -31,10 +31,13 @@ minimum.
   development issuer is marked *Nonproduction* in text; the expired-session
   notice and the unavailable-backend notice are polite live regions; the
   account menu trigger names the account; the verifying home reads as busy.
+- F10: execution status changes are announced through a polite live region
+  only on meaningful change, never on every poll (jsdom:
+  `apps/web/test/execution-model.test.ts`, `apps/web/test/execution.test.tsx`).
 
 ## Not yet verified
 
-Live-region strategy for execution status, screen-reader journeys through
-sign-in, allocation editing, review and wallet handoff, 200% text resize
-and 400% zoom on real screens, iOS keyboard behaviour. These arrive with
-the journeys that own them.
+Screen-reader verification of the execution live region, screen-reader
+journeys through sign-in, allocation editing, review and wallet handoff,
+200% text resize and 400% zoom on real screens, iOS keyboard behaviour.
+These arrive with the journeys that own them.

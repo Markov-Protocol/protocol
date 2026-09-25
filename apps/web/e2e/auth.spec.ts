@@ -97,9 +97,10 @@ test.describe('sessions and account recovery', () => {
     expect(cookie.sameSite).toBe('Lax');
     expect(cookie.domain).toBe('127.0.0.1');
     expect(cookie.value).toMatch(/^mkv_ss_/);
-    // The credential never appears in the URL or the page.
-    expect(page.url()).not.toContain('mkv_ss_');
-    expect(await page.content()).not.toContain('mkv_ss_');
+    // The credential never appears in the URL or the page. Boolean checks, so a
+    // failure message never echoes a credential into the retained evidence.
+    expect(page.url().includes('mkv_ss_'), 'credential in the URL').toBe(false);
+    expect((await page.content()).includes('mkv_ss_'), 'credential in the page').toBe(false);
 
     await page.reload();
     await expect(accountMenu(page, 'did:test:alice')).toBeVisible();
@@ -131,7 +132,10 @@ test.describe('sessions and account recovery', () => {
       headers: { cookie: `${COOKIE}=${cookie.value}` },
     });
     expect(await replayed.json()).toEqual({ state: 'signed-out' });
-    expect(replayed.headers()['set-cookie']).toContain('Max-Age=0');
+    expect(
+      (replayed.headers()['set-cookie'] ?? '').includes('Max-Age=0'),
+      'the replay clears the cookie',
+    ).toBe(true);
   });
 
   test('recovers from an expired session with the return path preserved', async ({

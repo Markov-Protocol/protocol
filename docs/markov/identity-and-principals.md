@@ -94,4 +94,4 @@ session through `DELETE /v1/auth/sessions/current`. Details:
 
 The hosted identity provider's browser adapter (OD-05). Terms and
 eligibility acknowledgements arrive with B05. Account disabling exists as a
-column but has no operator route yet (B18).
+column but has no operator route yet (planned with the operator controls of P18).

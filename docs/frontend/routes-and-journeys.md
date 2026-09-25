@@ -1,7 +1,12 @@
 # Routes and journeys
 
-Status after F01. The full route inventory of the frontend build prompt is
-the target; only the rows marked *implemented* exist.
+Status after F12. The full route inventory of the frontend build prompt is
+the target; only the rows marked *implemented* exist (they match the folders
+under `apps/web/src/app`, plus the `/docs` rewrite). Frontend sessions F13
+to F20 are not built; the production completion plan carries them (F13 as
+P14, F14 as P16, F16 as P17, F19 as P18, F20 as P19; F15, F17 and F18 as
+E01, E02 and E04). The app's own texts name the plan sessions (P13, P14,
+P16, P17, P18).
 
 | Route             | Purpose                                      | Access                      | Status |
 | ----------------- | -------------------------------------------- | --------------------------- | ------ |
@@ -11,14 +16,14 @@ the target; only the rows marked *implemented* exist.
 | `/api/auth/session`, `/api/auth/sign-in`, `/api/auth/sign-out` | Same-origin session routes (`Cache-Control: no-store`); mutations require a same-origin browser request with a JSON body | app server only | implemented (F03) |
 | `/dev/components` | Internal component reference inside the shell | internal; `MARKOV_WEB_INTERNAL_ROUTES=true`; refused in production | implemented |
 | `/explore` | Strategies tab first and by default (F12): registered, unwithheld strategies as the API lists them, one row per strategy with its newest public version (title, thesis excerpt, universe and issuer mix, assets and cash, the registering wallet linked to its creator page, follower count) and the model ranking entry for the chosen period (rank with return, drawdown and history, or "Unranked" with the methodology's reason and no number), search, issuer, period and sort filters, instrument and creator filters from links, stable cursor pages with a cap, a "Build your own" row, the reference rail, the source line with the read time; a Following section and a Following badge for the signed-in person, composed from their private list. Stocks tab (`tab=instruments`) over admitted and paused instruments (search, category, issuer collections, bounded pagination, watchlist toggles), Watchlist tab (account-scoped); filter and tab state in the URL (`q`, `issuer`, `kind`, `instrumentId`, `creator`, `period`, `sort`, `tab`, validated values only) | public; following and watchlist authenticated | implemented (F05, F12) |
-| `/markets/[instrumentId]` | Exact-id instrument page: Overview (with rights and evidence, "Add to a new basket draft"), Research (the person's theses mentioning the instrument, start a thesis with it shortlisted, evidence rules), Liquidity (route observations, every field "Not observed" until B17; a buy is reviewed through the review, which shows the venue's quote and route), Instrument tabs; save control; public availability refined by the person's capability states when signed in, "Review a buy" into `/review/new` when the person can quote the instrument, selling unavailable until F10 | public where the instrument is admitted or paused; personal states, theses and drafts authenticated | implemented (F05, F06, F09) |
+| `/markets/[instrumentId]` | Exact-id instrument page: Overview (with rights and evidence, "Add to a new basket draft"), Research (the person's theses mentioning the instrument, start a thesis with it shortlisted, evidence rules), Liquidity (route observations, every field "Not observed"; the tab says Markov does not observe pools yet, a scope planned as E04; a buy is reviewed through the review, which shows the venue's quote and route), Instrument tabs; save control; public availability refined by the person's capability states when signed in, "Review a buy" into `/review/new` when the person can quote the instrument; selling unavailable (single sells are not started from the app; the review and the timeline read `single_sell` intents created through the CLI; the Sell row's reason reads "selling is not offered in the app yet") | public where the instrument is admitted or paused; personal states, theses and drafts authenticated | implemented (F05, F06, F09) |
 | `/research` | Research workspace: the person's theses (visibility, status, revision, instrument count) and a form that starts a private thesis | authenticated | implemented (F06) |
 | `/research/[thesisId]` | Owner: the thesis editor (typed statements with citations, counterarguments, shortlist by canonical id with a catalog picker, research subjects with deterministic mapping, sources with fetched/refused/failed states and dates, bounded research runs with progress and cancel, private notes, publish with "what becomes public", archive, saved revisions, shortlist to basket draft). Anyone else: the published projection or "not found or private" | owner; published projection public | implemented (F06) |
 | `/strategies/new` | Static path, never a strategy id: start a basket draft on the server or resume one; `?strategyId=` (older links) opens the editor | authenticated | implemented (F06, F07) |
 | `/strategies/[strategyId]/edit` | The owner's basket builder on one draft identity: 01 Research (linked thesis, shortlist import), 02 Assemble (constituents by canonical id, exact basis-point weights with keyboard steps, explicit equal weights, cash remainder, notes), 03 Set Rules (title, thesis text, maintenance suggestion, references, the person's effective limits and approval preference read from the policy), 04 Activate (verified wallet and budget kept apart from the recipe, exact split estimates, availability and readiness, "Review investment" opening `/review/new` for the newest frozen version with the wallet and budget carried over, unavailable with its reason until a version is frozen); autosave with revision checks, Saving / Saved / Offline changes / Conflict states with compare and restore; archive and restore | owner | implemented (F07) |
 | `/rankings` | One model cohort at a time (`?period=30d|90d|365d`): every entry the API lists with rank, time-weighted return, drawdown, history days and points valued, or "Unranked" with the reason; the methodology panel beside it (cohort, currency, what a rank needs, costs excluded by the model, pricing) and the API's note with the read time; nothing here is anyone's account | public | implemented (F12) |
 | `/creators/[publisherWallet]` | A creator as the chain knows it: the wallet (copy, explorer link), listed strategies, registered versions signed, followers across them, first and latest registration, the strategy rows as the explorer lists them, the API's note; "No listed strategy was registered by this wallet" otherwise | public | implemented (F12) |
-| `/automations`, `/status` | navigation targets | public shell | honest unavailable pages naming the delivering session (F02); real features arrive with F13 onward |
+| `/automations`, `/status` | `/automations` is in the More menu; `/status` is not linked from navigation | public shell | honest unavailable pages (F02) that say the area is not built yet and name the plan session: automations P14 (its backend, B16, exists), status P18 (B18 was replaced by the production completion plan) |
 | `/activity` | The person's orders newest first with URL filters (`?filter=open|in-flight|attention|settled`, validated values only): kind, state, budget, wallet, last update; each row a stable deep link to the review (while the plan is reviewed) or the execution timeline | owner | implemented (F10) |
 | `/activity/[intentId]` | Restorable execution status and per-transaction timeline: state and its reason, the next real step (build, sign, waiting for the network, check with the network, review the unfilled legs, issue a receipt), the built transaction shown before the wallet opens (legs with max input and minimum output, network cost at most, signer, blockhash validity, simulation, decoded instructions, message hash), the signing preconditions checked in the browser and again by the API, the wallet handoff through `solana:signTransaction` with the returned bytes checked against the prepared message, cancel or cancellation request with the consequence spelled out, one stage list per transaction (built, signed, broadcast, confirmed, finalized, fills recorded) with the signature, explorer link, fills, the fee actually paid, the reconciliation evidence and the last check; receipts issued from here. Everything is server state: a reload, a second tab and a closed wallet popup come back to the same record. Another person's intent is "not found" | owner | implemented (F10) |
 | `/receipts/[receiptId]` | One signed receipt: what was requested, approved, submitted, filled, charged and reconciled with timestamps and version references; the signing key with its published status, the canonical hash, the JSON to verify offline with the CLI; the owner opts the receipt into or out of public reading. Public receipts are readable by anyone with the link, with the owner id omitted; private ones are "not found" to anyone else | owner; public once opted in | implemented (F10); export and the requested-against-filled explanation added in F11 |
@@ -30,6 +35,11 @@ the target; only the rows marked *implemented* exist.
 | `/portfolio` | One verified wallet at a time (`?walletId=`, `?period=`): the journal's holdings against the last chain observation (quantity with the multiplier the API reports, the API's valuation with its price kind, source and age, chain against record with the difference, matched, stale, unobserved, needs-reconciliation or unexplained status, attribution to instances or the wallet), the reconciliation checkpoint (slot, commitment, age) with "Reconcile with the chain now", the valued total or "Incomplete" with the unpriced assets named, the external flows the owner still has to explain (deposit, withdrawal, a transfer they made, other, with a note; recorded at wallet level, never to a strategy), the strategy instances in the wallet, the wallet's performance over a period labelled personal · methodology · currency with every unknown stated with its reason, an accessible chart summary and the exact figures behind the latest point, the complete record as a JSON download, and the history (journal entries newest first with their wallet-side movements, attribution, explanation and lines) | owner | implemented (F11) |
 | `/portfolio/[instanceId]` | One tracked implementation of a pinned version: title and version with a link to the recipe, the wallet, and when the creator registered a newer version the proposal panel (F12): the exact difference against the pinned version (legs added, removed and changed, cash, one-sided turnover), a link to the new version's evidence, "Accept version N" that moves the pin and nothing else, or keep the current version; a proposed version that is no longer public cannot be accepted; target against actual allocation (the recipe's weight, the weight among invested legs since the cash share stays in the wallet, the attributed quantity, the value, the actual share and the drift in basis points, "Not reported" with the reasons while any leg is unpriced, legs not held and holdings outside the recipe named as such); lots in FIFO order with cost and fees, the cost basis (bookkeeping) or "Unknown", the reconciliation status, holdings as a JSON download; personal (actual) next to the version's model (buy and hold) series over the same period with the same labels, chart summaries and exact figures, each with its complete record as a download; the instance's own history. Another person's instance is "not found" | owner | implemented (F11) |
 | `/receipts/[receiptId]` (F11 additions) | Requested against filled per approved leg (max in, min out, filled in, filled out, within bounds or not filled), the fees actually paid against the approved cap with the chain evidence (signatures, finality, slots), a JSON download, a link to the portfolio for the owner | owner; public once opted in | implemented (F11) |
+| `/settings` | Settings index: the readiness summary, links to Wallets and to Eligibility and terms, and the areas not built yet with the plan session that builds each (P17 for profile, sessions, devices and agent credentials; P13 and P17 for notifications and balance privacy) | authenticated | implemented (F04) |
+| `/settings/wallets` | Wallet Standard discovery, explicit selection, network check, ownership verification through the challenge, unlink, receive and funding status | authenticated | implemented (F04) |
+| `/settings/eligibility` | Latest decision, declaration, terms acknowledged by content hash, remaining steps | authenticated | implemented (F04) |
+| `/api/markov/[...path]` | App-owned proxy: an exact allowlist of API operations (anything else answers 404 before a credential is attached), the session attached as the bearer on the server, mutations only from this origin with small JSON bodies, `no-store` responses with the API's JSON body and status passed through | app server only; public reads without a session, everything else signed in | implemented (F04, extended through F12) |
+| `/docs`, `/docs/*` | The documentation site (`apps/docs`), served by its own origin and proxied here only when `MARKOV_DOCS_ORIGIN` is set (a rewrite in `next.config.ts`); unset, `/docs` is not served | public | implemented (D01) |
 | other `/settings/*`, `/ops/*` | product routes | per the build prompt | not started |
 
 ## Session journeys (F03)
@@ -89,9 +99,11 @@ the target; only the rows marked *implemented* exist.
   (declare, await review, acknowledge terms by content hash, verify a
   wallet) and never suggests changing the declared jurisdiction to get
   around a denial.
-- **Home checklist.** Lists only what the account still needs (wallet,
-  eligibility and terms, funding once a wallet is verified, strategy later),
-  from live readiness rather than a static list.
+- **Home checklist.** Lists what the account still needs (wallet,
+  eligibility and terms, funding once a wallet is verified) from live
+  readiness rather than a static list, plus a link to the basket builder
+  marked "Anytime": the checklist does not track strategies, so it never
+  claims one is outstanding.
 
 Rules that already apply:
 
@@ -99,8 +111,9 @@ Rules that already apply:
   id; `/strategies/new` exists as a static route before any
   `/strategies/[strategyId]` folder is added.
 - Shell mode is derived from the path (`/` companion, everything else
-  workspace); the More menu holds Activity, Rankings, Automations, Settings
-  and the focus preference. `/settings`, `/settings/wallets` and
+  workspace); the primary sections are Explore, Build, Portfolio and
+  Activity (F10), and the More menu holds Home, Research, Rankings,
+  Automations, Settings and the focus preference. `/settings`, `/settings/wallets` and
   `/settings/eligibility` are delivered; other settings areas say when they
   arrive.
 - Private pages are excluded from indexing and shared caching; `noindex` is
@@ -439,3 +452,35 @@ Rules that already apply:
   Activity, a chip names the real environment outside production, and the
   tokens follow the reference (periwinkle accent, blue eyes, cream bezel,
   near-black screen) with the measured contrast table updated.
+
+## Session journeys (F11)
+
+- **Portfolio.** `/portfolio?walletId=&period=` shows one verified wallet:
+  the journal's holdings against the last chain observation with the
+  API's valuations, "Reconcile with the chain now", the external flows the
+  owner explains at wallet level, the strategy instances, the wallet's
+  personal performance with methodology labels and a JSON download. An
+  unpriced asset makes the total "Incomplete" with the asset named.
+- **Instance.** `/portfolio/[instanceId]` shows target against actual
+  allocation with drift among the invested legs, FIFO lots with cost and
+  fees, personal next to model performance over the same period, and the
+  instance's history; another person's instance is "not found".
+- **Receipt explanation.** `/receipts/[receiptId]` adds requested against
+  filled per leg, the fees paid against the approved cap and a JSON
+  download.
+
+## Session journeys (F12)
+
+- **Discover.** `/explore` opens on Strategies: registered recipes with the
+  creator wallet, follower count and the model ranking entry, or
+  "Unranked" with the methodology's reason and no number; filters and
+  pages live in the URL.
+- **Rankings and creators.** `/rankings?period=` shows one model cohort
+  beside the methodology; `/creators/[publisherWallet]` lists what that
+  wallet registered.
+- **Follow and accept.** Following adds the strategy to the person's
+  private follows list and buys nothing. When a creator registers a newer
+  version, the instance page shows the exact difference against the pinned
+  version and moves the pin only on "Accept version N"; accepting moves
+  the pin and nothing else, and a rebalance would be a separate reviewed
+  plan.

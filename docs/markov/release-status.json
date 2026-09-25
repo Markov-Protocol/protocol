@@ -1,0 +1,1173 @@
+{
+  "$comment": "Reviewed, descriptive record of the candidate. Checked by `node tooling/release/status.mjs --check` (ADR-0010). Never read by runtime code.",
+  "schemaVersion": 1,
+  "kind": "markov-release-status",
+  "notice": "Describes the state of the candidate and links its evidence. It grants no capability and authorizes nothing: configuration, capability readiness rows and the release gates decide what may run.",
+  "grantsCapabilities": false,
+  "asOf": "2026-09-25",
+  "review": {
+    "state": "unreviewed",
+    "reviewer": null,
+    "reviewedAt": null,
+    "note": "Prepared in session P01 from the code, tests and session logs; awaiting review by the repository owner."
+  },
+  "repository": "Markov-Protocol/protocol",
+  "branch": "claude/affectionate-gauss-2ml7ll",
+  "historyRewrite": {
+    "date": "2026-09-25",
+    "reason": "Every commit ahead of main was rewritten to the repository owner's author identity at the owner's request.",
+    "previousHead": "68a8aae0d52a6fb0f8c97462b41afd82d3fdf399",
+    "rewrittenHead": "e9f0aa1feadb5f10b5db51f10ee6c4b570f50631",
+    "note": "Trees are identical; each rewritten commit lists its preRewriteSha. Only commits ahead of main were rewritten (main's 09c7ce6 is unchanged); documents written before the rewrite cited three branch hashes that are now pre-rewrite: 7840da2 (now 9b6bde3), b0cf20f (now 635015e) and 68a8aae (now e9f0aa1)."
+  },
+  "sessions": [
+    {
+      "id": "B01",
+      "title": "Foundation: configuration, database identity binding, API, worker, CLI, tooling",
+      "status": "complete",
+      "log": "docs/sessions/B01.md",
+      "commits": [
+        {
+          "sha": "ebb91ad48402e39d090fda2448aaf58f50d7d358",
+          "subject": "feat(platform): bootstrap stock strategy backend",
+          "preRewriteSha": "6949929a5b1b0760c2cd403016dacc34ee688083"
+        }
+      ]
+    },
+    {
+      "id": "F01",
+      "title": "Shared design system and exact formatters",
+      "status": "complete",
+      "log": "docs/sessions/F01.md",
+      "commits": [
+        {
+          "sha": "6405007321e931938b755fedb32bac6c5ef8b458",
+          "subject": "feat(ui): establish the shared Markov design system",
+          "preRewriteSha": "8ac0afa1fe2a57806885e8f405d7504757632cb1"
+        }
+      ]
+    },
+    {
+      "id": "F02",
+      "title": "Full-screen Mark I shell",
+      "status": "complete",
+      "log": "docs/sessions/F02.md",
+      "commits": [
+        {
+          "sha": "16407890a574268ae51c9b470a7b53bb8d14842e",
+          "subject": "feat(shell): add the full-screen Mark I workspace",
+          "preRewriteSha": "61e4bdd661e928666c10233858bfb8e4e240c8ad"
+        }
+      ]
+    },
+    {
+      "id": "B02",
+      "title": "Identity and scoped principals",
+      "status": "complete",
+      "log": "docs/sessions/B02.md",
+      "commits": [
+        {
+          "sha": "30f575cc333cc5adc494272da5909b1cc1002b27",
+          "subject": "feat(auth): add verified accounts and scoped principals",
+          "preRewriteSha": "f9ef53ff1ac93ed7ff5ad2552a5afed3b16a6ab9"
+        }
+      ]
+    },
+    {
+      "id": "F03",
+      "title": "App sessions and account recovery",
+      "status": "complete",
+      "log": "docs/sessions/F03.md",
+      "commits": [
+        {
+          "sha": "8fe4babe16116485ebe9b7819c1dc651f2cb383a",
+          "subject": "feat(auth): unify app sessions and account recovery",
+          "preRewriteSha": "6858a8141e6905a24f6d5faa1f40914abd1333c5"
+        }
+      ]
+    },
+    {
+      "id": "B03",
+      "title": "PreStocks catalog ingestion against fixtures",
+      "status": "complete",
+      "log": "docs/sessions/B03.md",
+      "commits": [
+        {
+          "sha": "47196d8c6c73dbe17e39edcfc6a3edd29fa7df9c",
+          "subject": "feat(catalog): add verified PreStocks instrument ingestion",
+          "preRewriteSha": "416b39fd170913812d5065d330e5c3f1853495f6"
+        }
+      ]
+    },
+    {
+      "id": "B04",
+      "title": "xStocks quantities and lifecycle events against fixtures",
+      "status": "complete",
+      "log": "docs/sessions/B04.md",
+      "commits": [
+        {
+          "sha": "e1bd31a462f74141d8280cbef40e3bb1d40b5eac",
+          "subject": "feat(stocks): support xStocks quantities and lifecycle events",
+          "preRewriteSha": "0cddfdbb5990c73c35ec17087d52dcc5a697c8b6"
+        }
+      ]
+    },
+    {
+      "id": "B05",
+      "title": "Eligibility, terms, limits and policy decisions",
+      "status": "complete",
+      "log": "docs/sessions/B05.md",
+      "commits": [
+        {
+          "sha": "2e12113d855e7fcef74076aee861e67f3a0e2608",
+          "subject": "feat(policy): enforce stock eligibility and execution limits",
+          "preRewriteSha": "4fd49db6b0d0a0b53d2c6d9956aa46c6e80d5de5"
+        }
+      ]
+    },
+    {
+      "id": "F04",
+      "title": "Wallet linking and trading readiness",
+      "status": "complete",
+      "log": "docs/sessions/F04.md",
+      "commits": [
+        {
+          "sha": "53f961cbf50cec0bc0445429496a20f31ff53a3f",
+          "subject": "feat(wallets): add verified wallet and trading readiness flows",
+          "preRewriteSha": "91266b4e39bc03d89b2fc58b70132496aebf34f3"
+        }
+      ]
+    },
+    {
+      "id": "B06",
+      "title": "Sourced research theses and bounded model runs",
+      "status": "complete",
+      "log": "docs/sessions/B06.md",
+      "commits": [
+        {
+          "sha": "c7b978277632b6b90dbc74f228380e58987cb3e7",
+          "subject": "feat(research): add sourced investment theses",
+          "preRewriteSha": "f6f3d061d6383170716da45f3dcc2a4bdad7fd99"
+        }
+      ]
+    },
+    {
+      "id": "F05",
+      "title": "Issuer-aware discovery and watchlists",
+      "status": "complete",
+      "log": "docs/sessions/F05.md",
+      "commits": [
+        {
+          "sha": "c5906e6d6d852ea037db8870a30cf1300d5090c8",
+          "subject": "feat(markets): add issuer-aware stock discovery and watchlists",
+          "preRewriteSha": "619319609918bc52c645cafe505abe7a90929a2a"
+        }
+      ]
+    },
+    {
+      "id": "B07",
+      "title": "Immutable strategy versions and pins",
+      "status": "complete",
+      "log": "docs/sessions/B07.md",
+      "commits": [
+        {
+          "sha": "d35351c9f15cbdbda4ff95b1704393b11231a31d",
+          "subject": "feat(strategies): add immutable stock basket versions",
+          "preRewriteSha": "ff791f740fe98c8595d25e2991e7098a903924bb"
+        }
+      ]
+    },
+    {
+      "id": "F06",
+      "title": "Research workspace connected to strategies",
+      "status": "complete",
+      "log": "docs/sessions/F06.md",
+      "commits": [
+        {
+          "sha": "2ed2a5d606a22509faaf971341782dbd1d1e5202",
+          "subject": "feat(research): connect instrument evidence and strategy theses",
+          "preRewriteSha": "a46900ce98e433098be81d7f5f57cbbe1f2c5754"
+        }
+      ]
+    },
+    {
+      "id": "F07",
+      "title": "Stock basket builder",
+      "status": "complete",
+      "log": "docs/sessions/F07.md",
+      "commits": [
+        {
+          "sha": "b3140c419b76b05a50de95668a927e4132300cd9",
+          "subject": "feat(strategies): add the complete stock basket builder",
+          "preRewriteSha": "158d2bd26d90a929dc26c1f060fcc0f450a5f4dd"
+        }
+      ]
+    },
+    {
+      "id": "B08",
+      "title": "Strategy registry program and publication against the fixture ledger",
+      "status": "complete",
+      "log": "docs/sessions/B08.md",
+      "commits": [
+        {
+          "sha": "398352205c0ad85a83dc84a7164982862ecc5a42",
+          "subject": "feat(registry): register verifiable strategy recipes on chain",
+          "preRewriteSha": "88828295b1b7e62949339560bb5b94ab97ad50b7"
+        }
+      ]
+    },
+    {
+      "id": "F08",
+      "title": "Publishing and version history",
+      "status": "complete",
+      "log": "docs/sessions/F08.md",
+      "commits": [
+        {
+          "sha": "c5615ff8eb02ab1225adcab5d5b0d03801803030",
+          "subject": "feat(publishing): add strategy registration and version history",
+          "preRewriteSha": "07166f52f746e1c9440536d02fe61ea5d8cc1d60"
+        }
+      ]
+    },
+    {
+      "id": "B09",
+      "title": "Bounded execution plans",
+      "status": "complete",
+      "log": "docs/sessions/B09.md",
+      "commits": [
+        {
+          "sha": "090c0b7b733d012a17312d144735da29be6556e5",
+          "subject": "feat(planning): build bounded stock execution plans",
+          "preRewriteSha": "34e39f1d964c68ebe0d0bf9aac34b88e4263570c"
+        }
+      ]
+    },
+    {
+      "id": "F09",
+      "title": "Unified review screens",
+      "status": "complete",
+      "log": "docs/sessions/F09.md",
+      "commits": [
+        {
+          "sha": "67324404c8bf6c60fa21d9806ff29a116e333745",
+          "subject": "feat(review): unify stock and basket approval screens",
+          "preRewriteSha": "1e132a16a7aad85fd5cd77708e39b426b8aa8099"
+        }
+      ]
+    },
+    {
+      "id": "B10",
+      "title": "Validated single-stock execution lifecycle against the fixture chain",
+      "status": "complete",
+      "log": "docs/sessions/B10.md",
+      "commits": [
+        {
+          "sha": "5cf11f71be3e361efd4288460f4d06acb4588d75",
+          "subject": "feat(execution): add validated stock swap lifecycle",
+          "preRewriteSha": "da3e1cc9a4c79e1241a8e1dcc417a641e7ebd949"
+        }
+      ]
+    },
+    {
+      "id": "B11",
+      "title": "Multi-leg basket execution and recovery against the fixture chain",
+      "status": "complete",
+      "log": "docs/sessions/B11.md",
+      "commits": [
+        {
+          "sha": "62beb079a7e4fb1420df2d2ad33480b676a3d05c",
+          "subject": "feat(baskets): execute and recover multi-leg stock plans",
+          "preRewriteSha": "50ca377f01017e7724f4c7322f0c3a743778cba0"
+        }
+      ]
+    },
+    {
+      "id": "B12",
+      "title": "Journal, reconciliation and signed receipts",
+      "status": "complete",
+      "log": "docs/sessions/B12.md",
+      "commits": [
+        {
+          "sha": "6a323a6d48800d128da766bf1229c4e072033b34",
+          "subject": "feat(accounting): reconcile holdings and issue verifiable receipts",
+          "preRewriteSha": "420c7c824598de14a4f4c82bda133208f3042408"
+        }
+      ]
+    },
+    {
+      "id": "F10",
+      "title": "Wallet approval and recoverable trade tracking",
+      "status": "complete",
+      "log": "docs/sessions/F10.md",
+      "commits": [
+        {
+          "sha": "09ae0daf977ba6f23d6b2f34be9c5b13f9dd5a69",
+          "subject": "docs(frontend): add reference screens for the app design",
+          "preRewriteSha": "c8e57e495becedabcb00d6d770699d118ff02a86"
+        },
+        {
+          "sha": "55b10d3709c6fa6f2af73bf8c2ef5e6cd7077320",
+          "subject": "feat(execution): add wallet approval and recoverable trade tracking",
+          "preRewriteSha": "116bf40bf5549801638544e598a3ef9c79524749"
+        }
+      ]
+    },
+    {
+      "id": "B13",
+      "title": "Auditable performance analytics",
+      "status": "complete",
+      "log": "docs/sessions/B13.md",
+      "commits": [
+        {
+          "sha": "2a654fdfa72dfb296e9dec66acdf381726c1755e",
+          "subject": "feat(analytics): add auditable strategy performance",
+          "preRewriteSha": "c8354d79170b9e7c79a02db5c3f37e1188c7e9c2"
+        }
+      ]
+    },
+    {
+      "id": "D01",
+      "title": "markov.pet documentation site",
+      "status": "complete",
+      "log": "docs/sessions/D01.md",
+      "commits": [
+        {
+          "sha": "b0a23e96b36a699b332045d8f50ac76988534b23",
+          "subject": "docs(site): add the markov.pet documentation site",
+          "preRewriteSha": "88b193d71f4c19dd30baa4e57ed7482699146608"
+        }
+      ]
+    },
+    {
+      "id": "F11",
+      "title": "Reconciled holdings, performance and receipts",
+      "status": "complete",
+      "log": "docs/sessions/F11.md",
+      "commits": [
+        {
+          "sha": "389f672894e7b3529fb4ca7c278de22c7663e317",
+          "subject": "feat(portfolio): add reconciled holdings performance and receipts",
+          "preRewriteSha": "854c812b2d96878ddbc89c382f93d65d95c99953"
+        }
+      ]
+    },
+    {
+      "id": "B14",
+      "title": "Discovery, follows and moderation",
+      "status": "complete",
+      "log": "docs/sessions/B14.md",
+      "commits": [
+        {
+          "sha": "5f756f6e5da8c59c1b1dcc490b941e20c9945588",
+          "subject": "feat(discovery): publish and follow stock strategies",
+          "preRewriteSha": "3128cfac329e3a2f0184b5e5f64ad7c286837c2c"
+        }
+      ]
+    },
+    {
+      "id": "F12",
+      "title": "Strategy exploration and rankings",
+      "status": "complete",
+      "log": "docs/sessions/F12.md",
+      "commits": [
+        {
+          "sha": "32f6d0398cfa978772d9f71066ab299aad50e516",
+          "subject": "feat(discovery): add strategy exploration and methodology-aware rankings",
+          "preRewriteSha": "9e50172a29ec5dc3d76b4f426c00f7a52f0fc218"
+        }
+      ]
+    },
+    {
+      "id": "B15",
+      "title": "Agent tools and the bounded companion",
+      "status": "complete",
+      "log": "docs/sessions/B15.md",
+      "commits": [
+        {
+          "sha": "cbc9541d47a1b8f22c7f5986353a5dd44050ad89",
+          "subject": "feat(agents): expose bounded stock strategy tools",
+          "preRewriteSha": "e678b2db31aa542209123f82b55980d51e67f1dc"
+        }
+      ]
+    },
+    {
+      "id": "B16",
+      "title": "Maintenance schedules and notifications",
+      "status": "complete",
+      "log": "docs/sessions/B16.md",
+      "commits": [
+        {
+          "sha": "6e0f69162a11789c40e13a413bce7cc523bbbbc3",
+          "subject": "feat(maintenance): schedule stock investment proposals",
+          "preRewriteSha": "03954bc6a8a1cf165cb4d03e1cdbf8f5b1ed0401"
+        }
+      ]
+    },
+    {
+      "id": "B17",
+      "title": "xAI model adapter, Vercel frontends, status inventory (closed after its first increment)",
+      "status": "closed_partial",
+      "log": "docs/sessions/B17.md",
+      "commits": [
+        {
+          "sha": "635015ecd4271c175d7637167565b312af9e5f04",
+          "subject": "feat(agents): add the xAI model adapter",
+          "preRewriteSha": "b0cf20f3548dd99d21489e27990eca9b3c0cdc1a"
+        },
+        {
+          "sha": "06b6009f7b56c09a560be69ac4ce6dc52b8c18a5",
+          "subject": "test(agents): assemble the fake xAI key at runtime",
+          "preRewriteSha": "d2effccc88c2fdf030670f47469dfe288a4e8b0e"
+        },
+        {
+          "sha": "52ee279a472c195f95e1e7eb11fcc4660cf91343",
+          "subject": "build(docs): stage the site for Vercel",
+          "preRewriteSha": "b08682fed5d671e569102920e24e2818aecd7d61"
+        },
+        {
+          "sha": "9b6bde308208995a3d5edfac984125544f211e74",
+          "subject": "build(web): describe the Vercel projects for both frontends",
+          "preRewriteSha": "7840da2944e43b044ecca00f2d8b3f7687d54ef8"
+        },
+        {
+          "sha": "e9f0aa1feadb5f10b5db51f10ee6c4b570f50631",
+          "subject": "docs(operations): record the Vercel deployments of both frontends",
+          "preRewriteSha": "68a8aae0d52a6fb0f8c97462b41afd82d3fdf399"
+        },
+        {
+          "sha": "7067e1376c67dd1ded388beed42058e5df8fada0",
+          "subject": "docs(markov): add the A to Z inventory and the Railway backend prompt"
+        }
+      ]
+    },
+    {
+      "id": "P01",
+      "title": "Reproducible release candidate and truthful status",
+      "status": "complete",
+      "log": "docs/sessions/P01.md",
+      "commits": [],
+      "bindsTo": "next-manifest-update"
+    }
+  ],
+  "plannedSessions": [
+    {
+      "id": "P02",
+      "title": "Deployable backend runtime (containers, Railway configuration, authenticated Temporal)",
+      "status": "not_started"
+    },
+    {
+      "id": "P03",
+      "title": "Real identity, wallet linkage and account recovery",
+      "status": "not_started"
+    },
+    {
+      "id": "P04",
+      "title": "Approved instrument access and eligibility enforcement",
+      "status": "not_started"
+    },
+    {
+      "id": "P05",
+      "title": "Native PreStocks ingestion and instrument detail",
+      "status": "not_started"
+    },
+    {
+      "id": "P06",
+      "title": "Native xStocks ingestion and lifecycle events",
+      "status": "not_started"
+    },
+    {
+      "id": "P07",
+      "title": "Valuation with real sources and explicit gaps",
+      "status": "not_started"
+    },
+    {
+      "id": "P08",
+      "title": "Current Jupiter quotes and transaction construction",
+      "status": "not_started"
+    },
+    {
+      "id": "P09",
+      "title": "Verified execution, reservations and partial recovery",
+      "status": "not_started"
+    },
+    {
+      "id": "P10",
+      "title": "Reproducible strategy registry and publication",
+      "status": "not_started"
+    },
+    {
+      "id": "P11",
+      "title": "Production receipt signing and verification",
+      "status": "not_started"
+    },
+    {
+      "id": "P12",
+      "title": "Reconciled holdings and exportable activity",
+      "status": "not_started"
+    },
+    {
+      "id": "P13",
+      "title": "Deliverable notifications and preference management",
+      "status": "not_started"
+    },
+    {
+      "id": "P14",
+      "title": "Recurring and rebalance proposals in the app",
+      "status": "not_started",
+      "delivers": "F13"
+    },
+    {
+      "id": "P15",
+      "title": "Grounded live research with bounded cost",
+      "status": "not_started"
+    },
+    {
+      "id": "P16",
+      "title": "Companion interaction with explicit authority",
+      "status": "not_started",
+      "delivers": "F14"
+    },
+    {
+      "id": "P17",
+      "title": "Account, sessions, wallets and device settings",
+      "status": "not_started",
+      "delivers": "F16"
+    },
+    {
+      "id": "P18",
+      "title": "Operational visibility and scoped pause controls",
+      "status": "not_started",
+      "delivers": "F19"
+    },
+    {
+      "id": "P19",
+      "title": "Browser restore and multi-tab continuity",
+      "status": "not_started",
+      "delivers": "F20"
+    },
+    {
+      "id": "P20",
+      "title": "Measured capacity, usability and cost controls",
+      "status": "not_started"
+    },
+    {
+      "id": "P21",
+      "title": "Security review remediation and regression barriers",
+      "status": "not_started"
+    },
+    {
+      "id": "P22",
+      "title": "Disaster recovery and release rehearsal",
+      "status": "not_started"
+    },
+    {
+      "id": "P23",
+      "title": "An authorized capped mainnet pilot",
+      "status": "not_started"
+    },
+    {
+      "id": "P24",
+      "title": "A supportable public stock release",
+      "status": "not_started"
+    },
+    {
+      "id": "D02",
+      "title": "Accurate source links and public content inventory",
+      "status": "not_started"
+    },
+    {
+      "id": "D03",
+      "title": "Consistent reading shell and task-based home",
+      "status": "not_started"
+    },
+    {
+      "id": "D04",
+      "title": "Core user journey guides",
+      "status": "not_started"
+    },
+    {
+      "id": "D05",
+      "title": "Tested developer onboarding and references",
+      "status": "not_started"
+    },
+    {
+      "id": "D06",
+      "title": "Maintenance, methodology and recovery explanations",
+      "status": "not_started"
+    },
+    {
+      "id": "D07",
+      "title": "Reliable search, links and release context",
+      "status": "not_started"
+    },
+    {
+      "id": "D08",
+      "title": "Documentation quality gates and verified visual evidence",
+      "status": "not_started"
+    },
+    {
+      "id": "D09",
+      "title": "Release-ready documentation and handoff",
+      "status": "not_started"
+    },
+    {
+      "id": "E01",
+      "title": "Voice",
+      "status": "not_started",
+      "delivers": "F15"
+    },
+    {
+      "id": "E02",
+      "title": "Tessera catalog",
+      "status": "not_started",
+      "delivers": "F17"
+    },
+    {
+      "id": "E03",
+      "title": "Tessera execution",
+      "status": "not_started"
+    },
+    {
+      "id": "E04",
+      "title": "Meteora observation and DBC simulation",
+      "status": "not_started",
+      "delivers": "F18"
+    },
+    {
+      "id": "E05",
+      "title": "Issuer-authorized DBC launch",
+      "status": "not_started"
+    },
+    {
+      "id": "E06",
+      "title": "Physical Mark I",
+      "status": "not_started"
+    },
+    {
+      "id": "E07",
+      "title": "Optional commercial entitlements",
+      "status": "not_started"
+    },
+    {
+      "id": "E08",
+      "title": "Unattended mandates",
+      "status": "not_started"
+    },
+    {
+      "id": "E09",
+      "title": "Perps design",
+      "status": "not_started"
+    },
+    {
+      "id": "E10",
+      "title": "Perps pilot",
+      "status": "not_started"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "platform.api.health",
+      "state": "IMPLEMENTED",
+      "environment": "local and test only",
+      "evidence": [
+        "apps/api/test/app.test.ts",
+        "apps/api/test/boot.test.ts",
+        "scripts/ci/startup-check.sh"
+      ]
+    },
+    {
+      "id": "platform.db.migrations",
+      "state": "IMPLEMENTED",
+      "environment": "local and test only",
+      "evidence": ["packages/db/test/db.test.ts"]
+    },
+    {
+      "id": "platform.worker.temporal",
+      "state": "IMPLEMENTED",
+      "environment": "local and test only",
+      "evidence": ["apps/worker/test/worker.test.ts"]
+    },
+    {
+      "id": "solana.rpc.read",
+      "state": "FIXTURE_VERIFIED",
+      "environment": "local and test only",
+      "evidence": ["packages/solana-rpc/test"],
+      "blockedBy": ["OD-04"]
+    },
+    {
+      "id": "solana.rpc.submit",
+      "state": "FIXTURE_VERIFIED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/registry.test.ts", "apps/api/test/execution.test.ts"],
+      "blockedBy": ["OD-04"]
+    },
+    {
+      "id": "catalog.prestocks.ingest",
+      "state": "BLOCKED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/catalog.test.ts", "packages/catalog/test/feed-and-plan.test.ts"],
+      "blockedBy": ["OD-17", "OD-07"]
+    },
+    {
+      "id": "catalog.xstocks.ingest",
+      "state": "BLOCKED",
+      "environment": "local and test only",
+      "evidence": [
+        "apps/api/test/listed-stocks.test.ts",
+        "packages/catalog/test/listed-stocks.test.ts"
+      ],
+      "blockedBy": ["OD-18", "OD-07"]
+    },
+    {
+      "id": "catalog.tessera.ingest",
+      "state": "DISABLED",
+      "environment": "none",
+      "evidence": [],
+      "blockedBy": ["OD-15"]
+    },
+    {
+      "id": "identity.provider.verify",
+      "state": "IMPLEMENTED",
+      "environment": "local and test only",
+      "evidence": ["packages/auth/test/identity.test.ts", "apps/api/test/identity.test.ts"],
+      "blockedBy": ["OD-05"]
+    },
+    {
+      "id": "policy.eligibility.rules",
+      "state": "BLOCKED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/policy.test.ts"],
+      "blockedBy": ["OD-06", "OD-12"]
+    },
+    {
+      "id": "execution.jupiter.quote",
+      "state": "FIXTURE_VERIFIED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/planning.test.ts"],
+      "blockedBy": ["OD-21"]
+    },
+    {
+      "id": "execution.jupiter.build",
+      "state": "FIXTURE_VERIFIED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/execution.test.ts", "apps/api/test/basket-execution.test.ts"],
+      "blockedBy": ["OD-21"]
+    },
+    {
+      "id": "execution.spot.submit",
+      "state": "FIXTURE_VERIFIED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/execution.test.ts", "apps/api/test/basket-execution.test.ts"],
+      "blockedBy": ["OD-21"]
+    },
+    {
+      "id": "accounting.journal",
+      "state": "FIXTURE_VERIFIED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/accounting.test.ts"]
+    },
+    {
+      "id": "receipts.signing",
+      "state": "FIXTURE_VERIFIED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/accounting.test.ts", "packages/config/test/config.test.ts"],
+      "blockedBy": ["OD-22"]
+    },
+    {
+      "id": "analytics.performance",
+      "state": "FIXTURE_VERIFIED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/analytics.test.ts", "packages/analytics/fixtures"],
+      "blockedBy": ["OD-23"]
+    },
+    {
+      "id": "registry.strategy.publish",
+      "state": "FIXTURE_VERIFIED",
+      "environment": "local and test only",
+      "evidence": [
+        "programs/strategy-registry/tests/registry.rs",
+        "apps/api/test/registry.test.ts"
+      ],
+      "blockedBy": ["OD-09", "OD-10"]
+    },
+    {
+      "id": "research.model.generate",
+      "state": "BLOCKED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/research.test.ts", "packages/model-xai/test/model-xai.test.ts"],
+      "blockedBy": ["OD-19"]
+    },
+    {
+      "id": "companion.model.run",
+      "state": "BLOCKED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/agents.test.ts", "packages/model-xai/test/model-xai.test.ts"],
+      "blockedBy": ["OD-19"]
+    },
+    {
+      "id": "notifications.email",
+      "state": "BLOCKED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/maintenance.test.ts"],
+      "blockedBy": ["OD-25"]
+    },
+    {
+      "id": "maintenance.scheduler",
+      "state": "IMPLEMENTED",
+      "environment": "local and test only",
+      "evidence": ["apps/api/test/maintenance.test.ts", "apps/worker/test/worker.test.ts"]
+    },
+    {
+      "id": "liquidity.meteora.read",
+      "state": "DISABLED",
+      "environment": "none",
+      "evidence": [],
+      "note": "Planned as E04; no pool observation exists."
+    },
+    {
+      "id": "liquidity.meteora.dbc-simulate",
+      "state": "DISABLED",
+      "environment": "none",
+      "evidence": [],
+      "note": "Planned as E04; launches stay disabled."
+    },
+    {
+      "id": "automation.unattended",
+      "state": "DISABLED",
+      "environment": "none",
+      "evidence": [],
+      "blockedBy": ["OD-26"],
+      "note": "Deliberate release gate; no mandate is stored or enforced."
+    }
+  ],
+  "gates": [
+    {
+      "name": "Local feature completion",
+      "status": "in_progress",
+      "evidence": ["docs/sessions"]
+    },
+    {
+      "name": "Staging integration",
+      "status": "not_started",
+      "evidence": []
+    },
+    {
+      "name": "Security review",
+      "status": "not_started",
+      "evidence": []
+    },
+    {
+      "name": "Product/issuer clearance",
+      "status": "not_started",
+      "evidence": []
+    },
+    {
+      "name": "Capped private mainnet beta",
+      "status": "not_started",
+      "evidence": []
+    },
+    {
+      "name": "Broader stock release",
+      "status": "not_started",
+      "evidence": []
+    },
+    {
+      "name": "Unattended automation",
+      "status": "disabled",
+      "evidence": []
+    },
+    {
+      "name": "Perps",
+      "status": "not_started",
+      "evidence": []
+    }
+  ],
+  "checklist": [
+    {
+      "id": "RC-01",
+      "title": "Candidate identified; CI checks pass with retained artifacts",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-02",
+      "title": "Production refuses test identity, fixtures, local receipt keys, internal routes and overrides",
+      "status": "partly_met",
+      "evidence": [
+        "packages/config/test/config.test.ts",
+        "apps/web/test/web-env.test.ts",
+        ".github/workflows/ci.yml"
+      ]
+    },
+    {
+      "id": "RC-03",
+      "title": "Real authentication, wallet binding, recovery, isolation and step-up verified",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-04",
+      "title": "Approved terms, jurisdictions, data rights, eligibility and admission exist",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-05",
+      "title": "Actual upstream adapters and live freshness verified",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-06",
+      "title": "Admitted routes reviewed with simulation evidence and upgrade monitoring",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-07",
+      "title": "Approval, signed-message equality, reservations, idempotency, expiry, partial and unknown-state recovery pass",
+      "status": "partly_met",
+      "evidence": [
+        "apps/api/test/execution.test.ts",
+        "apps/api/test/basket-execution.test.ts",
+        "scripts/ci/startup-check.sh"
+      ]
+    },
+    {
+      "id": "RC-08",
+      "title": "Registry artifact, program identity, upgrade authority and review verified",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-09",
+      "title": "Production receipts, rotation, old-key verification, reconciliation and exports work",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-10",
+      "title": "Core app journeys work against the intended backend",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-11",
+      "title": "Monitoring, alerting, pause, support, restore and replay safeguards exercised",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-12",
+      "title": "Independent review without unresolved critical or high findings",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-13",
+      "title": "Pilot caps, allowlists, coverage and stop conditions approved",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-14",
+      "title": "Immutable release evidence bundle accessible to reviewers",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-15",
+      "title": "Specific authorization for financial deployment and funded pilot",
+      "status": "not_met",
+      "evidence": []
+    },
+    {
+      "id": "RC-16",
+      "title": "Documentation matches the deployed version and availability",
+      "status": "partly_met",
+      "evidence": ["docs/markov/status-a-to-z.md", "docs/markov/release-readiness.md"]
+    }
+  ],
+  "openDecisions": [
+    {
+      "id": "OD-01",
+      "status": "decided",
+      "summary": "No Solana SDK: @markov/solana-codec and @markov/execution (ADR-0009)"
+    },
+    {
+      "id": "OD-02",
+      "status": "open",
+      "summary": "TypeScript 6/7 upgrade"
+    },
+    {
+      "id": "OD-03",
+      "status": "open",
+      "summary": "OpenTelemetry exporter and tracing backend"
+    },
+    {
+      "id": "OD-04",
+      "status": "open",
+      "summary": "Primary and independent secondary RPC providers"
+    },
+    {
+      "id": "OD-05",
+      "status": "open",
+      "summary": "Production identity provider (existing provider or Privy)"
+    },
+    {
+      "id": "OD-06",
+      "status": "open",
+      "summary": "Launch jurisdictions, classification and distribution permissions"
+    },
+    {
+      "id": "OD-07",
+      "status": "open",
+      "summary": "First admitted instruments and issuer terms"
+    },
+    {
+      "id": "OD-08",
+      "status": "open",
+      "summary": "Research and price data rights"
+    },
+    {
+      "id": "OD-09",
+      "status": "open",
+      "summary": "Independent reviewers and review scope"
+    },
+    {
+      "id": "OD-10",
+      "status": "open",
+      "summary": "Registry upgrade authority and change process"
+    },
+    {
+      "id": "OD-11",
+      "status": "partly_decided",
+      "summary": "Hosting: Railway selected for the backend and Vercel for web and docs; budget, region, data service and operations ownership open"
+    },
+    {
+      "id": "OD-12",
+      "status": "open",
+      "summary": "Mainnet beta caps and participant allowlist"
+    },
+    {
+      "id": "OD-13",
+      "status": "open",
+      "summary": "Mark I hardware capability and pairing model"
+    },
+    {
+      "id": "OD-14",
+      "status": "open",
+      "summary": "Future perps venue"
+    },
+    {
+      "id": "OD-15",
+      "status": "open",
+      "summary": "Tessera API access, schema and terms"
+    },
+    {
+      "id": "OD-16",
+      "status": "open",
+      "summary": "Docker-based local dependency path verification"
+    },
+    {
+      "id": "OD-17",
+      "status": "open",
+      "summary": "PreStocks feed endpoint, schema, terms and mapping"
+    },
+    {
+      "id": "OD-18",
+      "status": "open",
+      "summary": "xStocks endpoints, schema mapping and a real admitted mint"
+    },
+    {
+      "id": "OD-19",
+      "status": "partly_decided",
+      "summary": "Model provider: xAI selected; live verification, terms, retention, model pin and price list open"
+    },
+    {
+      "id": "OD-20",
+      "status": "partly_decided",
+      "summary": "Publication and moderation decided in B08 and B14; upgrade-authority holders and moderation staffing open"
+    },
+    {
+      "id": "OD-21",
+      "status": "open",
+      "summary": "Jupiter interface, terms, credentials, supported mints and route programs"
+    },
+    {
+      "id": "OD-22",
+      "status": "open",
+      "summary": "Receipt signing key management (KMS-backed Ed25519)"
+    },
+    {
+      "id": "OD-23",
+      "status": "open",
+      "summary": "Reference price sources for valuation and rankings"
+    },
+    {
+      "id": "OD-24",
+      "status": "partly_decided",
+      "summary": "Docs hosting: Vercel project serves /docs/; markov.pet/docs routing and the publication review step open"
+    },
+    {
+      "id": "OD-25",
+      "status": "open",
+      "summary": "Email provider for notifications"
+    },
+    {
+      "id": "OD-26",
+      "status": "open",
+      "summary": "Mandate mechanism for any future unattended maintenance"
+    }
+  ],
+  "deployments": [
+    {
+      "id": "web-staging",
+      "component": "apps/web",
+      "host": "Vercel (project markov-web)",
+      "url": "https://markov-web-theta.vercel.app",
+      "mode": "staging",
+      "state": "deployed",
+      "sourceCommit": "7840da2944e43b044ecca00f2d8b3f7687d54ef8",
+      "equivalentCommit": "9b6bde308208995a3d5edfac984125544f211e74",
+      "sourceNote": "Built from the pre-rewrite commit; the rewritten commit has the identical tree.",
+      "verifiedAt": "2026-09-25",
+      "evidence": ["docs/sessions/B17.md", "docs/markov/operations.md"],
+      "limits": "No backend: the API origin is a placeholder, so the app shows Backend unreachable. No secret is held on Vercel. Not markov.pet."
+    },
+    {
+      "id": "docs-site",
+      "component": "apps/docs",
+      "host": "Vercel (project markov-docs)",
+      "url": "https://markov-docs.vercel.app/docs/",
+      "mode": "static",
+      "state": "deployed",
+      "sourceCommit": "7840da2944e43b044ecca00f2d8b3f7687d54ef8",
+      "equivalentCommit": "9b6bde308208995a3d5edfac984125544f211e74",
+      "sourceNote": "Built from the pre-rewrite commit; the rewritten commit has the identical tree.",
+      "verifiedAt": "2026-09-25",
+      "evidence": ["docs/sessions/B17.md", "docs/markov/operations.md"],
+      "limits": "Also proxied at /docs of the web deployment. markov.pet/docs routing is not configured."
+    },
+    {
+      "id": "backend",
+      "component": "apps/api, apps/worker, apps/indexer",
+      "host": "Railway (selected, not provisioned)",
+      "state": "not_deployed",
+      "evidence": ["docs/prompts/backend-railway.md"],
+      "limits": "No hosted API, worker, indexer, database or Temporal namespace exists."
+    },
+    {
+      "id": "registry-program",
+      "component": "programs/strategy-registry",
+      "host": "Solana devnet (planned)",
+      "state": "not_deployed",
+      "evidence": ["docs/markov/strategy-registry.md"],
+      "limits": "No SBF artifact built. A devnet deployer and program keypair exist outside the repository; deployment is blocked on network access from the build environment and on P10."
+    }
+  ],
+  "ci": {
+    "workflow": ".github/workflows/ci.yml",
+    "observedRuns": []
+  }
+}

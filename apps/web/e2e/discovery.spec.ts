@@ -110,10 +110,15 @@ async function registerOpenVersion(page: Page, context: BrowserContext): Promise
   await page.getByTestId('sign-button').click();
   await expect(page.getByTestId('submitted-block')).toBeVisible({ timeout: 15_000 });
   await ledger(context, 'finalize');
-  await page.getByTestId('recheck-button').click();
-  await expect(page.getByTestId('publication-state')).toHaveText('Registered on-chain', {
-    timeout: 15_000,
-  });
+  // The page re-checks a submitted registration on its own; click only while it has not yet seen finality
+  // (the button is busy and re-renders during an automatic check, which made a single click racy).
+  const state = page.getByTestId('publication-state');
+  await expect(async () => {
+    if ((await state.textContent()) !== 'Registered on-chain') {
+      await page.getByTestId('recheck-button').click({ timeout: 2_000 });
+    }
+    await expect(state).toHaveText('Registered on-chain', { timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
 }
 
 test.describe('strategy explorer, following, rankings and creator updates', () => {
@@ -139,7 +144,7 @@ test.describe('strategy explorer, following, rankings and creator updates', () =
 
     // The creator registers version 1 with the fixture wallet.
     await installFixtureWallet(context, { keys: generateFixtureKeys() });
-    await signIn(page, subjectFor('x-alice', testInfo), '/settings/wallets');
+    await signIn(page, subjectFor('disc-alice', testInfo), '/settings/wallets');
     const creatorAddress = await verifyAndFundWallet(page, context);
     const { strategyUrl, versionUrl } = await freezeBasket(page, title);
     await registerOpenVersion(page, context);

@@ -4,6 +4,10 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  lodash-es@<4.18.0: 4.18.1
+  serialize-javascript@<7.0.5: 7.0.7
+
 importers:
 
   .:
@@ -6943,9 +6947,6 @@ packages:
     resolution: {integrity: sha512-gvVijfZvn7R+2qyPX8mAuKcFGDf6Nc61GdvGafQsHL0sBIxfKzA+usWn4GFC/bk+QdwPUD4kWFJLhElipq+0VA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  lodash-es@4.17.23:
-    resolution: {integrity: sha512-kVI48u3PZr38HdYz98UmfPnXl2DXrpdctLrFLCd3kOx1xUkOmpFPx7gCWWM5MPkL/fD8zb+Ph0QzjGFs4+hHWg==}
-
   lodash-es@4.18.1:
     resolution: {integrity: sha512-J8xewKD/Gk22OZbhpOVSwcs60zhd95ESDwezOFuA3/099925PdHJ7OFHNTGtajL3AlZkykD32HykiMo+BIBI8A==}
 
@@ -8232,9 +8233,6 @@ packages:
       '@types/react-dom':
         optional: true
 
-  randombytes@2.1.0:
-    resolution: {integrity: sha512-vYl3iOX+4CKUWuxGi9Ukhie6fsqXqS9FE2Zaic4tNFD2N2QQaXOMFbuKK4QmDHC0JO6B1Zp41J0LpT0oR68amQ==}
-
   range-parser@1.2.0:
     resolution: {integrity: sha512-kA5WQoNVo4t9lNx2kQNFCxKeBl5IbbSNBl1M/tLkw9WCn+hxNBAW5Qh8gdhs63CJnhjJ2zQWFoqPJP2sK1AV5A==}
     engines: {node: '>= 0.6'}
@@ -8588,8 +8586,9 @@ packages:
     resolution: {integrity: sha512-VMbMxbDeehAxpOtWJXlcUS5E8iXh6QmN+BkRX1GARS3wRaXEEgzCcB10gTQazO42tpNIya8xIyNx8fll1OFPrg==}
     engines: {node: '>= 0.8.0'}
 
-  serialize-javascript@6.0.2:
-    resolution: {integrity: sha512-Saa1xPByTTq2gdeFZYLLo+RFE35NHZkAbqZeWNd3BpzppeVisAqpDjcp8dyf6uIvEqJRd46jemmyA4iFIeVk8g==}
+  serialize-javascript@7.0.7:
+    resolution: {integrity: sha512-YAy8Od6KV+uuwUuU50np8fGB/Aues6Y0nAhA9y/hId74PlKUcme4pXcBD46NWKr1Q4osN/iseZ17YqO1XfmI8g==}
+    engines: {node: '>=20.0.0'}
 
   serve-handler@6.1.7:
     resolution: {integrity: sha512-CinAq1xWb0vR3twAv9evEU8cNWkXCb9kd5ePAHUKJBkOsUpR1wt/CvGdeca7vqumL1U5cSaeVQ6zZMxiJ3yWsg==}
@@ -10474,12 +10473,12 @@ snapshots:
     dependencies:
       '@chevrotain/gast': 11.1.2
       '@chevrotain/types': 11.1.2
-      lodash-es: 4.17.23
+      lodash-es: 4.18.1
 
   '@chevrotain/gast@11.1.2':
     dependencies:
       '@chevrotain/types': 11.1.2
-      lodash-es: 4.17.23
+      lodash-es: 4.18.1
 
   '@chevrotain/regexp-to-ast@11.1.2': {}
 
@@ -14886,7 +14885,7 @@ snapshots:
       '@chevrotain/regexp-to-ast': 11.1.2
       '@chevrotain/types': 11.1.2
       '@chevrotain/utils': 11.1.2
-      lodash-es: 4.17.23
+      lodash-es: 4.18.1
 
   chokidar@3.6.0:
     dependencies:
@@ -15033,7 +15032,7 @@ snapshots:
       globby: 13.2.2
       normalize-path: 3.0.0
       schema-utils: 4.5.0
-      serialize-javascript: 6.0.2
+      serialize-javascript: 7.0.7
       webpack: 5.111.1(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.28))(esbuild@0.28.2)(html-minifier-terser@7.2.0)(postcss@8.5.28)
 
   core-js-compat@3.50.0:
@@ -15107,7 +15106,7 @@ snapshots:
       jest-worker: 29.7.0
       postcss: 8.5.28
       schema-utils: 4.5.0
-      serialize-javascript: 6.0.2
+      serialize-javascript: 7.0.7
       webpack: 5.111.1(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.28))(esbuild@0.28.2)(html-minifier-terser@7.2.0)(postcss@8.5.28)
     optionalDependencies:
       clean-css: 5.3.3
@@ -16762,8 +16761,6 @@ snapshots:
   locate-path@7.2.0:
     dependencies:
       p-locate: 6.0.0
-
-  lodash-es@4.17.23: {}
 
   lodash-es@4.18.1: {}
 
@@ -18432,10 +18429,6 @@ snapshots:
       '@types/react': 19.3.0
       '@types/react-dom': 19.3.0(@types/react@19.3.0)
 
-  randombytes@2.1.0:
-    dependencies:
-      safe-buffer: 5.2.1
-
   range-parser@1.2.0: {}
 
   range-parser@1.2.1: {}
@@ -18877,9 +18870,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  serialize-javascript@6.0.2:
-    dependencies:
-      randombytes: 2.1.0
+  serialize-javascript@7.0.7: {}
 
   serve-handler@6.1.7:
     dependencies:

@@ -218,7 +218,7 @@ function InstrumentsTab({
             type="button"
             size="sm"
             variant="secondary"
-            disabledReason={`${ISSUER_LABELS[issuer]} instruments arrive with B17.`}
+            disabledReason={`${ISSUER_LABELS[issuer]} instruments are not available: this issuer is not integrated.`}
           >
             {ISSUER_LABELS[issuer]}
           </Button>

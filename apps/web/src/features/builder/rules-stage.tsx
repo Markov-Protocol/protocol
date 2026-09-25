@@ -88,7 +88,7 @@ export function RulesStage({
         </h2>
         <p className="text-supporting text-text-muted">
           A suggestion recorded with the recipe, never an instruction: no rebalance happens without
-          a separately reviewed plan you approve (F13).
+          a separately reviewed plan you approve.
         </p>
         <Field label="Suggestion" id="maintenance-suggestion">
           {(control) => (

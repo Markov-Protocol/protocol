@@ -675,7 +675,7 @@ describe('Market detail', () => {
     ).toBeGreaterThanOrEqual(3);
     expect(within(actions as HTMLElement).getByText(/sign in to review a buy/)).toBeInTheDocument();
     expect(
-      within(actions as HTMLElement).getByText(/selling arrives with F10/),
+      within(actions as HTMLElement).getByText(/selling is not offered in the app yet/),
     ).toBeInTheDocument();
     expect(within(actions as HTMLElement).queryByTestId('review-buy')).not.toBeInTheDocument();
     expect(within(actions as HTMLElement).getByText(/never through Markov/)).toBeInTheDocument();

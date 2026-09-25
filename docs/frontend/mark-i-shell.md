@@ -24,8 +24,9 @@ blue pixel eyes (`PixelEyes`, 5×7 SVG matrices, occasional blink disabled
 under reduced motion), a decorative upper sensor dot and a 9 px printed
 wordmark in the desktop perimeter. No body or feet inside the app; no
 photograph is stretched. The sensor is decorative and never requests
-camera access. Clicking the eyes, frame or wordmark never triggers any
-action.
+camera access. Clicking the frame, the sensor or the printed perimeter
+wordmark never triggers any action; since F10 the compact eyes and the
+`markov.pet` wordmark in the top bar are a link home.
 
 ## Modes
 
@@ -41,8 +42,10 @@ It is never derived from, and never feeds, account or order state.
 
 ## Navigation
 
-Primary: Home, Explore, Build (`/strategies/new`), Portfolio; More opens a
-menu with Activity, Rankings, Automations, Settings and the focus toggle.
+Primary: Explore, Build (`/strategies/new`), Portfolio, Activity (F10,
+following the design reference; the eyes and wordmark in the top bar lead
+home); More opens a menu with Home, Research, Rankings, Automations,
+Settings and the focus toggle.
 The rail renders on wide screens and the bottom bar on phones; both carry
 `aria-current="page"`. Targets whose feature is not delivered render an
 honest unavailable page naming the delivering session; no decorative
@@ -66,4 +69,7 @@ CSS and SVG only; no raster artwork. Font provenance is recorded in
 
 Mobile keyboard and `VisualViewport` behaviour are not yet tested on a
 device; `100dvh` reduces with browser chrome but not with every on-screen
-keyboard. The review mode and companion panel are empty until F09 and F14.
+keyboard. The review mode is still unused (the F09 review renders in
+workspace mode; the app derives only companion or workspace from the path),
+and the companion panel is empty until F14 (P16 in the production
+completion plan).

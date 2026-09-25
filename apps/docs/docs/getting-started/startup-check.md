@@ -2,15 +2,18 @@
 title: "The startup check"
 sidebar_label: "Startup check"
 sidebar_position: 2
-description: "The headless journey CI runs from a clean checkout, exercising every session's capability against the fixture chain and asserting each result."
+description: "The headless journey the CI workflow runs from a clean checkout, exercising the capabilities of backend sessions B01 to B16 against the fixture chain and asserting each result."
 ---
 
 `scripts/ci/startup-check.sh` is the reference run of the whole backend.
 It starts the fixture RPC, migrates a throwaway database, boots the API,
 walks every journey with the CLI and `curl`, asserts the exact outcomes,
 shuts down cleanly, and then proves that a wrong cluster or a node
-reporting another chain refuses to start. CI runs it on every push; the
-commands on these pages are the ones it executes.
+reporting another chain refuses to start. The CI workflow
+(`.github/workflows/ci.yml`) runs it on every push, on pull requests and
+on manual dispatch; GitHub Actions runs start with P01, and until then the
+evidence is local runs. The commands on these pages are the ones it
+executes.
 
 ```bash
 MARKOV_TEST_DATABASE_URL=postgres://markov:markov@127.0.0.1:5432/markov_test \
@@ -63,7 +66,27 @@ contacts a live cluster or a provider.
     its funding as a flow and not a return; the basket version's model
     series; the ranking listing the version unranked for insufficient
     history with no return shown; price history; the methodology.
-15. **Graceful shutdown**, then two refusals: `SOLANA_CLUSTER=testnet`
+15. **Discovery** (B14): the explorer lists the young version without a
+    rank and without private identifiers; the creator page from chain
+    records; a second person follows and pins v1; the creator registers
+    v2 and the follower is offered it, never moved; moderation hides v2
+    from listings and public reads while its chain record and the pin
+    stay untouched, then restores it; explicit acceptance.
+16. **Agents** (B15): a scoped agent credential and its typed tool
+    catalog; an unknown tool argument and a tool outside the scopes are
+    refused; a poisoned companion run has each injected tool call refused
+    and the owner's limits unchanged; a proposal that only the owner can
+    open into an intent; the owner's event log, which the agent cannot
+    read.
+17. **Maintenance** (B16): a schedule due now; an unattended mode refused
+    at the contract; a maintenance pass refused to the session, the agent
+    and an operator without the maintenance scope; the worker's pass
+    prepares one proposal and a second pass on the same occurrence
+    prepares nothing; pause; in-app notifications; an email address
+    verified and a proposal email delivered through the fixture provider;
+    a mandate dry run with `automation.unattended` still `DISABLED`, and a
+    reduce-only mandate denied a buy.
+18. **Graceful shutdown**, then two refusals: `SOLANA_CLUSTER=testnet`
     against a devnet-bound database exits 78, and an RPC that reports
     another genesis exits 78.
 

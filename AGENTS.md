@@ -55,7 +55,7 @@ V1 build specification. It applies to every human and agent commit.
 
 ## Session handoffs
 
-Each session `docs/sessions/Bxx.md` records: working behavior, commands and
+Each session log `docs/sessions/<id>.md` (Bxx, Fxx, Dxx, Pxx or Exx) records: working behavior, commands and
 results, commit hash, provider verification status, unresolved
 risks/dependencies, and the exact next session. If a test or commit cannot
 run, say so; never fabricate success.

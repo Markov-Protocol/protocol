@@ -1,10 +1,10 @@
 # Security and privacy (frontend)
 
-Status: F01 slice. The browser is an untrusted client; UI guardrails aid
+Status: after F12. The browser is an untrusted client; UI guardrails aid
 comprehension and never replace server authorization, policy or on-chain
 constraints.
 
-## Implemented in F01
+## Implemented controls (F01 onward)
 
 | Control | Where | Verification |
 | ------- | ----- | ------------ |
@@ -12,7 +12,7 @@ constraints.
 | Internal reference route hidden unless explicitly enabled; `noindex` | `apps/web/src/app/dev/components/page.tsx` | e2e header check; guard tests |
 | Baseline headers: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, `Permissions-Policy` disabling camera, geolocation, microphone and payment | `apps/web/next.config.ts` | Playwright header assertions |
 | No secrets in the app environment; only `NEXT_PUBLIC_APP_ORIGIN` is public | `docs/frontend/README.md` | build inspection in F20 |
-| Frontend packages cannot import databases, config, RPC clients or signers | `tooling/boundaries/rules.json` (`appDeny`) | `pnpm boundaries:check` in CI |
+| Frontend packages cannot import databases, config, RPC clients or signers | `tooling/boundaries/rules.json` (`appDeny`) | `pnpm boundaries:check`, part of `pnpm verify` and a step in `.github/workflows/ci.yml` (CI runs start with P01) |
 | No remote images (`images.remotePatterns` empty) | `next.config.ts` | n/a |
 | Server-only API origin (`MARKOV_API_ORIGIN`), required https outside local/test; the browser never calls the API directly | `apps/web/src/config/web-env.ts`, `apps/web/src/server/api.ts` | `apps/web/test/web-env.test.ts`; e2e asserts a browser fetch to the API origin is blocked |
 | Host-only HttpOnly session cookie, same-origin mutation guard, validated return paths, replayed-cookie refusal | `apps/web/src/server/auth/*`, `apps/web/src/features/auth/return-path.ts` | `apps/web/test/server/auth.test.ts` (13 tests), `apps/web/e2e/auth.spec.ts` |
@@ -168,8 +168,10 @@ and its own server-side exchange.
   save and its issues are what the summary shows.
 - The wallet and the budget chosen in Activate stay in memory, apart from
   the recipe and never written to the draft; the split shown is an
-  estimate in exact base units, and the review button is unavailable
-  with its reason until the execution sessions exist.
+  estimate in exact base units. "Review investment" opens the review
+  (F09) for the newest frozen version with the wallet id and budget
+  carried in the link, and is unavailable with its reason until a version
+  is frozen.
 
 ## Publishing and public pages (F08)
 
@@ -317,7 +319,9 @@ and its own server-side exchange.
 
 Full CSP with exact identity/wallet allowances and report-only rollout,
 HSTS at the deployment, the hosted identity provider browser adapter
-(BLOCKED on OD-05), execution transaction signing-path validation (F10;
-registration signing is validated in F08 and the reviewed plan is bound by
-hash in F09), analytics consent and retention (F14/F20). Threat-model rows from the build prompt are tracked in
-`docs/frontend/verification.md` as they gain tests.
+(BLOCKED on OD-05), analytics consent and retention (F14/F20, P16 and P19
+in the production completion plan). Registration signing is validated in
+F08, the reviewed plan is bound by hash in F09 and execution signing is
+validated in F10 (see "Execution and receipts (F10)"). Threat-model rows
+from the build prompt are tracked in `docs/frontend/verification.md` as
+they gain tests.

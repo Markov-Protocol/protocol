@@ -20,10 +20,13 @@ session's scope.
   `companion`, `api-client`, `wallet-ui`, `frontend-testkit`) are part of
   this monorepo.
 - The backend ownership boundary is preserved mechanically: frontend
-  packages may import `@markov/contracts` and `@markov/formatters` only;
-  they never import `@markov/db`, `@markov/config`, `@markov/solana-rpc`,
-  the API, the worker or any signer. Backend packages never import UI.
-  `tooling/boundaries/rules.json` encodes this and CI enforces it.
+  packages may import `@markov/contracts` and other frontend packages only
+  (`@markov/formatters`, and `@markov/ui` for the shell); they never import
+  `@markov/db`, `@markov/config`, `@markov/solana-rpc`, the API, the worker
+  or any signer. Backend packages never import UI.
+  `tooling/boundaries/rules.json` encodes this; `pnpm boundaries:check`
+  enforces it in `pnpm verify` and in CI (`.github/workflows/ci.yml`, whose
+  runs start with P01).
 - Frontend packages are source-exported and transpiled by Next.js
   (`transpilePackages`); backend packages keep their compiled `dist`
   exports. Frontend type checks run through `next build`/`tsc --noEmit`,

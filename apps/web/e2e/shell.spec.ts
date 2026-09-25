@@ -52,6 +52,10 @@ test.describe('Mark I shell', () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/dev/components');
     const main = page.locator('#main-content');
+    // The reference renders after hydration; wait until the screen holds long content.
+    await expect
+      .poll(() => main.evaluate((element) => element.scrollHeight - element.clientHeight))
+      .toBeGreaterThan(2000);
     await main.evaluate((element) => {
       element.scrollTop = 2000;
     });
@@ -65,7 +69,8 @@ test.describe('Mark I shell', () => {
     await page.goto('/portfolio');
     await expect(page.getByRole('heading', { level: 1, name: 'Portfolio' })).toBeVisible();
     expect(await page.locator('.markov-frame').getAttribute('data-mode')).toBe('workspace');
-    await expect(page.getByText('Portfolio is not available in this build')).toBeVisible();
+    // The portfolio exists since F11; signed out, the deep link lands on its sign-in gate.
+    await expect(page.getByText('Sign in to see this page.')).toBeVisible();
   });
 
   test('More menu reaches every secondary section and the focus preference persists', async ({

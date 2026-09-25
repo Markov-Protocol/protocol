@@ -39,7 +39,7 @@ with its limit and observed value in the same unit:
 | Code | Trigger |
 | ---- | ------- |
 | `EXECUTION_DISABLED` | `submit` stage while `EXECUTION_WRITES_ENABLED=false` |
-| `VENUE_DISABLED` | `submit` stage while `execution.jupiter.quote` is not verified (readiness table) |
+| `VENUE_DISABLED` | `submit` stage while the `execution.jupiter.quote` readiness row is missing, `BLOCKED` or `DISABLED`; `IMPLEMENTED`, `FIXTURE_VERIFIED` and the `LIVE_*` states count as enabled and `EXECUTION_VENUE_PROVIDER` is not read, so with the seeded `FIXTURE_VERIFIED` row this check passes in every environment and `EXECUTION_DISABLED` is the gate that holds |
 | `PARTICIPANT_NOT_ALLOWLISTED` | `BETA_PARTICIPANT_ALLOWLIST_ENABLED=true` and the account is not on the list |
 | `ELIGIBILITY_UNKNOWN` / `_EXPIRED` / `_SUPERSEDED` / `_DENIED` | decision missing or unknown / expired or revoked / made under another policy version / ineligible |
 | `ISSUER_NOT_COVERED` | eligible, but not for this instrument's issuer |
@@ -52,12 +52,15 @@ with its limit and observed value in the same unit:
 | `EXPOSURE_UNKNOWN` | `submit` stage without declared holdings and cash |
 | `NOTIONAL_ZERO` | the notional is zero |
 
-Concentration and reserve checks need exposure. Until the ledger (B12)
-supplies holdings, the caller declares them (`exposure.source:
-caller_declared`) and the decision records that source. Execution planning
-(B09) declares, for each constituent it evaluates, the other constituents'
-targets as positions and the cash the wallet keeps after the plan. A quote-stage
-evaluation with `source: none` skips those checks; the submit stage refuses.
+Concentration and reserve checks need exposure. The ledger (B12) does not
+feed policy yet: the caller declares holdings (`exposure.source:
+caller_declared`; the contract's `ledger` source has no producer) and the
+decision records that source. Execution planning (B09) declares, for each
+constituent it evaluates, the other constituents' targets as positions and
+the cash the wallet keeps after the plan; submission (B10) declares the
+plan's other legs as positions and the plan's recorded stablecoin balance as
+cash. A quote-stage evaluation with `source: none` skips those checks; the
+submit stage refuses.
 
 A decision expires after 60 seconds, or earlier when the eligibility
 decision or the quote (`quoteObservedAt` + `maxQuoteAgeSeconds`) expires.
@@ -116,6 +119,10 @@ reservation, re-checks at the submit stage and releases the hold.
 - No hosted KYC or residency provider is integrated; `provider_verified`
   evidence has no producer yet.
 - No real jurisdiction rule or terms text exists in the repository.
-- Exposure is caller-declared until B12; the ledger will replace it.
-- Nothing executes: `submit` denies with `EXECUTION_DISABLED` and
-  `VENUE_DISABLED` until B10 verifies a venue and writes are authorised.
+- Exposure is caller-declared; the ledger (B12) exists but does not feed
+  policy yet.
+- Nothing executes on a live cluster: `submit` denies with
+  `EXECUTION_DISABLED` while `EXECUTION_WRITES_ENABLED=false` (the default).
+  `VENUE_DISABLED` no longer fires on a freshly seeded database because the
+  `execution.jupiter.quote` row has been `FIXTURE_VERIFIED` since B09.
+  Writes have run only against the fixture chain (B10).

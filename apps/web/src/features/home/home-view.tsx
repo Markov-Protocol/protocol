@@ -22,7 +22,7 @@ interface NextStep {
   readonly key: string;
   readonly label: string;
   readonly href: string | null;
-  readonly state: 'done' | 'todo' | 'later' | 'checking';
+  readonly state: 'done' | 'todo' | 'later' | 'checking' | 'anytime';
   readonly note: string;
 }
 
@@ -68,9 +68,10 @@ function useNextSteps(): readonly NextStep[] {
     {
       key: 'strategy',
       label: 'Build a strategy you can explain',
-      href: null,
-      state: 'later',
-      note: 'Arrives with F07 (needs B07).',
+      href: '/strategies/new',
+      // Not tracked per account here, so it never claims to be outstanding.
+      state: 'anytime',
+      note: 'Research, assemble and set rules; publishing and investing stay separate steps.',
     },
   ];
 }
@@ -106,8 +107,8 @@ function SignedInHome({ account }: { readonly account: SessionAccount }) {
           <p className="text-body text-text-muted">
             Signed in as{' '}
             <span className="font-medium text-text">{shortSubject(account.subject)}</span>. Nothing
-            here is pending: the proposal and execution services arrive with later sessions, and
-            Markov never fills this space with invented activity.
+            here is pending: reviews and executions you start appear in Activity, and Markov never
+            fills this space with invented activity.
           </p>
         </div>
       </div>
@@ -157,7 +158,9 @@ function SignedInHome({ account }: { readonly account: SessionAccount }) {
                       ? 'To do'
                       : step.state === 'checking'
                         ? 'Checking'
-                        : 'Later'}
+                        : step.state === 'anytime'
+                          ? 'Anytime'
+                          : 'Later'}
                 </StatusBadge>
               </li>
             ))}

@@ -80,9 +80,11 @@ documentation; OD-05), Safari cookie behaviour on `http://localhost`, real
 network expiry after `AUTH_SESSION_TTL_SECONDS` (revocation stood in for it;
 the client path is identical), screen-reader journeys through sign-in.
 
-Readiness: IMPLEMENTED and FIXTURE_VERIFIED for the app; LIVE_READ_VERIFIED
-and LIVE_WRITE_VERIFIED only against the local B02 API in test mode, which
-is not production evidence. Hosted provider sign-in: BLOCKED.
+Readiness: IMPLEMENTED and FIXTURE_VERIFIED for the app; the journeys also
+ran end to end against the local B02 API (test mode, in-process test
+issuer), which is an integration test and not LIVE_READ_VERIFIED or
+LIVE_WRITE_VERIFIED: no real provider was called. Hosted provider sign-in:
+BLOCKED.
 
 ## F04 — wallet, eligibility and funding readiness (2026-09-24)
 
@@ -116,10 +118,11 @@ wallets), the hosted embedded wallet (OD-05), mobile wallet handoff, live
 cluster balance reads (fixture RPC only), screen-reader journeys through
 the wallet dialog, and transaction signing paths (F10).
 
-Readiness: IMPLEMENTED and FIXTURE_VERIFIED; LIVE_READ_VERIFIED and
-LIVE_WRITE_VERIFIED only against the local B02/B05 API in test mode, which
-is not production evidence. Real wallets and live funding reads: not
-verified.
+Readiness: IMPLEMENTED and FIXTURE_VERIFIED; the journeys also ran end to
+end against the local B02/B05 API (test mode) with the fixture RPC and the
+fixture wallet, which is an integration test and not LIVE_READ_VERIFIED or
+LIVE_WRITE_VERIFIED: no real provider was called. Real wallets and live
+funding reads: not verified.
 
 ## F05 — issuer-aware discovery and watchlists (2026-09-24)
 
@@ -163,9 +166,10 @@ no image URLs and the app fetches none (a deterministic monogram is
 drawn); descriptions are plain text from the backend's sanitiser and are
 rendered as text only.
 
-Readiness: IMPLEMENTED and FIXTURE_VERIFIED; LIVE_READ_VERIFIED only
-against the local B03/B04/B05 API in test mode with fixture instruments,
-which is not production evidence.
+Readiness: IMPLEMENTED and FIXTURE_VERIFIED; the journeys also ran end to
+end against the local B03/B04/B05 API (test mode) with fixture instruments,
+which is an integration test and not LIVE_READ_VERIFIED: no real provider
+was called.
 
 ## F06 — instrument research and saved theses (2026-09-24)
 
@@ -216,9 +220,10 @@ rendered as text only (jsdom asserts no `<b>` element and no
 `javascript:` link); the API's sanitiser and retrieval policy are the
 first line and are tested in B06.
 
-Readiness: IMPLEMENTED and FIXTURE_VERIFIED; LIVE_READ/WRITE_VERIFIED only
-against the local B06/B07 API in test mode with the fixture source and
-adapter, which is not production evidence.
+Readiness: IMPLEMENTED and FIXTURE_VERIFIED; the journeys also ran end to
+end against the local B06/B07 API (test mode) with the fixture source and
+adapter, which is an integration test and not LIVE_READ_VERIFIED or
+LIVE_WRITE_VERIFIED: no real provider was called.
 
 ## F07 — complete stock basket builder (2026-09-25)
 
@@ -263,9 +268,10 @@ journeys through the stages, and execution (F09/F10). Long names are
 truncated with the full name as a title; keyboard editing is covered by
 the ±1% buttons and the numeric fields in jsdom and e2e.
 
-Readiness: IMPLEMENTED and FIXTURE_VERIFIED; LIVE_READ/WRITE_VERIFIED only
-against the local B05/B07 API in test mode, which is not production
-evidence.
+Readiness: IMPLEMENTED and FIXTURE_VERIFIED; the journeys also ran end to
+end against the local B05/B07 API (test mode), which is an integration
+test and not LIVE_READ_VERIFIED or LIVE_WRITE_VERIFIED: no real provider
+was called.
 
 ## F08 — public publishing, versions and forks (2026-09-25)
 
@@ -491,10 +497,10 @@ and phone).
 | Journey or risk | Evidence | Status |
 | --------------- | -------- | ------ |
 | Anonymous home → Explore → instrument | Shell fills the viewport at five widths, navigation works, home shows no fabricated personal data (F02); F05 journey 1 browses real admitted fixture instruments, searches, filters by issuer and opens the exact detail page anonymously | complete for fixture instruments (F05); live issuer feeds BLOCKED (OD-17, OD-18) |
-| Sign in, reload, expire and recover, sign out, change accounts without private data crossing sessions | F03 browser journeys 1 to 3 against the real API; jsdom late-response and cache-disposal tests; server handler tests | complete for the development issuer (F03); hosted provider BLOCKED (OD-05) |
+| Sign in, reload, expire and recover, sign out, change accounts without private data crossing sessions | F03 browser journeys 1 to 3 against the local API (test mode); jsdom late-response and cache-disposal tests; server handler tests | complete for the development issuer (F03); hosted provider BLOCKED (OD-05) |
 | Sign-in → wallet verify → eligibility | F04 journeys 1 and 5 with an injected Wallet Standard wallet against the local API; wallet tests for replay, wrong network, already linked, account switch, altered signature | complete for the fixture wallet (F04); real wallets and the hosted embedded wallet not verified |
 | CSRF or login redirect abuse | Same-origin guard tests, open-redirect vectors in node and browser tests | complete (F03) |
-| Private SSR/CDN response cached publicly | All routes dynamic, session responses `no-store` (build output and e2e header assertion); deployment headers still to be checked in F20 | partial (F03) |
+| Private SSR/CDN response cached publicly | All routes dynamic, session responses `no-store` (build output and e2e header assertion); the Vercel staging deployment (`https://markov-web-theta.vercel.app`, 2026-09-25, no backend behind it) was observed serving the baseline security headers (B17); caching of private responses at the deployment is not checked yet (F20) | partial (F03) |
 | Research → builder → saved draft | F06 journey 1: thesis started from an admitted instrument, fixture issuer source fetched and cited, a metadata address refused and recorded, a bounded run adopted as labelled interpretations, revisions saved, publication with "what becomes public", a basket draft created from the saved shortlist with exact integer weights and the backend's validation shown; jsdom tests for a refused save keeping the edits and for the two-tab revision notice | research, the saved draft (F06) and the builder (F07: exact weights, readable validation from the backend, two-tab revision conflict with compare and restore, offline copy, small-notional and limit checks in Activate) complete; review and execution arrive with F09/F10 |
 | Publish privately/publicly: correct public payload, actual registration state distinguished from the database save | F08 journey 1: the review lists exactly the manifest the API will register (constituents by mint and weight, cash, hashes, publisher, record address) and what never becomes public; every state on screen is the API's chain-derived reading, evidence and explorer links appear only after finality was read back, and a reload restores the same state; jsdom tests for wrong network, altered message, double click, failed / expired / unknown, verification mismatch | complete on the fixture ledger (F08); a deployed program, validator run and independent review remain release gates (OD-09, OD-10) |
 | Strategy registry: correct cluster, program, version and backend receipt | The registration panel and evidence show the platform network, the program id and genesis hash from `GET /v1/registry`, the version number and manifest hash, the record address, the finalized slot and transaction; the fixture wallet signs the prepared bytes and the API refuses anything else before the node (B08 tests); F08 journey 2 shows a landed program error truthfully | complete for the fixture ledger (F08) |
@@ -502,7 +508,7 @@ and phone).
 | Stale quote or changed plan behind an enabled approval | jsdom: a refreshed plan shows the difference first and approval stays unavailable until the new terms are read; expired terms are labelled expired and the old plan superseded; the API refuses `PLAN_CHANGED` and `QUOTE_EXPIRED` acknowledgements; Playwright: real 30-second quote expiry after approval, refresh with the difference view, approval asked again | complete (F09, F10: the panel checks the approved hash, the intent, the signer, the cluster, the expiry and the message hash again before the wallet opens, and the API once more at submission) |
 | Approve → sign → reconciled result or an honest recoverable state, including after reload | F10 journey 1: the API-built transaction shown before the wallet, one fixture-wallet signature over the exact bytes, one submission, the timeline in a second tab and after a reload, confirmed-but-not-finalized shown as such, finality with the recorded fill and fee, a receipt issued and read publicly after opt-in; a lost node answer left "Result unknown" and reconciled from evidence without a second signature; an expired blockhash refused at submission and built again; jsdom tests for wallet decline, silence, altered bytes, another account, a lost HTTP answer and a refused signature, each with nothing sent | complete for the fixture chain, fixture venue and fixture wallet (F10); live funded verification needs explicit authorization and approved caps (OD-21) |
 | One successful basket leg, a later leg failing, completion under review | F10 journey 2: a staged basket signed leg by leg, leg 1 finalized with its fill, leg 2 landing with an error on the fixture chain, the intent partially completed with the filled leg kept, the unfilled leg completed through a reviewed continuation at its original target | complete for the fixture chain (F10) |
-| Untrusted research, token image or assistant content executes | jsdom asserts excerpts with markup render as text (no element created), a `javascript:` source URL is never linked, model output is labelled and adopted only by the person; the API sanitises and refuses retrievals (B06); no images are fetched (F05) | complete for research content (F06); assistant content arrives with F14 |
+| Untrusted research, token image or assistant content executes | jsdom asserts excerpts with markup render as text (no element created), a `javascript:` source URL is never linked, model output is labelled and adopted only by the person; the API sanitises and refuses retrievals (B06); no images are fetched (F05) | complete for research content (F06); assistant content arrives with F14 (P16 in the production completion plan) |
 | Portfolio: account for an investment's holdings, cash, fees and recorded outcome | F11 journey: a staged basket bought and finalized, the receipt's requested against filled and fee cap, the wallet's holdings against the chain with the initial funding explained as deposits and a matched second reconciliation, the instance with target against actual allocation, FIFO lots, cost and fees, personal against model performance over one window with exact figures and a JSON export, a later deposit flagged and explained, and another person seeing "not found"; jsdom asserts sums against hand-computed values, unpriced and unknown states, a multiplier applied once | complete (F11) |
 | Externally transferred assets, several instances in one wallet, double counting | Attribution comes only from the API (one active instance per strategy and wallet; ambiguity stays unassigned); the wallet total is the sum of the API's position values and strategy totals are shown apart from it; a holding outside the recipe is listed as such; an unexplained flow stays at wallet level | complete (F11) |
 | Discovery: find, assess, follow, fork and review an investment in a strategy with clear provenance | F12 journey: a registered recipe listed on Explore without a rank and with the methodology's reason, its creator linked as the wallet on the chain record, the same entry on the rankings page beside the methodology, the creator page, the strategy page's provenance line and the version page's model series; a second person follows (badge and Following list from the private list), pins version 1 in an instance of their own, reads the creator's version 2 as an exact diff and accepts it explicitly; jsdom covers a ranked entry next to a young one, filters in the URL, rate limit, contract drift, an expired page, the creator not-found, and a hidden proposed version that cannot be accepted | complete (F12) |

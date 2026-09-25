@@ -78,7 +78,16 @@ never funded by hidden spreads, inflated backtests or unapproved referral fees.
 
 ## Session map
 
-Backend sessions B01 through B18 are listed in `docs/sessions/`. B01 delivers
-the runnable foundation; execution, accounting and discovery follow in
-dependency order. Frontend sessions (PET-01 and later) belong to a different
-repository.
+Session logs are in `docs/sessions/`. Backend sessions B01 to B16 are
+complete; B17 closed after its first increment (the xAI model adapter, the
+Vercel deployment records and the status inventory). Since
+[ADR-0006](adr/ADR-0006-web-app-in-monorepo.md) the frontend sessions run in
+this repository: the app sessions F01 to F12 and the documentation site D01
+are complete. The product owner replaced B18 and the remaining B17 scope with
+the production completion plan (P01 to P24; P01 complete, P02 next) and the
+documentation plan (D02 to D09). F13 to F20 are not built; the plan carries
+them as P14 (maintenance proposals UI), P16 (companion), E01 (voice), P17
+(account and devices), E02 (Tessera), E04 (Meteora read-only observation and
+DBC simulation), P18 (operations status) and P19 (restore).
+[`release-readiness.md`](release-readiness.md) records where the candidate
+stands.

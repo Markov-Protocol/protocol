@@ -2,14 +2,17 @@
 
 Package: `@markov/ui` (source-exported, transpiled by Next.js). Tokens are
 defined once in `packages/ui/src/tokens.ts`; `pnpm tokens:build` renders
-`packages/ui/src/styles/tokens.css` and CI fails on drift.
+`packages/ui/src/styles/tokens.css`, and `pnpm tokens:check` fails on
+drift. The check is part of `pnpm verify` and a step of the CI workflow,
+whose runs start with P01; the local `pnpm verify` runs are the evidence
+so far.
 
 The reference screens in `docs/frontend/design-reference/` are the visual
-target from F10 on. They differ from the tokens below in two places the
-realignment pass reconciles, keeping every measured contrast at or above
-the minimums: the accent is the periwinkle of the reference buttons
-(sampled `#8299FD`, dark text on it) rather than `#89C9FF`, and the bezel
-is the warmer cream (sampled `#E6DCD1`) rather than `#ECEBE6`. Numbers,
+target from F10 on. F10 aligned the tokens below to them in two places,
+keeping every measured contrast at or above the minimums: the accent is
+the periwinkle of the reference buttons (sampled `#8299FD`, dark text on
+it) instead of the earlier `#89C9FF`, and the bezel is the warmer cream
+(sampled `#E6DCD1`) instead of the earlier `#ECEBE6`. Numbers,
 tickers and column headers are set in the monospace face there; the
 formatters are unchanged.
 

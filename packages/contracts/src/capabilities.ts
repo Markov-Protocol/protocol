@@ -3,15 +3,20 @@ import { z } from 'zod';
 /**
  * Verification states for every externally dependent capability.
  *
- * - IMPLEMENTED: code exists and unit tests pass; no external evidence.
- * - FIXTURE_VERIFIED: verified against sanitized recorded provider responses.
+ * - IMPLEMENTED: code and tests exist; no external evidence.
+ * - FIXTURE_VERIFIED: exercised end to end against deterministic fixtures,
+ *   meaning sanitised recorded provider responses where they exist and
+ *   otherwise synthetic stand-ins of the provider contract or the in-memory
+ *   fixture chain. It says nothing about the live provider.
  * - LIVE_READ_VERIFIED: verified against the real provider with read-only calls.
  * - LIVE_WRITE_VERIFIED: verified with a real, authorized, bounded write.
  * - BLOCKED: a named external dependency prevents verification.
- * - DISABLED: deliberately turned off by policy or release gate.
+ * - DISABLED: off by policy or release gate.
  *
  * A successful HTTP response, a configured credential, or a transaction
- * signature alone never upgrades a capability to a LIVE_* state.
+ * signature alone never upgrades a capability to a LIVE_* state. A local API
+ * in test mode with the in-process test issuer is not a real provider, so a
+ * run against it is never LIVE_* evidence.
  */
 export const CAPABILITY_STATUSES = [
   'IMPLEMENTED',

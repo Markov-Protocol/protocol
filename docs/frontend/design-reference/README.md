@@ -2,9 +2,9 @@
 
 Three reference screens for the markov.pet application, supplied by the
 product owner as the exact visual target for the app. They are the
-authority for the app's look from the next frontend session on; where the
-current implementation (F01 to F09) differs, the frontend sessions align to
-these screens rather than the other way round. The screens are
+authority for the app's look from F10 on; where the current
+implementation (F01 to F12) differs, the frontend sessions align to these
+screens rather than the other way round. The screens are
 illustrations with placeholder numbers ("Illustrative data"); nothing in
 them is a data source, a quote or an eligibility statement.
 
@@ -81,22 +81,22 @@ them is a data source, a quote or an eligibility statement.
 
 ## Explore (`explore-strategies.png`)
 
-Tabs `Strategies`, `Stocks`, `Research` (the current Explore has
-`Instruments` and `Watchlist`; the realignment renames `Instruments` to
-`Stocks`, adds `Strategies` as the first tab over the public strategies
-of F08 and `Research` over F06, and keeps the watchlist reachable from
-`Stocks`). One search field spans the rest of the row ("Search a company,
-theme or strategy"). The strategies table has the columns `STRATEGY`
-(an icon tile, the title and a one-line description; eligibility notes
-such as "eligibility required" belong in the description line),
-`UNIVERSE` (`Listed stocks`, `Pre-IPO exposure`, `Custom`), `ALLOCATION`
-(`4 assets`, `Your weights`) and `ACTION` (`View thesis →`, `Start a draft
-→`). The last row is always "Build your own". The rail lists the three
-promises with icons (verified instruments, assets stay in the wallet,
-review before execution) and `Create strategy →`. Footer: "Illustrative
-concepts. Availability depends on issuer, jurisdiction and liquidity."
-In the app the rows are real backend data and the footer states the real
-data source and time instead of "Illustrative".
+Tabs `Strategies`, `Stocks`, `Research` (the current Explore, after F12,
+has `Strategies` first over the public strategies of F08, `Stocks` in
+place of the former `Instruments` and `Watchlist` as its own tab; a
+`Research` tab over F06 is not built). One search field spans the rest
+of the row ("Search a company, theme or strategy"). The strategies table
+has the columns `STRATEGY` (an icon tile, the title and a one-line
+description; eligibility notes such as "eligibility required" belong in
+the description line), `UNIVERSE` (`Listed stocks`, `Pre-IPO exposure`,
+`Custom`), `ALLOCATION` (`4 assets`, `Your weights`) and `ACTION`
+(`View thesis →`, `Start a draft →`). The last row is always "Build your
+own". The rail lists the three promises with icons (verified
+instruments, assets stay in the wallet, review before execution) and
+`Create strategy →`. Footer: "Illustrative concepts. Availability
+depends on issuer, jurisdiction and liquidity." In the app the rows are
+real backend data and the footer states the real data source and time
+instead of "Illustrative".
 
 ## Build, Set Rules (`build-set-rules.png`)
 
@@ -115,8 +115,9 @@ points, the cash remainder is explicit) and its policy-derived limits; the
 realignment gives it this arrangement: sliders bound to the same
 basis-point values, the amount column, the three selects (approval mode,
 slippage cap within the person's limit, rebalancing preference as
-"suggest only" until B16 exists), and the budget field kept apart from
-the weights as the specification requires.
+"suggest only" until F13, carried as P14, builds the proposal screens
+over B16), and the budget field kept apart from the weights as the
+specification requires.
 
 ## Perps concept (`perps-future-preview.png`)
 

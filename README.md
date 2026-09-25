@@ -45,13 +45,32 @@ companion loop with redacted provenance, proposals only the owner opens,
 the Mark I event log),
 **B16** (recurring and drift-based rebalance proposals on durable
 schedules with deduplicated occurrences, review expiry, missed-run
-policies and a notification outbox; nothing unattended) and
-frontend sessions **F01** (shared design system), **F02** (Mark I shell) and
-**F03** (app sessions and account recovery) are complete. Backend sessions B02 to B18 and
-frontend sessions F02 to F20 follow in dependency order; see
-`docs/sessions/` for evidence, `docs/markov/product-scope.md` for the
-release boundaries and `docs/frontend/README.md` for the app. Nothing here
-is production-ready, audited or deployed.
+policies and a notification outbox; nothing unattended),
+frontend sessions **F01** (shared design system), **F02** (Mark I shell),
+**F03** (app sessions and account recovery), **F11** (portfolio, accounting
+and receipts), **F12** (strategy explorer, following and honest rankings)
+and the documentation site **D01** are complete. **B17** closed
+after its first increment (the xAI model adapter, the Vercel deployment
+records and the status inventory). The production completion plan (P01 to
+P24; P01 complete, P02 next) and the documentation plan (D02 to D09) replace the
+remaining B17 scope and B18. Frontend sessions F13 to F20 are not built;
+the plan carries them as P14 (F13, maintenance proposals), P16 (F14,
+companion), E01 (F15, voice), P17 (F16, account and devices), E02 (F17,
+Tessera), E04 (F18, Meteora), P18 (F19, operations status) and P19 (F20,
+restore). See `docs/sessions/` for evidence,
+`docs/markov/release-readiness.md` for where the candidate stands,
+`docs/markov/product-scope.md` for the release boundaries and
+`docs/frontend/README.md` for the app.
+
+Nothing here is production-ready or audited. The web app runs on Vercel at
+https://markov-web-theta.vercel.app in staging mode against a placeholder
+API origin, so it shows "Backend unreachable"; the documentation site runs
+on Vercel at https://markov-docs.vercel.app/docs/ and is also proxied at
+`/docs` of the web deployment. Both were built from commit `7840da2`, a
+pre-rewrite hash whose rewritten equivalent `9b6bde3` has the identical
+tree. The markov.pet domain is not routed to these deployments. No backend is
+hosted anywhere (Railway is selected for the backend, not provisioned), no
+program is deployed on any cluster and nothing financial is live.
 
 ## Supported modes
 
@@ -106,17 +125,17 @@ different genesis hash, exits with code 78 instead of serving.
 ## Verification commands
 
 ```sh
-pnpm verify          # lint, build + typecheck, tests, boundaries, OpenAPI drift, migration drift, web and docs builds
+pnpm verify          # lint, build + typecheck, release status check, tests, boundaries, OpenAPI, API client, migration and design token drift, web and docs builds
 pnpm test            # unit tests; integration tests run when MARKOV_TEST_DATABASE_URL / MARKOV_TEST_TEMPORAL_ADDRESS are set
 MARKOV_TEST_LOG_ERRORS=1 pnpm test   # the API test harness prints unhandled errors (otherwise silent) while debugging a 500
 pnpm secrets:scan    # gitleaks over staged changes (scripts/dev/install-gitleaks.sh)
 bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful stop, wrong-config refusal
-pnpm docs:build && pnpm docs:e2e   # the documentation site (markov.pet/docs): generated references, broken links fail, browser checks
+pnpm docs:build && pnpm docs:e2e   # the documentation site (apps/docs): generated references, broken links fail, browser checks
 ```
 
 ## Feature status
 
-| Area                         | Status after B01 |
+| Area                         | Status |
 | ---------------------------- | ---------------- |
 | Configuration and runtime modes | implemented, tested |
 | Database migrations, platform identity binding | implemented, tested against PostgreSQL 16 |
@@ -127,7 +146,7 @@ pnpm docs:build && pnpm docs:e2e   # the documentation site (markov.pet/docs): g
 | Catalog: sanitised issuer snapshots, quarantine, counterfeit and collision rules, SPL/Token-2022 mint verification, operator admission, public search with typed reference prices | implemented, tested with synthetic fixtures (B03); live PreStocks feed BLOCKED (OD-17) |
 | Listed stocks: Token-2022 extension policy, scaled-amount multiplier evidence, exact raw/scaled quantities, corporate-action lifecycle (splits, halts, migrations, sunsets) | implemented, tested with synthetic fixtures and events (B04); live xStocks endpoints BLOCKED (OD-18) |
 | Eligibility: versioned decisions under operator-published rules, terms acknowledgements by content hash, tighten-only owner limits with beta caps, capability states, deterministic policy decisions with machine-readable denials, race-safe spend reservations | implemented, tested (B05); real rules and terms BLOCKED on counsel (OD-06) |
-| Research: versioned theses with typed statements and citation rules, SSRF-safe source retrieval with sanitised excerpts, deterministic company mapping, bounded model runs with provenance, labelled public projections | implemented, tested (B06); model adapter fixture-only, no hosted provider (OD-19) |
+| Research: versioned theses with typed statements and citation rules, SSRF-safe source retrieval with sanitised excerpts, deterministic company mapping, bounded model runs with provenance, labelled public projections | implemented, tested (B06); fixture adapter, plus the xAI Grok adapter (`@markov/model-xai`, B17) verified against an in-process stand-in; no live provider call yet (OD-19, SR-XAI-01) |
 | Strategies: exact-weight recipes with cash, deterministic validation, immutable versions with admission snapshots, canonical manifest and content digest with test vectors, forks with provenance, explicit follower pins that a creator's edit never moves, optimistic concurrency | implemented, tested (B07) |
 | Registry: hash-keyed Anchor program with publisher-only status authority and immutable content, shared Rust/TypeScript vectors, publication flow (what-becomes-public preview, byte-exact signed submission, chain-derived states, deprecation), indexer, public verification on read | implemented, program-test and fixture-ledger verified (B08); no SBF build or validator run in this environment, nothing deployed (OD-09, OD-10) |
 | Execution planning: intents with idempotency, largest-remainder base-unit allocation with conservation and explicit cash and dust, separate bounded SOL fee budget, per-constituent venue quotes checked against the request, owner limits and a reviewed program matrix, per-constituent policy decisions, immutable hashed plans with executable bounds and validity, atomic or explicitly staged grouping, owner acknowledgement by hash | implemented, tested (B09) with the fixture venue; live Jupiter interface BLOCKED (OD-21); nothing signs or submits |
@@ -143,14 +162,14 @@ pnpm docs:build && pnpm docs:e2e   # the documentation site (markov.pet/docs): g
 | App sessions: server-verified HttpOnly cookie, sign-in, expiry recovery, sign-out, account switch isolation, generated API client | implemented, tested against the local API (F03); hosted identity provider adapter BLOCKED (OD-05) |
 | Wallet readiness: Wallet Standard discovery with capability checks, explicit selection, ownership verification through the B02 challenge, network checks, unlink, receive/funding with observed balances, eligibility and terms screens, live home checklist | implemented, tested (F04) with an injected fixture wallet; real wallets, hosted embedded wallet (OD-05) and live cluster reads not verified |
 | Discovery: Explore instruments over real admitted instruments with issuer identity, typed prices, availability and source timestamps; exact-id market pages with verification and lifecycle evidence; account-scoped versioned watchlists | implemented, tested (F05) with fixture instruments against the local API; live issuer feeds BLOCKED (OD-17, OD-18) |
-| Research in the app: thesis editor with typed statements and citations, safe source cards, bounded runs with progress and cancel, shortlist by canonical id, private notes vs published projection, shortlist to basket draft, instrument evidence rules and honest route observations | implemented, tested (F06) against the local B06/B07 API with the fixture source and fixture model adapter; no hosted model provider (OD-19) |
-| Basket builder: four stages on one server draft, exact basis-point allocations with explicit equal weighting and cash remainder, backend validation on every save, revision-checked autosave with offline and two-tab conflict handling, rules and effective limits, wallet and budget kept apart from the recipe with exact split estimates | implemented, tested (F07) against the local B05/B07 API; review and execution arrive with B09/B10 and F09/F10 |
+| Research in the app: thesis editor with typed statements and citations, safe source cards, bounded runs with progress and cancel, shortlist by canonical id, private notes vs published projection, shortlist to basket draft, instrument evidence rules and honest route observations | implemented, tested (F06) against the local B06/B07 API with the fixture source and fixture model adapter; no live model provider call yet (OD-19) |
+| Basket builder: four stages on one server draft, exact basis-point allocations with explicit equal weighting and cash remainder, backend validation on every save, revision-checked autosave with offline and two-tab conflict handling, rules and effective limits, wallet and budget kept apart from the recipe with exact split estimates | implemented, tested (F07) against the local B05/B07 API; review and execution were added by B09/B10 and F09/F10 |
 | Publishing in the app: freeze, versions with chain-derived registration states, prepare with a verified wallet (what becomes public, permanence, cost), sign through `solana:signTransaction` with a byte check, submit, states restored on reload, registration evidence with explorer links and verification, deprecation, readable version differences, public strategy and version pages, follows (backend addition in F08), forks of registered versions with attribution | implemented, tested (F08) against the local B07/B08 API with the fixture ledger and the fixture wallet; no deployed program or live cluster (OD-09, OD-10) |
 | Review in the app: one screen for a basket investment in a pinned version and a single buy of an instrument; wallet with observed balances, exact budget, policy-derived slippage; the API's plan with allocation, quotes, minimum outputs, fees and fee payer, signatures and transactions, atomic or staged semantics, policy evidence, validity with countdown, plan id and hash; approval bound to the hash with the staged acknowledgement, refresh with a difference view, actionable refusals, context differences | implemented, tested (F09) against the local B09 API with the fixture venue's synthetic quotes and the fixture wallet; no live venue (OD-21) |
 | Execution in the app: the API-built transaction shown before the wallet opens, signing preconditions checked in the browser and again by the API, one `solana:signTransaction` request with the returned bytes checked against the prepared message, one submission, wallet decline, silence, mutation, account and session changes and lost answers handled without a second intent or transaction, a per-transaction timeline restored on reload and in other tabs (stages, fills, fees paid, signatures, evidence) on bounded polling with accessible announcements, cancel and cancellation requests, reviewed completion of a partially completed basket, activity list with deep links, receipts issued and read with public opt-in | implemented, tested (F10) against the local B10 to B12 API with the fixture chain, fixture venue and fixture wallet; no live venue or cluster (OD-21); receipts signed with a local key (OD-22) |
 | Portfolio in the app: holdings against the chain with multiplier-aware quantities and the API's valuations, reconciliation on request, external flows explained at wallet level, strategy instances with target against actual allocation and drift, FIFO lots with cost and fees, personal against model performance with methodology labels, chart summaries, exact figures and JSON exports, journal history; receipts explain requested against filled | implemented, tested against the local API and the fixture chain (F11) |
 | Discovery in the app: Explore lands on registered strategies with chain provenance, follower counts and the model ranking's entry (rank with return or the reason and no number), filters and stable pages in the URL, a rankings page with one cohort per period beside the methodology, creator pages from chain records, Following composed from the private list, a creator's newer version offered on the follower's instance as an exact diff and accepted only explicitly | implemented, tested (F12) with jsdom and proxy tests and a Playwright journey against the local API and the fixture ledger (publish, explore unranked, rankings, creator, follow, pin, second version, accept) |
-| Product routes (automations, companion panel, settings) | not started (F13 onward, each needing its backend session) |
+| Automations, the companion panel, the operations status page and the remaining settings (profile, sessions, appearance, balance privacy, notifications, connected devices, agent credentials) | not built (F13 onward, carried by the production completion plan): `/automations` (F13, now P14) and `/status` (F19, now P18) render the unavailable placeholder, the shell dock says the companion panel is planned for P16, and `/settings` links the F04 wallets and eligibility pages and labels the other sections with the plan session that delivers them (P17; P13 and P17 for balance privacy and notifications); the backends for automations and notifications (B16), the companion (B15) and devices and agent credentials (B02) exist |
 
 Capability verification states are recorded in the database and in
 `docs/markov/provider-capabilities.md`.
@@ -158,15 +177,22 @@ Capability verification states are recorded in the database and in
 ## Layout
 
 ```
-apps/api  apps/worker  apps/cli  apps/web  apps/docs
-packages/contracts  packages/config  packages/observability  packages/solana-rpc  packages/db  packages/testkit
-packages/ui  packages/formatters
+apps/api  apps/worker  apps/indexer  apps/cli  apps/web  apps/docs
+packages/contracts  packages/config  packages/observability  packages/testkit
+packages/solana-rpc  packages/solana-codec  packages/db  packages/auth  packages/amounts
+packages/catalog  packages/issuer-prestocks  packages/issuer-xstocks  packages/policy
+packages/research  packages/model-xai  packages/strategy  packages/registry  packages/planning
+packages/venue-jupiter  packages/execution  packages/accounting  packages/analytics
+packages/agent-tools  packages/maintenance  packages/notifications
+packages/ui  packages/formatters  packages/markov-shell  packages/api-client
+programs/strategy-registry  programs/idl-build
 tooling/  scripts/  docs/markov/  docs/frontend/  docs/sessions/
 ```
 
 Web app commands: `pnpm web:dev`, `pnpm web:build`, `pnpm web:e2e` (see `docs/frontend/README.md`).
 
-Documentation site (`apps/docs`, served at markov.pet/docs): `pnpm docs:start`
+Documentation site (`apps/docs`, built for markov.pet/docs, currently served at
+https://markov-docs.vercel.app/docs/): `pnpm docs:start`
 (local preview on http://127.0.0.1:3200/docs/), `pnpm docs:build`,
 `pnpm docs:e2e`. The site is generated at build time from `docs/markov`,
 `docs/frontend`, `docs/sessions`, the OpenAPI document and the CLI command

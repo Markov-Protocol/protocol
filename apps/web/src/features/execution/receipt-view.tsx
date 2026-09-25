@@ -32,7 +32,8 @@ import { useReceipt, useReceiptKeys, useSetReceiptPublic } from './queries';
  * `/receipts/[receiptId]`: the signed record of what was requested,
  * approved, submitted, filled and charged, with its signer and canonical
  * hash. Cryptographic verification against the published keys is what the
- * CLI and the SDK do offline (`markov receipts verify`); this page shows
+ * CLI does offline (`markov receipts verify`, using `verifyReceipt` from
+ * `@markov/accounting`); this page shows
  * the key's published status and the exact JSON to verify, and never calls
  * a receipt a proof of ownership or of settlement.
  */

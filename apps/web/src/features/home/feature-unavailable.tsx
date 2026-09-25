@@ -10,8 +10,10 @@ export function FeatureUnavailable({ pathname }: { readonly pathname: string }) 
       <h1 className="mb-6 text-heading-lg font-semibold">{info.title}</h1>
       <EmptyState
         title={`${info.title} is not available in this build`}
-        description={`This area arrives with frontend session ${info.arrivesWith ?? 'a later session'}${
-          info.needsBackend ? ` and needs backend session ${info.needsBackend}` : ''
+        description={`This area is not built yet${
+          info.arrivesWith ? ` (planned for session ${info.arrivesWith})` : ''
+        }${
+          info.needsBackend ? `; it also needs backend session ${info.needsBackend}` : ''
         }. Nothing here is simulated or pre-filled.`}
         action={
           <Button asChild variant="secondary">

@@ -1,10 +1,15 @@
 # Threat model
 
-Status: B01 slice covering configuration, identity binding, logging and the
-build pipeline. Financial assets, execution, agents and data retrieval
-sections are added by the sessions that introduce them; the required
-verifications for those areas are listed in the build specification and are
-not claimed here.
+Status: covers configuration, identity binding, logging and the build
+pipeline (B01), the controls the backend sessions added through B16, the
+B17 xAI adapter and the web app's API proxy; each row names where its
+control is verified. Those checks run locally (`pnpm verify` and
+`scripts/ci/startup-check.sh`); GitHub Actions runs of
+`.github/workflows/ci.yml` start with P01. No control has been exercised
+against a live provider or cluster through the platform's own clients (the
+pinned genesis constants were read live, SR-SOL-01), and no backend is
+hosted. The asset list below is the B01 one; the assets later sessions
+introduce are named in the abuse cases.
 
 ## Assets and trust boundaries in B01
 
@@ -40,7 +45,7 @@ not claimed here.
 | A creator moving followers' money by editing or publishing (a follower's pin changed under them), or a follower pinned to a version nobody can read | Other people's instances are created and pinned only on registered, unwithheld versions of active strategies; a freeze proposes to the creator's own instances and a registration offers the version to followers, both without moving a pin; only the explicit pin accepts; archive, deprecation and moderation move nothing | discovery API test (follower instance on v1, v2 registered, proposal, explicit acceptance; unpublished and hidden versions refused), startup-check discovery journey |
 | Explorer rank gamed by popularity, deposits or repeated versions; moderation confused with chain authority | The explorer's rank is the B13 model ranking entry itself (same population, period and methodology version) with every ineligibility reason and no return; follower counts are a labelled sort, never a rank; archived strategies leave the ranking and the explorer; moderation is a listing flag with a recorded reason, the chain record stays served and no operator instruction exists on the program | discovery API test (rank equals the leaderboard rank, unranked young recipe, archive), `apps/api/test/registry.test.ts` |
 | Valuation applied twice or assumed (a scaled quantity priced per raw unit, a multiplier assumed to be 1, a stablecoin valued at par without saying so) | Raw units × the multiplier in force at the point × the price per display unit, with `multiplier_unknown` when no evidence covers the time; par is a stated caveat and a depeg is flagged | `packages/analytics/test/analytics.test.ts` (`model-split`) |
-| Catalog price presented as an executable quote | Catalog price kinds exclude `execution_quote`; `availability.trade` is a literal false until execution sessions | contract tests, API test asserts kinds |
+| Catalog price presented as an executable quote | Catalog price kinds exclude `execution_quote`; `availability.trade` is a literal false, so the catalog never implies an instrument can be traded | contract tests, API test asserts kinds |
 | Execution reached without eligibility, terms or within-limit evidence (missing, expired, revoked or superseded decision; unacknowledged terms; order, daily, account, concentration, slippage, quote-age, venue or reserve breach) | Deterministic policy evaluation with every check reported; unknown blocks; submit stage re-evaluates and additionally requires execution writes, a verified venue and declared exposure; decisions expire within 60 s | `packages/policy/test`, `apps/api/test/policy.test.ts` |
 | Concurrent intents overspending a shared budget | Reservation and decision in one transaction under a per-user advisory lock; idempotent per intent; expiry sweep | `packages/db/test/policy-store.test.ts` (12 parallel holds), API race test (8 parallel evaluations) |
 | Owner or operator loosening limits silently; fixture rules reaching production | Owner limits validated against the ceiling (policy defaults tightened by `BETA_*`), refused with details, step-up required; rule and terms versions immutable; user-assigned jurisdiction codes refused outside local/test; https-only terms; acknowledgement requires the exact content hash | policy API tests |
@@ -80,7 +85,6 @@ not claimed here.
 | A later leg of a staged basket executed on stale terms, out of order, or with budget quietly moved from a filled leg; a failure after a fill hidden as a plain failure or retried into a second purchase | Each later transaction is built only after the previous one finalized with its fills recorded, its leg is quoted again and refused (`LEG_TERMS_CHANGED`) when the fresh terms miss the approved bounds; `BATCH_NOT_READY` refuses out-of-order submission; a failure, expiry or cancel after a fill ends `PARTIALLY_COMPLETED` with what landed intact; completion is a new reviewed intent for exactly the unfilled legs at their original targets, once | basket execution API test (stale leg, cancel between legs, failed later leg, continuation refused with the wrong budget, version or kind, refused twice), `packages/execution/test` (staged transitions) |
 | Reservations of a multi-leg transaction left held, double-counted or colliding across rebuilds | One reservation per leg keyed by intent, transaction and leg; every hold released on a denial; the attempt settles all of them together on evidence | basket execution API test (held, consumed, released), `packages/db` store |
 | Explorer links or program ids pointing at another chain; publication from a read-only or unreviewed deployment | Links only for public clusters from validated results; `REGISTRY_PROGRAM_ID` unset disables publication; mainnet publication requires production mode and release evidence; the wallet must be verified on the deployment's genesis | `packages/config/test/config.test.ts`, registry API tests |
-
 | Journal rewritten or totals changed by replayed observations (a fill projected twice, a reconciliation repeated, an entry edited) | Append-only tables with a unique `(owner, source_ref)`; corrections only by reversal entries; every entry balanced per asset before insertion; duplicate projections counted as existing | `packages/accounting/test`, `apps/api/test/accounting.test.ts`, `scripts/ci/startup-check.sh` |
 | Tokens leaving or entering a wallet outside the platform silently changing a strategy's holdings, or one token counted towards two portfolios | Chain reconciliation records every unexplained difference as an external flow needing the owner's explanation; attribution only to the one matching instance from the record; wallet totals and instance totals shown separately, a negative wallet-level remainder shown rather than lots reduced | `apps/api/test/accounting.test.ts` (unexplained transfer detected, lots untouched) |
 | A receipt passed off as proof of ownership, of settlement or of policy enforcement, or forged, altered or re-signed | Canonical bytes with a domain prefix, Ed25519 signature over them, published versioned keys with retirement, offline verification with explicit issues, the scope statement inside the signed body, receipts idempotent per intent, kind and state, the signing key never in production unless KMS-backed (OD-22) | `packages/accounting/test`, `apps/api/test/accounting.test.ts`, `markov receipts verify` in the startup check |
@@ -95,11 +99,11 @@ not claimed here.
 | A delivery storm or a provider outage retried forever, or a dead delivery silently dropped | Per-delivery attempts with 1/5/15/60/240-minute backoff, dead-lettered after five attempts, permanent refusals marked failed, an operator list and an explicit requeue; the worker loop counts refusals and unreachable ticks and waits for the next tick instead of retrying blindly | maintenance API test (dead letter and requeue), worker test (refusal reported) |
 | A rebalance proposal executing legs the owner did not size or approve | Legs are sized from the attributed holdings and the reference prices at proposal time and shown in the proposal; opening creates one ordinary reviewed intent per leg, each planned, acknowledged and signed separately; an instance without holdings yields no legs | maintenance API test (empty instance: no legs, no intents) |
 
-## Residual risks after B01
+## Residual risks
 
 - Genesis constants are live-verified (SR-SOL-01), but the platform's own RPC
   client has not yet been exercised against a live endpoint; the first
-  deployment must confirm with `markov solana probe`.
+  backend deployment must confirm with `markov solana probe`.
 - The identity provider adapter is verified only against the in-process
   test issuer; Privy-specific issuer, audience and key configuration are
   unverified (OD-05). Cookie sessions and CSRF belong to the app layer (F03).
@@ -107,19 +111,23 @@ not claimed here.
   correctly behind a load balancer.
 - The Docker path for local dependencies is unverified (OD-16).
 - Execution plans rest on fixture or gateway quotes only: no live venue
-  quote, no reviewed live route program and no transaction simulation exist
-  (OD-21). Policy decisions taken at plan time are re-evaluated at
-  submission (B10); a plan is evidence of what was checked, not a
-  guarantee of what will execute.
+  quote, no reviewed live route program and no simulation against a live
+  cluster exist (OD-21); plans and builds are simulated against the fixture
+  chain only (B10, B11). Policy decisions taken at plan time are
+  re-evaluated at submission (B10); a plan is evidence of what was checked,
+  not a guarantee of what will execute.
 - Journal balances rest on fills observed from the fixture chain's
   transaction meta and on balances read from the fixture node; no live
   wallet has been reconciled, and Token-2022 mints with transfer fees or
   interest-bearing extensions may show differences the current
   reconciliation attributes to external flows (an owner explanation, never
-  a silent adjustment) until B13 models them. Receipts are signed with a
-  configured local key outside production only; the KMS signer, its
-  rotation and the accountable owner of the verification keys are open
-  (OD-22).
+  a silent adjustment) until they are modelled; B13 added no transfer-fee
+  or interest-bearing adjustment. Admission refuses a mint with a nonzero
+  transfer fee or `InterestBearingConfig` (`instrument-admission.md`), so
+  the exposure is a zero-fee `TransferFeeConfig` mint admitted after review
+  whose fee is enabled later. Receipts are signed with a configured local
+  key outside production only; the KMS signer, its rotation and the
+  accountable owner of the verification keys are open (OD-22).
 - The research retriever's `node:https` transport is exercised only through
   its in-memory stand-in (the policy, classification, pinning and caps are
   tested; the socket path is not); no live page has been retrieved. The

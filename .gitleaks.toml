@@ -10,7 +10,7 @@ useDefault = true
 description = "documented placeholders"
 regexTarget = "match"
 regexes = [
-  # Fake xAI key literal that two test files carried in commit b0cf20f (B17); the tests now assemble it at runtime.
+  # Fake xAI key literal that two test files carried in commit 635015e (B17; pre-rewrite b0cf20f); the tests now assemble it at runtime.
   '''xai-test-key-0123456789abcdef''',
   '''postgres://markov:markov@127\.0\.0\.1:5432/markov_(dev|test)''',
   '''postgres://markov:secret-pw@127\.0\.0\.1:5432/markov_dev''',

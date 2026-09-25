@@ -1,6 +1,9 @@
 # Operations
 
-Status: B01 slice. Everything below is implemented unless marked *planned*.
+Status: covers B01 to B16, the B17 xAI adapter, the documentation site
+(D01) and the Vercel deployments of both frontends. Everything below is
+implemented unless marked *planned*; no backend is hosted anywhere yet and
+no program is deployed on any cluster.
 
 ## Processes and exit codes
 
@@ -9,7 +12,7 @@ Status: B01 slice. Everything below is implemented unless marked *planned*.
 | API            | `node apps/api/dist/main.js` | 0 clean shutdown; 78 configuration/identity contradiction; 69 database or listener unavailable; 70 unexpected software error |
 | Worker         | `node apps/worker/dist/main.js` | same mapping; Temporal connection failures after bounded retries exit 69 |
 | Indexer        | `node apps/indexer/dist/main.js [--once]` | same mapping; idle (exit 0 with `{"idle":true}` for `--once`) when no registry program is configured |
-| CLI            | `node apps/cli/dist/main.js` (`pnpm markov`) | 0 ok; 1 not ready; 64 usage; 69 unavailable; 78 configuration |
+| CLI            | `node apps/cli/dist/main.js` (`pnpm markov`) | 0 ok; 1 not ready, an error answer from the API or a failed receipt verification; 64 usage (2 for `agent call --input` that is not JSON); 65 a plan or keys document not in the expected shape; 69 unavailable; 70 unexpected software error; 78 configuration |
 
 Boot order and fail-closed checks are described in `architecture.md`.
 
@@ -41,8 +44,10 @@ Docker; `docker-compose.yml` provides PostgreSQL and Temporal with Docker
 4. Deploy: `markov db migrate` (production requires `--allow-production` and
    an attributable `--bound-by`). The process refuses to bind an identity that
    contradicts the one already stored.
-5. CI fails if `drizzle-kit check` or a regenerated migration differs from
-   the committed files.
+5. The migration drift step of `.github/workflows/ci.yml` fails if
+   `drizzle-kit check` fails or a regenerated migration differs from the
+   committed files; CI runs start with P01, and `pnpm verify` runs
+   `pnpm db:check` locally.
 
 ## Operator credentials
 
@@ -54,7 +59,8 @@ pnpm markov operators create --label "on-call" --scopes ops:read,ops:credentials
 
 The token is printed once; only its peppered hash is stored, and the
 creation is written to `audit_events`. Revoke by expiring or through a
-future operator route (B18). Rotate `CREDENTIAL_PEPPER` only with a
+future operator route (planned for B18, whose scope moved to the
+production completion plan). Rotate `CREDENTIAL_PEPPER` only with a
 documented re-issuance of every credential; changing it invalidates all
 sessions and credentials at once.
 
@@ -93,8 +99,10 @@ notice; splits and multiplier changes need prior multiplier evidence (a
 verified mint read) or the application is refused. A halt (applied event
 or an on-chain pause seen by verification) blocks new strategy versions
 immediately and is visible on every public instrument. A migration or
-sunset keeps research available and blocks strategies; holders are
-notified through the notification sessions (B15). Never apply an event to
+sunset keeps research available and blocks strategies; holders are not
+yet notified (the event contract has no instrument lifecycle kind; B16
+notifications cover proposals, reviews, execution, stale data, device
+revocation and schedule outcomes). Never apply an event to
 "fix" a valuation; corrections are new evidence, not rewrites.
 
 ## Eligibility, terms and policy
@@ -417,8 +425,11 @@ typed tools work with the caller's own authority and companion runs
 answer 503; `fixture` is a deterministic adapter for local and test only
 (configuration refuses it elsewhere) that follows every `TOOL:` directive
 it reads, which is what the adversarial tests rely on. No hosted provider
-exists yet (OD-19); before one is configured, record its terms, retention
-and the exact data sent in `docs/markov/agent-permissions.md`.
+is live-verified yet (OD-19, SR-XAI-01): xAI Grok is the selected provider
+and its adapter exists (B17). Before `xai` is configured outside
+local/test, record the provider's terms and retention in
+`docs/markov/agent-permissions.md` (the data sent is recorded there since
+B17).
 `COMPANION_DAILY_COST_LIMIT_MICROS` (default 5 000 000) caps an account's
 rolling daily spend; a refused run answers `BUDGET_EXHAUSTED`. `xai` (B17)
 selects xAI Grok for either adapter through `@markov/model-xai`: set
@@ -497,8 +508,9 @@ Audit actions: `maintenance.*`, `notification.*`,
 
 ## Documentation site
 
-`apps/docs` is the Docusaurus site served at `https://markov.pet/docs`
-(site `url` `https://markov.pet`, `baseUrl` `/docs/`). It contains no
+`apps/docs` is the Docusaurus site built for `https://markov.pet/docs`
+(site `url` `https://markov.pet`, `baseUrl` `/docs/`); `markov.pet` is not
+routed to it yet, and it is served on Vercel (below). It contains no
 hand-copied documentation: `pnpm docs:build` first runs
 `apps/docs/scripts/sync-content.mjs` (every document under `docs/markov`,
 `docs/markov/adr`, `docs/frontend`, `docs/frontend/design-reference` and
@@ -530,7 +542,7 @@ both frontends on Vercel is described below.
 
 ## Frontends on Vercel
 
-Two Vercel projects, both linked to this repository (monorepo, pnpm):
+Two Vercel projects building this repository (monorepo, pnpm); they are not linked through the Vercel GitHub App (see below), so each deployment is created from the public repository as its git source:
 
 | Project | Root directory | Settings source | Production output |
 | ------- | -------------- | --------------- | ----------------- |
@@ -538,8 +550,10 @@ Two Vercel projects, both linked to this repository (monorepo, pnpm):
 | `markov-docs` | `apps/docs` | `apps/docs/vercel.json`: no framework preset, install at the root, `pnpm run build` (the CLI reference needs `apps/cli/dist`) then `pnpm --filter @markov/docs run build:vercel`, output `out` (the site staged under `out/docs/`, clean URLs, `/` redirects to `/docs/`) | `https://markov-docs.vercel.app/docs/`, proxied by the app under `/docs` |
 
 First deployed 2026-09-25 from commit `7840da2` of the branch under review
-through the Vercel API with the repository as the git source: the
-repository is public, so Vercel fetches it without the GitHub App, but
+(a pre-rewrite hash; the rewritten commit `9b6bde3`, `build(web): describe
+the Vercel projects for both frontends`, has the identical tree) through
+the Vercel API with the repository as the git source: the repository is
+public, so Vercel fetches it without the GitHub App, but
 nothing deploys on push until the Vercel GitHub App is installed for the
 `Markov-Protocol` organisation with access to `protocol` (linking a
 project answers `repo_no_access` until then). Node 22.x in both projects,
@@ -552,18 +566,21 @@ Environment of `markov-web` (all targets unless noted):
 | Variable | Value | Why |
 | -------- | ----- | --- |
 | `MARKOV_ENV` | `staging` | The web guards refuse fixtures and require an https API origin; `production` additionally requires the public origin and is reserved for the release candidate |
-| `MARKOV_API_ORIGIN` | `https://api.markov.pet` (or wherever the API is hosted) | Server-only. Until the API is deployed the app reports the API as unreachable on every signed-in screen rather than showing fake data |
+| `MARKOV_API_ORIGIN` | `https://api.markov.pet`, a placeholder until the API is hosted (then wherever it runs) | Server-only. Until the API is deployed the app reports the API as unreachable on every signed-in screen rather than showing fake data |
 | `NEXT_PUBLIC_APP_ORIGIN` | the project's production URL, later `https://markov.pet` | Absolute links, callback validation, the session cookie's `Secure` attribute |
 | `MARKOV_DOCS_ORIGIN` | `https://markov-docs.vercel.app` | Proxies `/docs` to the documentation site; unset means `/docs` is not served |
 | `MARKOV_WEB_INTERNAL_ROUTES`, `MARKOV_WEB_FIXTURES` | `false` | Never enabled outside local and test |
 
 `markov-docs` needs no variables. Neither project holds a secret: provider
-keys, RPC credentials, signing keys and the JWT secrets live with the API
-and the worker, which Vercel does not host (long-running processes,
-PostgreSQL and Temporal belong on a container platform or VMs, see
-Readiness below). After the API exists, point `MARKOV_API_ORIGIN` at it,
-add the app origin to the API's `API_ALLOWED_ORIGINS`, and redeploy the
-app; the identity provider's callback must list the app origin as well.
+keys, RPC credentials, signing keys and the credential pepper live with
+the API and the worker, which Vercel does not host. The API, worker and
+indexer go to Railway, selected by the product owner on 2026-09-25
+(OD-11); the PostgreSQL service and the Temporal service (on Railway or
+Temporal Cloud) are still open, and nothing is provisioned yet
+(`docs/prompts/backend-railway.md`, P02). After the API exists, point
+`MARKOV_API_ORIGIN` at it, add the app origin to the API's
+`API_ALLOWED_ORIGINS`, and redeploy the app; the identity provider's
+callback must list the app origin as well.
 
 Theme: the site reads `packages/ui/src/styles/tokens.css` at build time
 (`src/css/markov-tokens.generated.css`), uses the Inter files under
@@ -582,12 +599,16 @@ darker accent from the design system for contrast on the cream frame.
   credential-bearing keys. RPC and database URLs are logged only in redacted
   form.
 - *Planned*: OpenTelemetry traces from request to receipt, metrics and alert
-  thresholds with owners and runbooks (B18); provider outage, stuck
+  thresholds with owners and runbooks (P18, OD-03); provider outage, stuck
   transaction, asset halt, emergency pause and restore procedures arrive with
   the features they cover.
 
 ## Emergency
 
-*Planned*: operator pause/recovery commands (B18). In B01 the only controls
-are configuration (`EXECUTION_WRITES_ENABLED=false` is the default and the
-only permitted value outside production) and stopping the process.
+*Planned*: scoped operator pause controls (P18) and restore and recovery
+procedures (P22). Until then the controls are configuration
+(`EXECUTION_WRITES_ENABLED` defaults to `false`; it is refused in
+`mainnet-read-only` and on mainnet-beta outside production, and production
+also needs the `BETA_*` caps, the allowlist and `RELEASE_EVIDENCE_REF`),
+instrument `pause`/`delist` decisions, listing moderation, the owner's
+schedule pause and cancel, and stopping the process.

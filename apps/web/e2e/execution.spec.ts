@@ -122,7 +122,8 @@ async function chooseWallet(page: Page): Promise<void> {
 
 /** Starts a single buy of FXAERO from the instrument page and approves its plan; answers the intent id. */
 async function approvedSingleBuy(page: Page, budget: string): Promise<string> {
-  await page.goto('/explore?q=FXAERO');
+  // Explore opens on Strategies since F12; the stock list is the instruments tab.
+  await page.goto('/explore?tab=instruments&q=FXAERO');
   await page
     .getByRole('link', { name: /FXAERO/ })
     .first()

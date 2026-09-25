@@ -24,7 +24,7 @@ export const ROUTE_INFO: Readonly<Record<string, RouteInfo>> = {
   '/receipts': { title: 'Receipt', arrivesWith: null, needsBackend: null },
   '/rankings': { title: 'Rankings', arrivesWith: null, needsBackend: null },
   '/creators': { title: 'Creator', arrivesWith: null, needsBackend: null },
-  '/automations': { title: 'Automations', arrivesWith: 'F13', needsBackend: 'B16' },
+  '/automations': { title: 'Automations', arrivesWith: 'P14', needsBackend: null },
   '/settings': { title: 'Settings', arrivesWith: null, needsBackend: null },
   '/settings/wallets': { title: 'Wallets', arrivesWith: null, needsBackend: null },
   '/settings/eligibility': {
@@ -34,7 +34,7 @@ export const ROUTE_INFO: Readonly<Record<string, RouteInfo>> = {
   },
   '/sign-in': { title: 'Sign in', arrivesWith: null, needsBackend: null },
   '/auth/callback': { title: 'Sign-in callback', arrivesWith: null, needsBackend: null },
-  '/status': { title: 'Status', arrivesWith: 'F19', needsBackend: 'B18' },
+  '/status': { title: 'Status', arrivesWith: 'P18', needsBackend: null },
   '/dev/components': {
     title: 'Component reference (internal)',
     arrivesWith: null,

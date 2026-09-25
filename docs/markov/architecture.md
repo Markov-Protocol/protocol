@@ -7,8 +7,8 @@ Status: implementation baseline established in session B01. Sections marked
 
 ```mermaid
 flowchart TD
-    Clients["SDK, CLI and future clients"] --> API["Authenticated API (apps/api)"]
-    API --> Strategy["Research and strategy versions (planned)"]
+    Clients["CLI, markov.pet web app (apps/web) and future clients"] --> API["Authenticated API (apps/api)"]
+    API --> Strategy["Research (B06) and strategy versions (B07)"]
     API --> Policy["Policy (B05) and execution planning (B09)"]
     Strategy --> Registry["On-chain recipe registry (B08)"]
     Policy --> Adapters["Issuer (B03, B04) and venue (B09) adapters"]
@@ -16,9 +16,9 @@ flowchart TD
     API --> DB["PostgreSQL and outbox"]
     DB --> Workers["Durable workers (apps/worker)"]
     Workers --> Adapters
-    Chain --> Reconcile["Indexer and reconciliation (planned)"]
+    Chain --> Reconcile["Registry indexer (B08) and chain reconciliation (B10, B12)"]
     Reconcile --> DB
-    Reconcile --> Evidence["Receipts and performance (planned)"]
+    Reconcile --> Evidence["Receipts (B12) and performance (B13)"]
 ```
 
 Independently runnable processes: `apps/api` (Fastify), `apps/worker`
@@ -32,12 +32,12 @@ Independently runnable processes: `apps/api` (Fastify), `apps/worker`
 | Runtime/build      | Node 22 LTS, TypeScript 5.9 strict, ESM (NodeNext), pnpm 10 workspace with a frozen lockfile |
 | HTTP API           | Fastify 5, zod-validated contracts, generated OpenAPI 3.1     |
 | Persistence        | PostgreSQL 16, Drizzle for mapping, reviewed SQL migrations   |
-| Durable execution  | Temporal TypeScript SDK 1.24; transactional outbox (planned)  |
-| Chain access       | Minimal bounded JSON-RPC client (B01); SDK selection open     |
-| Identity           | Existing provider or Privy behind an adapter (planned, B02)   |
-| Evidence           | Private S3-compatible storage, KMS-signed receipts (planned)  |
+| Durable execution  | Temporal TypeScript SDK 1.24; outbox table `outbox_events` recording execution state changes (B10), not yet relayed by any process |
+| Chain access       | Minimal bounded JSON-RPC client (B01) and SDK-free wire formats in `@markov/solana-codec` (ADR-0009, resolves OD-01) |
+| Identity           | Provider-neutral identity-token verifier (issuer, audience, JWKS) in `@markov/auth` (B02); production provider account (existing provider or Privy) open (OD-05) |
+| Evidence           | Ed25519-signed receipts with verification keys at `GET /v1/receipts/keys`, signed by a local key that production refuses (B12); KMS signer (OD-22) and private S3-compatible evidence storage planned |
 | Telemetry          | pino structured redacted logs (B01); OpenTelemetry (planned)  |
-| Delivery           | GitHub Actions with SHA-pinned actions; containers (planned)  |
+| Delivery           | CI in GitHub Actions (`.github/workflows/ci.yml`, SHA-pinned actions), whose runs start with P01; web app (staging mode, no backend reachable) and documentation site on Vercel (OD-11, OD-24; `operations.md`, "Frontends on Vercel"); backend services on Railway, selected but not provisioned (no Dockerfile or `railway.json` yet; OD-11, P02) |
 
 ## Repository layout
 
@@ -74,15 +74,21 @@ programs/strategy-registry  Anchor program recording immutable version recipes, 
 packages/api-client generated OpenAPI client with runtime contract validation, used by the app server (F03)
 packages/testkit    test-only helpers (never imported by production code)
 apps/web            markov.pet application (Next.js App Router; ADR-0006)
+apps/docs           markov.pet/docs documentation site (Docusaurus), generated from the repository at build time (D01)
 packages/ui         design system (tokens, primitives, forms, feedback, tables)
+packages/markov-shell  Mark I shell (@markov/shell): device frame, pixel eyes, companion presence, top bar, navigation (F02)
 packages/formatters exact amount, basis-point, price, time and address formatting
 tooling/            commit policy, boundary checker, secret scan, scripts
 docs/markov         this contract, ADRs, registers
 docs/sessions       per-session evidence
 ```
 
-Planned packages follow the specification: portfolio, integrations,
-receipts; `infra` for deployment.
+Receipts, the quantity journal and holdings live in `@markov/accounting`
+(B12) and valuation and performance in `@markov/analytics` (B13); provider
+integrations are per-provider packages (`issuer-prestocks`,
+`issuer-xstocks`, `venue-jupiter`, `model-xai`). Planned: the Railway
+deployment artifacts (a root multi-stage `Dockerfile` with one target per
+process, `.dockerignore`, `railway.json`; P02, OD-11).
 
 ## Dependency direction
 
@@ -92,14 +98,17 @@ each other; `appDeny` in the rules file keeps databases, configuration, RPC
 clients and signers out of the browser build (ADR-0006).
 `@markov/contracts` imports nothing internal. Provider SDK families are
 restricted to their owning package (`tooling/boundaries/rules.json`);
-`@solana/*`, `@jup-ag/*` and `@meteora-ag/*` have no owner, so importing
+`@jup-ag/*`, `@meteora-ag/*` and the `@solana/` scope have no owner, except
+`@solana/wallet-standard-features` and `@solana/wallet-standard-chains`,
+which only `@markov/web` may import (ADR-0007), so importing any other of
 them fails the check (ADR-0009 keeps the Solana wire formats in
 `@markov/solana-codec` without an SDK); the venue adapter talks to a gateway
 with plain `fetch` through the Markov quote and build contracts and uses no
 provider SDK. Domain packages never depend on `@markov/db`: the execution
 lifecycle drives a structurally typed store port that the API and the worker
-both implement over the database. `pnpm boundaries:check`
-runs in CI.
+both implement over the database. `pnpm boundaries:check` is part of
+`pnpm verify` and a step of the CI workflow (`.github/workflows/ci.yml`),
+whose runs start with P01.
 
 ## Runtime modes
 
@@ -141,14 +150,20 @@ The worker runs steps 1 to 4, then connects to Temporal with bounded retries.
   checks; 200 only when all pass; `unverified` is distinct from `fail`.
 - `GET /v1/platform`: identity and capability readiness, secret-free.
 - `GET /openapi.json`: generated document; `docs/markov/openapi.json` is the
-  committed copy checked for drift in CI.
+  committed copy checked for drift by `pnpm openapi:check` (part of
+  `pnpm verify` and a step of the CI workflow).
 
 ## Data and queues
 
 PostgreSQL is the financial source of truth. Denormalized views must be
 rebuildable. Migrations follow expand/backfill/contract. Queue delivery is
-at-least-once; the transactional outbox and idempotent consumers arrive with
-the first side-effecting feature (B10/B16). Temporal replay supplies workflow
+at-least-once. The outbox (`outbox_events`, migration `0011_execution`, B10)
+records execution state changes (`execution.pending` in the same
+transaction as the attempt it announces); no relay publishes it yet. The
+notification projection (B16, `0017_maintenance`) consumes the Mark I event
+log idempotently through its cursor and unique indexes (one notification per
+source event, one delivery per channel), and every email request carries an
+idempotency key. Temporal replay supplies workflow
 continuity, not exactly-once external effects. Redis, if ever used, is a
 cache, never the source of truth.
 

@@ -276,7 +276,8 @@ test.describe('unified investment and trade review', () => {
     await page.screenshot({ path: `${evidenceDir}review-denied-${width}.png`, fullPage: true });
 
     // A single buy from the instrument page: one atomic transaction, no staged acknowledgement.
-    await page.goto('/explore?q=FXAERO');
+    // Explore opens on Strategies since F12; the stock list is the instruments tab.
+    await page.goto('/explore?tab=instruments&q=FXAERO');
     await page
       .getByRole('link', { name: /FXAERO/ })
       .first()

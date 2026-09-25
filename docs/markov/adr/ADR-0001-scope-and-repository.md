@@ -1,6 +1,8 @@
 # ADR-0001: Scope of this repository
 
-Date: 2026-09-24 · Status: accepted · Session: B01
+Date: 2026-09-24 · Status: accepted; the frontend exclusion (Decision,
+second bullet) is superseded by ADR-0006 (F01) for the markov.pet
+application; the storefront and DNS stay out of scope · Session: B01
 
 ## Context
 
@@ -25,6 +27,8 @@ boundary can be assumed.
 
 ## Consequences
 
-- Sessions B01 to B18 are executed in this repository in dependency order.
+- Sessions B01 to B17 ran in this repository in dependency order; B17
+  closed after its first increment, and the product owner replaced B18 and
+  the rest of B17 with the production completion plan (P01 to P24).
 - The commit and documentation policy in `AGENTS.md` applies from the first
   commit.

@@ -178,9 +178,9 @@ export function NewBasketView() {
         )}
       </section>
       <Notice tone="info" title="Versions, publishing and forks">
-        Freezing an immutable version, publishing it and forking arrive with F08; review and
-        execution with F09 and F10. Until then a draft is a saved, validated recipe and nothing
-        more.
+        A draft is a saved, validated recipe and nothing more. Freezing it creates an immutable
+        version; publishing a version and reviewing an investment are separate steps you take from
+        the version page.
       </Notice>
     </section>
   );

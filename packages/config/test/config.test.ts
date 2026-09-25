@@ -176,6 +176,34 @@ describe('runtime mode x cluster matrix', () => {
     );
   });
 
+  it('refuses a local receipt signing key in production and the unimplemented KMS signer everywhere (B12)', () => {
+    const key = ['local', 'receipt', 'key', 'placeholder'].join('-');
+    const local = {
+      RECEIPT_SIGNING_PROVIDER: 'local_key',
+      RECEIPT_SIGNING_KEY: key,
+      RECEIPT_SIGNING_KEY_ID: 'rk-1',
+    };
+    expect(issuesOf({ ...base, ...local }).some((issue) => issue.startsWith('RECEIPT_'))).toBe(
+      false,
+    );
+    expect(issuesOf({ ...prodBase, ...local })).toContain(
+      'RECEIPT_SIGNING_PROVIDER: a local receipt signing key is not allowed when MARKOV_ENV=production',
+    );
+    expect(issuesOf({ ...base, RECEIPT_SIGNING_PROVIDER: 'kms' })).toContain(
+      'RECEIPT_SIGNING_PROVIDER: the KMS-backed receipt signer is not implemented (OD-22); use local_key outside production or disabled',
+    );
+    expect(issuesOf({ ...base, RECEIPT_SIGNING_PROVIDER: 'local_key' })).toEqual(
+      expect.arrayContaining([
+        'RECEIPT_SIGNING_KEY: is required when RECEIPT_SIGNING_PROVIDER=local_key',
+        'RECEIPT_SIGNING_KEY_ID: is required when RECEIPT_SIGNING_PROVIDER=local_key',
+      ]),
+    );
+    expect(issuesOf({ ...base, RECEIPT_SIGNING_KEY: key })).toContain(
+      'RECEIPT_SIGNING_KEY: is set but RECEIPT_SIGNING_PROVIDER is not local_key; remove it or enable the provider',
+    );
+    expect(JSON.stringify(describeConfig(loadConfig({ ...base, ...local })))).not.toContain(key);
+  });
+
   it('valid production read-only configuration passes', () => {
     expect(
       issuesOf({ ...prodBase, MARKOV_ENV: 'mainnet-read-only', TEMPORAL_TLS: 'false' }),

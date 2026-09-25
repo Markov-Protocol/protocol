@@ -20,24 +20,24 @@ const sections = [
   {
     href: null,
     label: 'Profile, sessions, appearance',
-    detail: 'Arrives with F16.',
+    detail: 'Not built yet (planned for session P17).',
     available: false,
   },
   {
     href: null,
     label: 'Balance privacy and notifications',
-    detail: 'Arrives with F16 (needs B15).',
+    detail: 'Not built yet (planned for sessions P13 and P17).',
     available: false,
   },
   {
     href: null,
     label: 'Connected devices and agent credentials',
-    detail: 'Arrives with F15 and F16.',
+    detail: 'Not built yet (planned for session P17).',
     available: false,
   },
 ] as const;
 
-/** Settings index: real sections link; the rest say when they arrive. */
+/** Settings index: real sections link; the rest say they are not built yet and which session plans them. */
 export function SettingsView() {
   return (
     <section className="mx-auto max-w-3xl space-y-6 px-4 py-8">

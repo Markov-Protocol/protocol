@@ -1,6 +1,7 @@
 # ADR-0004: Chain access without a provider SDK in B01
 
-Date: 2026-09-24 · Status: accepted (interim) · Session: B01
+Date: 2026-09-24 · Status: accepted; the SDK decision it deferred is
+recorded in ADR-0009 (B10: no SDK, resolves OD-01) · Session: B01
 
 ## Context
 

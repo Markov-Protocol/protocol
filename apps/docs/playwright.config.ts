@@ -9,10 +9,20 @@ export default defineConfig({
   outputDir: '../../.markov-tmp/playwright-docs',
   fullyParallel: true,
   retries: 0,
-  reporter: [['list']],
+  // A stray test.only must fail CI instead of silently narrowing the evidence.
+  forbidOnly: Boolean(process.env['CI']),
+  // CI keeps a JUnit report and the HTML report (with traces of failed tests) as run evidence.
+  reporter: process.env['CI']
+    ? [
+        ['list'],
+        ['junit', { outputFile: '../../.markov-tmp/reports/docs-e2e.junit.xml' }],
+        ['html', { outputFolder: '../../.markov-tmp/reports/docs-e2e-html', open: 'never' }],
+      ]
+    : [['list']],
   use: {
     baseURL: process.env['MARKOV_DOCS_BASE_URL'] ?? 'http://127.0.0.1:3200',
     trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
   projects: [
     {

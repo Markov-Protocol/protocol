@@ -54,8 +54,8 @@ rounds them up:
 
 | State | Meaning |
 | ----- | ------- |
-| `IMPLEMENTED` | Code exists and unit tests pass; no external evidence. |
-| `FIXTURE_VERIFIED` | Verified against sanitised recorded provider responses and the in-memory fixture chain. |
+| `IMPLEMENTED` | Code and tests exist; no external evidence. |
+| `FIXTURE_VERIFIED` | Exercised end to end against deterministic fixtures: sanitised recorded provider responses where they exist, otherwise synthetic stand-ins of the provider contract or the in-memory fixture chain. It says nothing about the live provider. |
 | `LIVE_READ_VERIFIED` | Verified against the real provider with read-only calls. |
 | `LIVE_WRITE_VERIFIED` | Verified with a real, authorized, bounded write. |
 | `BLOCKED` | A named external dependency prevents verification. |
@@ -64,9 +64,15 @@ rounds them up:
 The current table is [Provider and capability readiness](./reference/markov/provider-capabilities.md);
 decisions that still need evidence or an owner are in
 [Open decisions](./reference/markov/open-decisions.md). As of the latest
-session nothing is production-ready, audited or deployed: execution,
-accounting and analytics are fixture-verified, the live venue, the live
-issuer feeds, the identity provider facts and the price sources are open.
+session nothing is production-ready or audited and nothing financial is
+live. The app (in staging mode against a placeholder API origin, so it
+reports the backend as unreachable) and this site are hosted on Vercel;
+markov.pet itself is not routed to them. No backend is hosted anywhere
+(Railway is the chosen host, not yet provisioned) and no program is
+deployed on any cluster. Execution, accounting and analytics are
+fixture-verified; the live venue, the live issuer feeds, the identity
+provider facts and the price sources are open; the chosen model provider
+(xAI) has an implemented adapter that has never been called live.
 
 ## Where the site comes from
 
@@ -81,7 +87,8 @@ twice.
 
 - [Run it locally](./getting-started/run-locally.md) and then run
   [the startup check](./getting-started/startup-check.md), the headless
-  journey CI runs from a clean checkout.
+  journey the CI workflow runs from a clean checkout (GitHub Actions runs
+  start with P01; until then the evidence is local runs).
 - [The markov.pet app](./guides/app.md), [the CLI](./guides/cli.md) and
   [the API](./guides/api.md).
 - [Accounting and performance](./guides/performance.md): why a deposit is

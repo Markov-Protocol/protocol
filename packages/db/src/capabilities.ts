@@ -13,9 +13,12 @@ export type CapabilityReadinessInput = Omit<CapabilityReadiness, 'updatedAt' | '
 
 /**
  * Baseline readiness written by `markov db migrate` when a capability has no
- * row yet. Operators update rows with evidence; the seed never overwrites.
- * Statuses here describe the state at the end of session B02; an existing
- * database keeps its operator-owned rows and is updated with evidence.
+ * row yet; the seed inserts only missing rows and never overwrites one.
+ * Statuses here describe the state after session B17 (closed after its first
+ * increment, the xAI adapter) and match the state column of
+ * `docs/markov/provider-capabilities.md`. No CLI command or route calls
+ * `upsertCapabilityReadiness` yet, so a database seeded before a seed change
+ * keeps its earlier row until an operator write path exists.
  */
 export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInput, 'updatedBy'>[] =
   [
@@ -37,49 +40,53 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
       capability: 'platform.worker.temporal',
       status: 'IMPLEMENTED',
       summary:
-        'Temporal worker with a platform health workflow; verified against a local Temporal dev server in B01. No financial workflows exist yet.',
-      evidence: { session: 'B01' },
+        'Temporal worker with the platform health workflow (B01), the execution reconciliation workflow (B10) and the maintenance workflow (B16); verified against a local Temporal dev server. The workflows never build or sign a transaction and spend nothing.',
+      evidence: { sessions: ['B01', 'B10', 'B16'] },
     },
     {
       capability: 'solana.rpc.read',
       status: 'FIXTURE_VERIFIED',
       summary:
-        'Bounded JSON-RPC reads (getGenesisHash, getHealth, getVersion, getSlot) verified against a fixture server. Live cluster access was blocked in the B01 build environment; verify with `markov solana probe` before enabling any environment.',
-      evidence: { session: 'B01', sourceRegister: 'SR-SOL-01' },
+        'Bounded JSON-RPC reads (getGenesisHash, getHealth, getVersion, getSlot; getAccountInfo for mint verification, B03; getBalance, getTokenAccountsByOwner and getMinimumBalanceForRentExemption for funding readiness, F04) verified against fixture servers only. The client itself has never reached a live cluster (SR-SOL-01); verify with `markov solana probe` before enabling any environment.',
+      evidence: {
+        sessions: ['B01', 'B03', 'F04'],
+        sourceRegister: ['SR-SOL-01', 'SR-SOL-02', 'SR-SOL-RPC-02'],
+      },
     },
     {
       capability: 'solana.rpc.submit',
       status: 'FIXTURE_VERIFIED',
       summary:
-        'sendTransaction, blockhash, block height, signature status, transaction and program-account reads implemented for registry publication (B08) and verified against the fixture ledger; execution submission, simulation and recovery arrive with B10. No live submission has been made.',
-      evidence: { session: 'B08' },
+        'sendTransaction (base64, preflight on), simulateTransaction, getLatestBlockhash, getBlockHeight, getSignatureStatuses, getTransaction and getProgramAccounts implemented and verified against the fixture chain for registry publication (B08) and the execution lifecycle (B10, B11). No transaction has been sent to a live cluster.',
+      evidence: { sessions: ['B08', 'B10', 'B11'] },
     },
     {
       capability: 'catalog.prestocks.ingest',
       status: 'BLOCKED',
       summary:
         'Ingestion pipeline implemented and fixture-verified (B03): sanitised snapshots, quarantine, counterfeit rules, on-chain mint verification, operator admission. The live PreStocks feed endpoint and schema are unverified (OD-17); no live read exists.',
-      evidence: { session: 'B03', openDecision: 'OD-17' },
+      evidence: { session: 'B03', openDecision: 'OD-17', sourceRegister: 'SR-PRESTOCKS-02' },
     },
     {
       capability: 'catalog.xstocks.ingest',
       status: 'BLOCKED',
       summary:
         'Listed-stock pipeline implemented and fixture-verified (B04): Token-2022 extension policy, scaled-amount multiplier evidence, exact quantities, corporate-action lifecycle. The live xStocks endpoints and real mints are unverified (OD-18).',
-      evidence: { session: 'B04', openDecision: 'OD-18' },
+      evidence: { session: 'B04', openDecision: 'OD-18', sourceRegister: 'SR-XSTOCKS-01' },
     },
     {
       capability: 'catalog.tessera.ingest',
       status: 'DISABLED',
-      summary: 'Not started; API access and terms unverified (session B17).',
-      evidence: {},
+      summary:
+        'Not started; planned as E02 (Tessera catalog). API access, schema and terms are unverified (OD-15) and docs.tessera.finance was blocked by egress (SR-EGRESS-01).',
+      evidence: { openDecision: 'OD-15', sourceRegister: 'SR-EGRESS-01' },
     },
     {
       capability: 'identity.provider.verify',
       status: 'IMPLEMENTED',
       summary:
         'Provider-neutral identity token verification and session exchange, verified end to end with the nonproduction test issuer (B02). Live provider configuration is unverified.',
-      evidence: { session: 'B02', openDecision: 'OD-05' },
+      evidence: { session: 'B02', openDecision: 'OD-05', sourceRegister: 'SR-PRIVY-01' },
     },
     {
       capability: 'policy.eligibility.rules',
@@ -92,15 +99,15 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
       capability: 'execution.jupiter.quote',
       status: 'FIXTURE_VERIFIED',
       summary:
-        'Execution plans (B09) quote every constituent through the Markov quote contract: the fixture venue (local/test) and an operator-configured gateway URL are implemented and fixture-verified; the live Jupiter quote API is unverified from the build environment (OD-21) and no live quote has been taken.',
-      evidence: { session: 'B09', openDecision: 'OD-21' },
+        'Execution plans (B09) quote every constituent through the Markov quote contract: the fixture venue (local/test) and an operator-configured gateway URL are implemented and fixture-verified against synthetic stand-ins. No Jupiter response has been recorded: every Jupiter host was unreachable from the build environment (OD-21, SR-JUP-01) and no live quote has been taken.',
+      evidence: { session: 'B09', openDecision: 'OD-21', sourceRegister: 'SR-JUP-01' },
     },
     {
       capability: 'execution.jupiter.build',
       status: 'FIXTURE_VERIFIED',
       summary:
         'Transactions (B10) are built from the acknowledged plan by the fixture venue (local/test) or a configured gateway build URL, decoded instruction by instruction, validated against the plan and simulated before they are stored; baskets (B11) are composed into one transaction at plan time and atomic only when the composition fits the packet and passes simulation, staged otherwise; no live route builds or composes (OD-21) and the route matrix reviews no live program.',
-      evidence: { sessions: ['B10', 'B11'], openDecision: 'OD-21' },
+      evidence: { sessions: ['B10', 'B11'], openDecision: 'OD-21', sourceRegister: 'SR-JUP-01' },
     },
     {
       capability: 'execution.spot.submit',
@@ -134,22 +141,32 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
       capability: 'registry.strategy.publish',
       status: 'FIXTURE_VERIFIED',
       summary:
-        'Anchor program verified under solana-program-test (registration evidence, duplicate initialisation, unauthorized publishing, seed and account misuse, weight overflow, lineage, immutable content) with shared Rust/TypeScript vectors; publication flow and indexer verified against the fixture ledger and PostgreSQL (B08). No SBF build, no validator run, nothing deployed; publication is disabled until REGISTRY_PROGRAM_ID names a reviewed deployment (OD-09, OD-10).',
+        'Anchor program verified under solana-program-test (registration evidence, duplicate initialisation, unauthorized publishing, seed and account misuse, weight overflow, lineage, immutable content) with shared Rust/TypeScript vectors; publication flow and indexer verified against the fixture ledger and PostgreSQL (B08). No SBF build, no validator run, nothing deployed. Publication is enabled whenever REGISTRY_PROGRAM_ID is configured (never in mainnet-read-only); mainnet-beta publication also requires MARKOV_ENV=production and RELEASE_EVIDENCE_REF. Configuration does not check that the deployment was reviewed (OD-09, OD-10).',
       evidence: { session: 'B08', openDecisions: ['OD-09', 'OD-10', 'OD-20'] },
     },
     {
       capability: 'research.model.generate',
       status: 'BLOCKED',
       summary:
-        'Manual research is implemented (B06); the model adapter is fixture-verified only and no hosted provider is configured (OD-19).',
-      evidence: { session: 'B06', config: 'RESEARCH_MODEL_PROVIDER' },
+        'Manual research is implemented (B06); the adapter contract, output validation and provenance are fixture-verified with the deterministic fixture adapter, which configuration refuses outside local/test. The xAI adapter (`@markov/model-xai`, B17; xAI selected, OD-19 partly decided) is implemented and verified against an in-process stand-in only; api.x.ai was unreachable from the build environment (SR-XAI-01), so no live run exists.',
+      evidence: {
+        sessions: ['B06', 'B17'],
+        config: 'RESEARCH_MODEL_PROVIDER',
+        openDecision: 'OD-19',
+        sourceRegister: 'SR-XAI-01',
+      },
     },
     {
       capability: 'companion.model.run',
       status: 'BLOCKED',
       summary:
-        'Typed agent tools with the caller’s own authority are implemented (B15); the bounded companion loop, proposals and the Mark I event log are fixture-verified only and no hosted provider is configured (OD-19).',
-      evidence: { session: 'B15', config: 'COMPANION_MODEL_PROVIDER', openDecision: 'OD-19' },
+        'Typed agent tools with the caller’s own authority are implemented (B15); the bounded companion loop, proposals and the Mark I event log are fixture-verified with the deterministic fixture adapter, which configuration refuses outside local/test. The xAI adapter (B17; xAI selected, OD-19 partly decided) is implemented and verified against an in-process stand-in only (SR-XAI-01); no live run exists.',
+      evidence: {
+        sessions: ['B15', 'B17'],
+        config: 'COMPANION_MODEL_PROVIDER',
+        openDecision: 'OD-19',
+        sourceRegister: 'SR-XAI-01',
+      },
     },
     {
       capability: 'maintenance.scheduler',
@@ -157,6 +174,7 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
       summary:
         'Schedules prepare proposals for the owner’s review on a durable loop; occurrences are deduplicated, missed ones skipped, review windows expire and nothing spends (B16).',
       evidence: {
+        session: 'B16',
         tests: ['apps/api/test/maintenance.test.ts', 'apps/worker/test/worker.test.ts'],
         journey: 'scripts/ci/startup-check.sh',
       },
@@ -166,26 +184,30 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
       status: 'BLOCKED',
       summary:
         'In-app outbox, preferences, address verification, retries and dead letters implemented (B16); the email adapter is fixture-verified and no provider is integrated (OD-25).',
-      evidence: { tests: ['packages/notifications/test', 'apps/api/test/maintenance.test.ts'] },
+      evidence: {
+        session: 'B16',
+        openDecision: 'OD-25',
+        tests: ['packages/notifications/test', 'apps/api/test/maintenance.test.ts'],
+      },
     },
     {
       capability: 'liquidity.meteora.read',
       status: 'DISABLED',
-      summary: 'Not started; planned for session B17.',
+      summary: 'Not started; planned as E04 (Meteora observation and DBC simulation).',
       evidence: {},
     },
     {
       capability: 'liquidity.meteora.dbc-simulate',
       status: 'DISABLED',
-      summary: 'Not started; planned for session B17.',
+      summary: 'Not started; planned as E04 (Meteora observation and DBC simulation).',
       evidence: {},
     },
     {
       capability: 'automation.unattended',
       status: 'DISABLED',
       summary:
-        'Deliberately disabled until an independently enforced mandate mechanism is reviewed (release gate).',
-      evidence: {},
+        'Deliberately disabled until an independently enforced mandate mechanism is reviewed (release gate, OD-26).',
+      evidence: { openDecision: 'OD-26' },
     },
   ];
 

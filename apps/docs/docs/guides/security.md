@@ -15,8 +15,9 @@ These are the properties everything else rests on.
 `MARKOV_ENV` selects a mode; every mode constrains the cluster and whether
 execution writes are allowed, and contradictory settings refuse to start
 (exit 78). Production requires approved beta caps, an allowlist and an
-evidence reference before any write; a local receipt signing key, the test
-identity issuer and fixture adapters are refused outside local and test.
+evidence reference before any write; a local receipt signing key is
+refused in production, and the test identity issuer and fixture adapters
+are refused outside local and test.
 Nothing bypasses a boot check; the fix is always to supply the evidence
 the check asks for.
 
@@ -78,15 +79,22 @@ still carry legal obligations; nothing here infers an exemption
 
 Exact pins, a frozen lockfile, a minimum release age, an allowlist of
 packages that may run install scripts, SHA-pinned CI actions,
-checksum-verified tool downloads, a secret scan of every commit and a
-commit-message policy that rejects bot co-author and tool attribution
-trailers ([contributing](../contributing.md)).
+checksum-verified tool downloads, a secret scan (`pnpm secrets:scan` on
+staged changes before a commit, and the full history of the ref in the CI
+workflow) and a commit-message policy that rejects bot co-author and tool
+attribution trailers (the commit-msg hook, and the commit range in the CI
+workflow) ([contributing](../contributing.md)). GitHub Actions runs of
+that workflow start with P01; until then the evidence is local runs.
 
 ## What is not verified
 
 Live venue, live issuer feeds, the production identity provider, price
 sources for valuation and the KMS-backed receipt signer are open
-decisions; the corresponding capabilities are `BLOCKED` or
-`FIXTURE_VERIFIED` in [provider capabilities](../reference/markov/provider-capabilities.md).
+decisions; the corresponding capabilities are `BLOCKED` (issuer feeds),
+`FIXTURE_VERIFIED` (venue quote and build, valuation, receipts) or
+`IMPLEMENTED` (identity verification, exercised with the test issuer
+only) in [provider capabilities](../reference/markov/provider-capabilities.md).
+The model provider is chosen (xAI) and its adapter is implemented, but it
+has never been called live; the model capabilities stay `BLOCKED`.
 A successful HTTP response, a configured credential or a transaction
 signature alone never upgrades a state.

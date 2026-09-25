@@ -31,3 +31,7 @@ test-results/
 
 # temporary verification output
 .markov-tmp/
+
+# CI evidence assembled by the workflow (scripts/ci/evidence-gate.sh, tooling/release)
+ci-evidence/
+candidate-evidence/

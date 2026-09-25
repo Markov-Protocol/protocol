@@ -1,16 +1,27 @@
 name: ci
 
+# Runs on every push (development branches included, so a candidate has
+# evidence before any pull request exists), on pull requests and on demand.
+# Each job keeps its reports as artifacts after a redaction pass and a secret
+# scan (scripts/ci/evidence-gate.sh); the last job records what the run
+# observed for the commit (tooling/release/evidence.mjs). Evidence describes a
+# run; it never grants a capability. ADR-0010 records the policy.
 on:
   push:
-    branches: ["main"]
+    branches: ["**"]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 env:
   MARKOV_ENV: test
@@ -20,7 +31,10 @@ jobs:
   checks:
     name: lint, typecheck, test, contracts
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
+    env:
+      REPORTS: ${{ github.workspace }}/ci-evidence/checks-reports
+      BROWSER_EVIDENCE: ${{ github.workspace }}/ci-evidence/browser-evidence
     services:
       postgres:
         image: postgres:16
@@ -40,6 +54,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -50,64 +65,98 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
 
+      - name: Evidence directories and toolchain
+        run: |
+          touch "$RUNNER_TEMP/evidence-start"
+          mkdir -p "$REPORTS/checks" "$REPORTS/contracts" "$REPORTS/tests" "$REPORTS/build" "$BROWSER_EVIDENCE"
+          { echo "commit $GITHUB_SHA"; echo "node $(node --version)"; echo "pnpm $(pnpm --version)"; } | tee "$REPORTS/checks/toolchain.txt"
+
       - name: Install (frozen lockfile)
-        run: pnpm install --frozen-lockfile
+        id: install
+        run: pnpm install --frozen-lockfile 2>&1 | tee "$REPORTS/checks/install.log"
 
-      - name: Commit message policy (pull request range)
-        if: github.event_name == 'pull_request'
-        run: node tooling/commit-policy/check-range.mjs "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
-
-      - name: Commit message policy (push range)
-        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
-        run: node tooling/commit-policy/check-range.mjs "${{ github.event.before }}..${{ github.sha }}"
+      - name: Commit message policy
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: bash scripts/ci/commit-policy-range.sh 2>&1 | tee "$REPORTS/checks/commit-policy.log"
 
       - name: Lint and format
-        run: pnpm lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm lint 2>&1 | tee "$REPORTS/checks/lint.log"
 
       - name: Build and typecheck
-        run: pnpm typecheck
+        id: build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm typecheck 2>&1 | tee "$REPORTS/checks/typecheck.log"
+
+      - name: Release status manifest agrees with its sources
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: node tooling/release/status.mjs --check 2>&1 | tee "$REPORTS/checks/release-status.log"
 
       - name: Dependency boundaries
-        run: pnpm boundaries:check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm boundaries:check 2>&1 | tee "$REPORTS/contracts/boundaries.log"
 
       - name: Design token drift
-        run: pnpm tokens:check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm tokens:check 2>&1 | tee "$REPORTS/contracts/tokens.log"
 
       - name: Web production build (test mode, internal routes on for evidence)
+        id: webbuild
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         env:
           MARKOV_ENV: test
           MARKOV_WEB_INTERNAL_ROUTES: "true"
-        run: pnpm web:build
+        run: |
+          pnpm web:build 2>&1 | tee "$REPORTS/build/web-build.log"
+          cp apps/web/.next/BUILD_ID "$REPORTS/build/web-build-id.txt"
+          node tooling/release/digest.mjs apps/web/.next/static --label web-static-assets > "$REPORTS/build/web-static.digest.json"
 
       - name: Web production build must refuse development switches
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set +e
-          MARKOV_ENV=production NEXT_PUBLIC_APP_ORIGIN=https://markov.pet MARKOV_WEB_FIXTURES=true pnpm web:build > .markov-tmp-guard.log 2>&1
+          MARKOV_ENV=production NEXT_PUBLIC_APP_ORIGIN=https://markov.pet MARKOV_WEB_FIXTURES=true pnpm web:build > "$REPORTS/build/web-refusal.log" 2>&1
           CODE=$?
           set -e
-          grep -q "fixture adapters cannot be enabled in production" .markov-tmp-guard.log
+          grep -q "fixture adapters cannot be enabled in production" "$REPORTS/build/web-refusal.log"
           test "$CODE" -ne 0
 
       - name: OpenAPI drift
-        run: pnpm openapi:check
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm openapi:check 2>&1 | tee "$REPORTS/contracts/openapi.log"
 
       - name: Generated API client drift
-        run: pnpm api-client:check
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm api-client:check 2>&1 | tee "$REPORTS/contracts/api-client.log"
 
       - name: Migration drift
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
-          pnpm db:check
-          pnpm db:generate --name drift-check
+          {
+            pnpm db:check
+            pnpm db:generate --name drift-check
+          } 2>&1 | tee "$REPORTS/contracts/migrations.log"
           if [ -n "$(git status --porcelain packages/db/migrations)" ]; then
-            echo "schema changed without a committed migration:" >&2
-            git status --porcelain packages/db/migrations >&2
+            echo "schema changed without a committed migration:" | tee -a "$REPORTS/contracts/migrations.log" >&2
+            git status --porcelain packages/db/migrations | tee -a "$REPORTS/contracts/migrations.log" >&2
             exit 1
           fi
 
       - name: Install Temporal CLI (pinned, checksum verified)
+        id: temporalcli
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: bash scripts/dev/install-temporal-cli.sh "$HOME/.local/bin" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Start Temporal dev server
+        id: temporal
+        if: ${{ !cancelled() && steps.temporalcli.outcome == 'success' }}
         run: |
           mkdir -p .temporal
           nohup temporal server start-dev --headless --ip 127.0.0.1 --port 7233 --db-filename .temporal/ci.db --log-level warn > .temporal/ci.log 2>&1 &
@@ -119,77 +168,179 @@ jobs:
           cat .temporal/ci.log >&2
           exit 1
 
-      - name: Test (unit + integration)
+      - name: Test (unit + integration, JUnit report)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.temporal.outcome == 'success' }}
         env:
           MARKOV_TEST_DATABASE_URL: postgres://markov:markov@127.0.0.1:5432/markov_test
           MARKOV_TEST_TEMPORAL_ADDRESS: 127.0.0.1:7233
-        run: pnpm test
+        run: pnpm test 2>&1 | tee "$REPORTS/tests/vitest.log"
 
       - name: Headless startup check
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         env:
           MARKOV_TEST_DATABASE_URL: postgres://markov:markov@127.0.0.1:5432/markov_test
-        run: bash scripts/ci/startup-check.sh
+        run: bash scripts/ci/startup-check.sh 2>&1 | tee "$REPORTS/tests/startup-check.log"
 
       - name: Install Playwright Chromium (pinned by the workspace version)
+        id: playwright
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: pnpm --filter @markov/web exec playwright install --with-deps chromium
 
       - name: Web browser evidence (Playwright, with the API for the auth journeys)
+        if: ${{ !cancelled() && steps.webbuild.outcome == 'success' && steps.playwright.outcome == 'success' }}
         env:
           MARKOV_ENV: test
           MARKOV_WEB_INTERNAL_ROUTES: "true"
           MARKOV_TEST_DATABASE_URL: postgres://markov:markov@127.0.0.1:5432/markov_test
-        run: pnpm web:e2e
+        run: pnpm web:e2e 2>&1 | tee "$REPORTS/tests/web-e2e.log"
 
       - name: Documentation site (markov.pet/docs) build, broken links are errors
-        run: pnpm docs:build
+        id: docsbuild
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          pnpm docs:build 2>&1 | tee "$REPORTS/build/docs-build.log"
+          node tooling/release/digest.mjs apps/docs/build --label docs-site > "$REPORTS/build/docs-site.digest.json"
 
       - name: Documentation site browser evidence (served build, desktop and phone)
-        run: pnpm docs:e2e
+        if: ${{ !cancelled() && steps.docsbuild.outcome == 'success' && steps.playwright.outcome == 'success' }}
+        run: pnpm docs:e2e 2>&1 | tee "$REPORTS/tests/docs-e2e.log"
 
-      - name: Upload test report
+      - name: Collect reports and browser evidence
         if: always()
         run: |
-          if [ -f .markov-tmp/junit.xml ]; then echo "junit report at .markov-tmp/junit.xml"; fi
+          mkdir -p "$REPORTS/tests" "$BROWSER_EVIDENCE"
+          cp .markov-tmp/junit.xml "$REPORTS/tests/vitest.junit.xml" 2>/dev/null || true
+          cp .markov-tmp/reports/*.junit.xml "$REPORTS/tests/" 2>/dev/null || true
+          cp .temporal/ci.log "$REPORTS/tests/temporal-dev-server.log" 2>/dev/null || true
+          for d in web-e2e-html docs-e2e-html; do
+            if [ -d ".markov-tmp/reports/$d" ]; then cp -R ".markov-tmp/reports/$d" "$BROWSER_EVIDENCE/$d"; fi
+          done
+          for d in playwright playwright-docs; do
+            if [ -d ".markov-tmp/$d" ]; then cp -R ".markov-tmp/$d" "$BROWSER_EVIDENCE/$d-results"; fi
+          done
+          if [ -f "$RUNNER_TEMP/evidence-start" ]; then
+            find docs/frontend/evidence -type f -newer "$RUNNER_TEMP/evidence-start" -print0 \
+              | xargs -0 -r cp --parents -t "$BROWSER_EVIDENCE"
+          fi
+          find "$REPORTS" "$BROWSER_EVIDENCE" -type f | sort | sed "s|$GITHUB_WORKSPACE/||" > "$REPORTS/files.txt"
+
+      - name: Install gitleaks for the evidence gate (pinned, checksum verified)
+        if: always()
+        run: bash scripts/dev/install-gitleaks.sh "$HOME/.local/bin" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Redact and scan reports
+        id: gate-reports
+        if: always()
+        run: bash scripts/ci/evidence-gate.sh "$REPORTS"
+
+      - name: Redact and scan browser evidence
+        id: gate-browser
+        if: always()
+        run: bash scripts/ci/evidence-gate.sh "$BROWSER_EVIDENCE"
+
+      - name: Upload reports (30 days)
+        if: always() && steps.gate-reports.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: checks-reports
+          path: ci-evidence/checks-reports
+          retention-days: 30
+          if-no-files-found: error
+          include-hidden-files: true
+
+      - name: Upload browser evidence (14 days)
+        if: always() && steps.gate-browser.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-evidence
+          path: ci-evidence/browser-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          include-hidden-files: true
 
   program:
     name: strategy registry program (Rust)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      REPORTS: ${{ github.workspace }}/ci-evidence/program-reports
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Pinned Rust toolchain (rust-toolchain.toml)
+        id: toolchain
         working-directory: programs/strategy-registry
         run: |
-          rustup show active-toolchain
-          rustc --version
-          cargo --version
+          mkdir -p "$REPORTS"
+          CHANNEL="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
+          test -n "$CHANNEL"
+          rustup toolchain install "$CHANNEL" --profile minimal --component rustfmt --component clippy
+          { echo "commit $GITHUB_SHA"; rustup show active-toolchain; rustc --version; cargo --version; } | tee "$REPORTS/toolchain.txt"
+          sha256sum Cargo.lock | tee "$REPORTS/cargo-lock.sha256"
+
+      - name: Cache cargo registry and build output
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            programs/strategy-registry/target
+          key: program-${{ runner.os }}-${{ hashFiles('programs/strategy-registry/Cargo.lock', 'programs/strategy-registry/rust-toolchain.toml') }}
 
       - name: Format
+        if: ${{ !cancelled() && steps.toolchain.outcome == 'success' }}
         working-directory: programs/strategy-registry
-        run: cargo fmt --check
+        run: cargo fmt --check 2>&1 | tee "$REPORTS/fmt.log"
 
       - name: Clippy (warnings are errors)
+        if: ${{ !cancelled() && steps.toolchain.outcome == 'success' }}
         working-directory: programs/strategy-registry
-        run: cargo clippy --all-targets --locked -- -D warnings
+        run: cargo clippy --all-targets --locked -- -D warnings 2>&1 | tee "$REPORTS/clippy.log"
 
       - name: Program tests under solana-program-test and shared vectors
+        if: ${{ !cancelled() && steps.toolchain.outcome == 'success' }}
         working-directory: programs/strategy-registry
-        run: cargo test --locked
+        run: cargo test --locked 2>&1 | tee "$REPORTS/test.log"
 
       - name: Vectors committed and current
-        run: git diff --exit-code -- programs/strategy-registry/vectors
+        if: ${{ !cancelled() }}
+        run: git diff --exit-code -- programs/strategy-registry/vectors 2>&1 | tee "$REPORTS/vectors.log"
+
+      - name: Install gitleaks for the evidence gate (pinned, checksum verified)
+        if: always()
+        run: bash scripts/dev/install-gitleaks.sh "$HOME/.local/bin" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Redact and scan reports
+        id: gate
+        if: always()
+        run: bash scripts/ci/evidence-gate.sh "$REPORTS"
+
+      - name: Upload reports (30 days)
+        if: always() && steps.gate.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: program-reports
+          path: ci-evidence/program-reports
+          retention-days: 30
+          if-no-files-found: error
+          include-hidden-files: true
 
   supply-chain:
     name: secrets, advisories, licenses
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      REPORTS: ${{ github.workspace }}/ci-evidence/supply-chain-reports
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -201,16 +352,85 @@ jobs:
           cache: pnpm
 
       - name: Install (frozen lockfile)
-        run: pnpm install --frozen-lockfile
+        id: install
+        run: |
+          mkdir -p "$REPORTS"
+          pnpm install --frozen-lockfile 2>&1 | tee "$REPORTS/install.log"
 
+      # Also installed when an earlier step failed: the evidence gate needs it.
       - name: Install gitleaks (pinned, checksum verified)
+        id: gitleaks
+        if: always()
         run: bash scripts/dev/install-gitleaks.sh "$HOME/.local/bin" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      - name: Secret scan (full history of this ref)
-        run: gitleaks git --redact --no-banner --config .gitleaks.toml .
+      - name: Secret scan (the full history of the candidate commit)
+        if: ${{ !cancelled() && steps.gitleaks.outcome == 'success' }}
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: gitleaks git --redact --no-banner --config .gitleaks.toml --log-opts="$HEAD_SHA" --report-format json --report-path "$REPORTS/secret-scan-history.json" . 2>&1 | tee "$REPORTS/secret-scan-history.log"
 
       - name: Dependency advisories
-        run: pnpm audit --audit-level=high
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          pnpm audit --json > "$REPORTS/advisories.json" || true
+          pnpm audit --audit-level=high 2>&1 | tee "$REPORTS/advisories.log"
 
       - name: License inventory
-        run: pnpm licenses list --long --json > licenses.json && node -e "const l=require('./licenses.json');const names=Object.keys(l);console.log('license families:',names.join(', '));"
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          pnpm licenses list --long --json > "$REPORTS/licenses.json"
+          node -e "const l=require(process.argv[1]);console.log('license families:',Object.keys(l).join(', '));" "$REPORTS/licenses.json" | tee "$REPORTS/licenses.txt"
+
+      - name: Redact and scan reports
+        id: gate
+        if: always()
+        run: bash scripts/ci/evidence-gate.sh "$REPORTS"
+
+      - name: Upload reports (30 days)
+        if: always() && steps.gate.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: supply-chain-reports
+          path: ci-evidence/supply-chain-reports
+          retention-days: 30
+          if-no-files-found: error
+          include-hidden-files: true
+
+  evidence:
+    name: candidate evidence record
+    needs: [checks, program, supply-chain]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+
+      - name: Download this run's artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: ci-evidence
+
+      - name: Assemble the evidence record
+        env:
+          MARKOV_CI_NEEDS: ${{ toJSON(needs) }}
+          MARKOV_CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p ci-evidence
+          node tooling/release/evidence.mjs --dir ci-evidence --out candidate-evidence
+
+      - name: Upload the evidence record (90 days)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: candidate-evidence
+          path: candidate-evidence
+          retention-days: 90
+          if-no-files-found: error

@@ -13,3 +13,14 @@ onlyBuiltDependencies:
 # least 24 hours (minutes). Reviewed hotfix versions can be allowed per package
 # with minimumReleaseAgeExclude.
 minimumReleaseAge: 1440
+
+# Security overrides for transitive build-time dependencies of the docs site
+# (P01, `pnpm audit --audit-level=high`): chevrotain (via mermaid) pins
+# lodash-es 4.17.23 (GHSA-r5fr-rjxr-66jc and a prototype-pollution advisory,
+# fixed in 4.18.0) and copy-webpack-plugin 11 (via Docusaurus) allows only
+# serialize-javascript 6.x (RCE and DoS advisories, fixed in 7.0.3 and 7.0.5).
+# The docs build and its browser checks verify the replacements; remove an
+# entry once the upstream range includes a fixed version.
+overrides:
+  "lodash-es@<4.18.0": 4.18.1
+  "serialize-javascript@<7.0.5": 7.0.7

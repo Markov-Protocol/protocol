@@ -281,13 +281,18 @@ as the record of what happened and points at the continuation
 
 ## Outbox
 
-`outbox_events` rows are written in the same database transaction as the
-state they announce (`execution.pending`, `execution.submitted`,
-`execution.confirmed`, `execution.finalized` with `batch`, `batchCount` and
-`complete`, `execution.failed`, `execution.expired`, `execution.unknown`,
-`execution.cancelled`, `execution.partial` when a staged basket stopped
-after a fill) with `publishedAt` null; B18's notifications consume them.
-Nothing is sent anywhere in B10 or B11.
+`outbox_events` rows record each state change (`execution.pending`,
+`execution.submitted`, `execution.confirmed`, `execution.finalized` with
+`batch`, `batchCount` and `complete`, `execution.failed`,
+`execution.expired`, `execution.unknown`, `execution.cancelled`,
+`execution.partial` when a staged basket stopped after a fill) with
+`publishedAt` null. Only `execution.pending` is written in the same database
+transaction as the state it announces (the submission, `beginSubmission`);
+the others are written right after their state change, so a crash between
+the two can lose an announcement while the state itself stays derivable
+from chain evidence. No process publishes these rows: the notifications of
+B16 are projected from the Mark I event log (`mark_events`), not from this
+outbox. Nothing is sent anywhere from it.
 
 ## Evidence
 

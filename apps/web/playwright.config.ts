@@ -16,10 +16,20 @@ export default defineConfig({
   outputDir: '../../.markov-tmp/playwright',
   fullyParallel: true,
   retries: 0,
-  reporter: [['list']],
+  // A stray test.only must fail CI instead of silently narrowing the evidence.
+  forbidOnly: Boolean(process.env['CI']),
+  // CI keeps a JUnit report and the HTML report (with traces of failed tests) as run evidence.
+  reporter: process.env['CI']
+    ? [
+        ['list'],
+        ['junit', { outputFile: '../../.markov-tmp/reports/web-e2e.junit.xml' }],
+        ['html', { outputFolder: '../../.markov-tmp/reports/web-e2e-html', open: 'never' }],
+      ]
+    : [['list']],
   use: {
     baseURL: process.env['MARKOV_WEB_BASE_URL'] ?? 'http://127.0.0.1:3100',
     trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
   projects: [
     {
@@ -44,6 +54,8 @@ export default defineConfig({
                   url: `http://127.0.0.1:${E2E_RPC_PORT}/fixture/ready`,
                   reuseExistingServer: false,
                   timeout: 90_000,
+                  // API logs (JSON, redacted by the logger) belong in the run's evidence.
+                  stdout: 'pipe' as const,
                   env: {
                     MARKOV_E2E_API_PORT: String(E2E_API_PORT),
                     MARKOV_E2E_RPC_PORT: String(E2E_RPC_PORT),

@@ -198,8 +198,8 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
         <div className="space-y-3 p-4">
           <CompanionPresence status="Markov is ready" size="compact" />
           <p className="text-supporting text-text-muted">
-            The companion panel (questions, evidence cards and typed proposals) arrives with session
-            F14 and backend session B15.
+            The companion panel (questions, evidence cards and typed proposals) is not built yet
+            (planned for session P16).
           </p>
         </div>
       }

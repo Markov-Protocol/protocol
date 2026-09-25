@@ -33,10 +33,12 @@ validator.
   reconciliation from chain evidence and reads fills from transaction
   metadata. `@markov/venue-jupiter` owns the fixture route program's
   semantics; `@markov/registry` keeps the registry program's.
-- `@solana/*` packages stay without an owner in `tooling/boundaries/rules.json`.
-  If a live route later needs an SDK decoder (for example for a venue's
-  program), it enters one integration package behind fixture tests and the
-  validator keeps deciding from our own decoded effects.
+- The `@solana/` scope stays without an owner in `tooling/boundaries/rules.json`,
+  apart from the two Wallet Standard feature and chain packages that ADR-0007
+  gives to `@markov/web`. If a live route later needs an SDK decoder (for
+  example for a venue's program), it enters one integration package behind
+  fixture tests and the validator keeps deciding from our own decoded
+  effects.
 
 ## Consequences
 

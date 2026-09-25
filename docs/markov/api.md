@@ -418,8 +418,10 @@ or `single_buy` intent per leg. Contract: `docs/markov/maintenance.md`.
 
 ## Planned surface
 
-Provider readiness and Meteora research tools (B17) and the operational
-control and release-candidate routes (B18) are specified in the build
-document and arrive with those sessions. Authentication, idempotency keys,
+Meteora pool observation and the DBC simulator (E04), operator pause and
+recovery controls (P18) and the release-candidate tooling (P01, P22) are
+specified in the production completion plan; B17 closed after its first
+increment and B18 was replaced by that plan. None of these routes exists
+yet. Authentication, idempotency keys,
 cursor pagination and streaming were introduced with the first routes that
 needed them (B02, B07, B10).

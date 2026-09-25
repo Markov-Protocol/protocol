@@ -1,0 +1,22 @@
+# gitleaks rules for CI evidence (scripts/ci/evidence-gate.sh): the default
+# rules plus the Markov credential format, so the scan also proves that the
+# redaction pass (tooling/release/redact.mjs) left no credential behind. The
+# repository history scan keeps using .gitleaks.toml.
+title = "markov ci evidence"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "markov-credential"
+description = "Markov session, agent, operator, device or worker credential"
+# No leading word boundary, and colour codes (raw or JSON-escaped) may sit
+# between the prefix and the value, as in tooling/release/redact.mjs.
+regex = '''mkv_(?:ss|ag|op|dv|wk)_(?:(?:\x1b|\\u001[bB])\[[0-9;]*m)*[A-Za-z0-9_-]{8,}'''
+keywords = ["mkv_"]
+
+[[rules]]
+id = "ed25519-pkcs8-private-key"
+description = "Base64 DER of an Ed25519 PKCS#8 private key"
+regex = '''MC4CAQAwBQYDK2VwBCIEI[A-Za-z0-9+/]{43}'''
+keywords = ["mc4caqawbqydk2vwbciei"]
