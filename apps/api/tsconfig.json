@@ -11,6 +11,9 @@
       "path": "../../packages/amounts"
     },
     {
+      "path": "../../packages/analytics"
+    },
+    {
       "path": "../../packages/auth"
     },
     {

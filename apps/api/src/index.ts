@@ -5,6 +5,7 @@
  * is main.ts.
  */
 export * from './accounting/service.js';
+export * from './analytics/service.js';
 export * from './app.js';
 export * from './auth/service.js';
 export * from './boot.js';

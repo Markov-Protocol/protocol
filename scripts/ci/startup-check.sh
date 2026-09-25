@@ -359,6 +359,36 @@ PUBLIC_READ=$(node apps/cli/dist/main.js receipts show "$RECEIPT_ID" --url "http
 echo "public read owner:public:same-hash = $PUBLIC_READ"; [ "$PUBLIC_READ" = "null:true:true" ]
 rm -f "$KEY_DIR/receipt.json" "$KEY_DIR/keys.json"
 
+echo "== performance journey (B13): recorded observations -> wallet series with the deposit as a flow, not a return -> model series of the basket version -> ranking eligibility -> price history"
+# The fixture feeds' reference prices were recorded as observations at ingestion; operator observations add a dated history.
+TODAY=$(date -u +%Y-%m-%dT00:00:00Z)
+DAYS_AGO() { date -u -d "$TODAY - $1 days" +%Y-%m-%dT00:00:00Z; }
+for d in 40 30 20 10 1 0; do
+  node apps/cli/dist/main.js prices record --instrument "$AERO_ID" --kind issuer_mark --value "$(node -e 'console.log((18.25 + (40 - Number(process.argv[1])) * 0.05).toFixed(2))' "$d")" --observed-at "$(DAYS_AGO "$d")" --source startup-check --evidence notice=fixture --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+  node apps/cli/dist/main.js prices record --instrument "$XSA_ID" --kind secondary_market --value "$(node -e 'console.log((101.20 - (40 - Number(process.argv[1])) * 0.10).toFixed(2))' "$d")" --observed-at "$(DAYS_AGO "$d")" --source startup-check --evidence notice=fixture --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+done
+node apps/cli/dist/main.js prices record --sol --kind secondary_market --value 150 --observed-at "$TODAY" --source startup-check --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+RECORD_AGAIN=$(node apps/cli/dist/main.js prices record --sol --kind secondary_market --value 150 --observed-at "$TODAY" --source startup-check --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.sourceKind+":"+j.asset')
+echo "recording the same observation twice is one observation: $RECORD_AGAIN"; [ "$RECORD_AGAIN" = "operator:SOL" ]
+HISTORY=$(node apps/cli/dist/main.js prices history "$AERO_ID" --url "http://127.0.0.1:$API_PORT" | J 'j.observations.length+":"+[...new Set(j.observations.map(o=>o.sourceKind))].sort().join(",")+":"+j.observations.every(o=>o.kind!=="execution_quote")')
+echo "price history count:sourceKinds:no-quotes = $HISTORY"; [ "${HISTORY#*:}" = "fixture,operator:true" ]
+WALLET_PERF=$(node apps/cli/dist/main.js performance wallet "$EXEC_WALLET_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+WALLET_SUMMARY=$(echo "$WALLET_PERF" | J 'j.series.kind+":"+j.series.currency+":"+j.metrics.period+":"+(j.series.flows.length>0)+":"+j.series.flows.every(f=>f.kind==="external_inflow"||f.kind==="external_outflow")+":"+j.methodology.version')
+echo "wallet series kind:currency:period:has-flows:external-only:methodology = $WALLET_SUMMARY"; [ "$WALLET_SUMMARY" = "actual:USD:all:true:true:stocks-v1" ]
+# The funding that arrived before any trade is an external flow: it appears in netFlows, never in the return.
+DEPOSIT_RULE=$(echo "$WALLET_PERF" | J '(j.metrics.netFlows===null)+":"+(j.metrics.timeWeightedReturn===null||Number(j.metrics.timeWeightedReturn)<0.5)+":"+(j.metrics.available?"available":j.metrics.reasons.join("|"))')
+echo "deposit is not profit (netFlows known:return-not-inflated:state) = $DEPOSIT_RULE"; [ "${DEPOSIT_RULE%%:*}" = "false" ]
+echo "wallet series (from the first checkpoint) = $(echo "$WALLET_PERF" | J 'JSON.stringify({start:j.series.start,points:j.series.points.map(p=>[p.at,p.value,p.complete,p.issues.map(i=>i.code+"@"+(i.asset||"")).join(",")]),latest:j.series.latest.map(l=>[l.symbol,l.raw,l.multiplier,l.price&&l.price.value,l.value])})')"
+MODEL_PERF=$(node apps/cli/dist/main.js performance version "$STRATEGY_ID" 1 --period all --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.series.kind+":"+(j.series.points.length>0)+":"+j.series.points[0].caveats.includes("model_buy_and_hold")+":"+j.metrics.realizedPnl+":"+(j.series.start!==null)')
+echo "model series kind:points:buy-and-hold:no-pnl:started = $MODEL_PERF"; [ "$MODEL_PERF" = "model:true:true:null:true" ]
+RANKING=$(node apps/cli/dist/main.js performance rankings --period 30d --url "http://127.0.0.1:$API_PORT" | J 'j.kind+":"+j.minHistoryDays+":"+j.entries.length+":"+j.entries.map(e=>(e.rank===null?"unranked("+e.reasons.join("|")+")":"rank"+e.rank+"="+e.timeWeightedReturn)).join(";")')
+echo "ranking kind:min-days:entries:positions = $RANKING"
+[ "${RANKING%%:*}" = "model" ]
+INSUFFICIENT=$(node apps/cli/dist/main.js performance rankings --period 30d --url "http://127.0.0.1:$API_PORT" | J 'j.entries.every(e=>e.rank!==null||e.timeWeightedReturn===null)')
+echo "no unranked entry shows a return: $INSUFFICIENT"; [ "$INSUFFICIENT" = "true" ]
+METHODOLOGY=$(node apps/cli/dist/main.js performance methodology --url "http://127.0.0.1:$API_PORT" | J 'j.version+":"+j.currency+":"+j.rankingMinHistoryDays')
+echo "methodology: $METHODOLOGY"; [ "$METHODOLOGY" = "stocks-v1:USD:30" ]
+
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""
 

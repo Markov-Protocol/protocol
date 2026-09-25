@@ -37,6 +37,7 @@ export default defineConfig({
             'packages/venue-jupiter/test/**/*.test.ts',
             'packages/execution/test/**/*.test.ts',
             'packages/accounting/test/**/*.test.ts',
+            'packages/analytics/test/**/*.test.ts',
             'packages/research/test/**/*.test.ts',
             'packages/strategy/test/**/*.test.ts',
             'packages/solana-rpc/test/**/*.test.ts',

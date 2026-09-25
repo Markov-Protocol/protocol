@@ -10,6 +10,7 @@
  * claim about a third-party API.
  */
 export * from './accounting.js';
+export * from './analytics.js';
 export * from './capabilities.js';
 export * from './catalog.js';
 export * from './codec.js';

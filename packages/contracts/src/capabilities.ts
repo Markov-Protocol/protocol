@@ -41,6 +41,7 @@ export const CAPABILITY_IDS = [
   'execution.spot.submit',
   'accounting.journal',
   'receipts.signing',
+  'analytics.performance',
   'registry.strategy.publish',
   'research.model.generate',
   'notifications.email',

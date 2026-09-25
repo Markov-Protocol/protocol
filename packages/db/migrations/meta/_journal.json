@@ -99,6 +99,13 @@
       "when": 1790320255738,
       "tag": "0013_accounting",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790326329701,
+      "tag": "0014_analytics",
+      "breakpoints": true
     }
   ]
 }

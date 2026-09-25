@@ -50,6 +50,9 @@ importers:
       '@markov/amounts':
         specifier: workspace:*
         version: link:../../packages/amounts
+      '@markov/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@markov/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -330,6 +333,15 @@ importers:
         version: link:../solana-codec
 
   packages/amounts: {}
+
+  packages/analytics:
+    dependencies:
+      '@markov/amounts':
+        specifier: workspace:*
+        version: link:../amounts
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/api-client:
     dependencies:

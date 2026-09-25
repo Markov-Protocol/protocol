@@ -1,0 +1,26 @@
+{
+  "name": "@markov/analytics",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@markov/amounts": "workspace:*",
+    "@markov/contracts": "workspace:*"
+  },
+  "devDependencies": {},
+  "description": "Performance analytics rules (B13): typed price resolution with freshness, valuation with historical multipliers, model and actual valuation series on a daily grid with flow points, cash-flow-aware time-weighted and Modified Dietz returns, drawdown, turnover, realized and unrealized P&L, completeness and ranking eligibility; exact rational arithmetic, no HTTP, database or provider SDK"
+}

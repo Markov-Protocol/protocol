@@ -72,6 +72,9 @@
     },
     "@markov/accounting": {
       "allow": ["@markov/contracts", "@markov/planning", "@markov/solana-codec"]
+    },
+    "@markov/analytics": {
+      "allow": ["@markov/contracts", "@markov/amounts"]
     }
   },
   "apps": ["@markov/api", "@markov/worker", "@markov/indexer", "@markov/cli", "@markov/web"],

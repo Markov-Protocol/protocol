@@ -20,6 +20,7 @@ import { signerFromPrivateKey } from '@markov/solana-codec';
 import { SolanaRpcClient } from '@markov/solana-rpc';
 import { createConfiguredUrlVenue, createFixtureVenue } from '@markov/venue-jupiter';
 import { createAccountingService } from './accounting/service.js';
+import { createAnalyticsService } from './analytics/service.js';
 import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
 import { createIdentityService } from './auth/service.js';
 import { createCatalogService } from './catalog/service.js';
@@ -410,6 +411,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
       genesisHash: expectedGenesisHash,
     }),
     accounting: accountingService,
+    analytics: createAnalyticsService({ config, db: dbClient.db }),
     mintTestToken,
   });
 

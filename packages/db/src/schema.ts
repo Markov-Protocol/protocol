@@ -35,12 +35,14 @@ import {
   MINT_VERIFICATION_RESULTS,
   MODERATION_STATUSES,
   MULTIPLIER_SOURCES,
+  OBSERVABLE_PRICE_KINDS,
   type OnChainMint,
   type OwnerLimits,
   PLAN_MODES,
   PLAN_SIDES,
   PLAN_STATUSES,
   type PolicyDenial,
+  PRICE_OBSERVATION_SOURCE_KINDS,
   PUBLICATION_LIFECYCLE,
   PUBLICATION_OPERATIONS,
   PUBLICATION_STATES,
@@ -1570,5 +1572,52 @@ export const receipts = pgTable(
     ),
     enumCheck('receipts_kind_check', table.kind, RECEIPT_KINDS),
     enumCheck('receipts_intent_state_check', table.intentState, INTENT_STATES),
+  ],
+);
+
+/* ------------------------------------------------------- analytics (B13) */
+
+/**
+ * Recorded reference price observations: one row per asset, kind, source
+ * and observation time, never updated. Issuer feeds add one per ingestion,
+ * operators record evidence by hand, the fixture sources exist only outside
+ * production. A valuation reads the latest observation at or before its
+ * point; nothing here is an executable quote.
+ */
+export const priceObservations = pgTable(
+  'price_observations',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    /** A mint address, or `SOL` for lamports. */
+    asset: text('asset').notNull(),
+    instrumentId: uuid('instrument_id').references(() => instruments.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    /** Decimal string; never a float. */
+    value: text('value').notNull(),
+    unit: text('unit').notNull(),
+    observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' }).notNull(),
+    source: text('source').notNull(),
+    sourceKind: text('source_kind').notNull(),
+    evidence: jsonb('evidence').$type<Record<string, string>>().notNull().default({}),
+    /** The operator credential that recorded a manual observation; null for feeds. */
+    recordedBy: text('recorded_by'),
+    recordedAt: timestamp('recorded_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('price_observations_point_unique').on(
+      table.asset,
+      table.kind,
+      table.source,
+      table.observedAt,
+    ),
+    index('price_observations_asset_idx').on(table.asset, table.observedAt),
+    enumCheck('price_observations_kind_check', table.kind, OBSERVABLE_PRICE_KINDS),
+    enumCheck(
+      'price_observations_source_kind_check',
+      table.sourceKind,
+      PRICE_OBSERVATION_SOURCE_KINDS,
+    ),
   ],
 );

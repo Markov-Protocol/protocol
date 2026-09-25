@@ -4,6 +4,7 @@ import { baseTestEnv } from '@markov/testkit';
 import { describe, expect, it } from 'vitest';
 import {
   type AccountingService,
+  type AnalyticsService,
   type ApiProbes,
   buildApp,
   type CatalogService,
@@ -124,6 +125,7 @@ async function makeApp(
     planning: unavailable<PlanningService>('planning'),
     execution: unavailable<ExecutionService>('execution'),
     accounting: unavailable<AccountingService>('accounting'),
+    analytics: unavailable<AnalyticsService>('analytics'),
     strategies: unavailableStrategies,
     mintTestToken: null,
   });

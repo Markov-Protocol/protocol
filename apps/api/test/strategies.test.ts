@@ -26,6 +26,7 @@ import { baseTestEnv, testDatabaseUrl, withTemporaryDatabase } from '@markov/tes
 import { describe, expect, it } from 'vitest';
 import {
   type AccountingService,
+  type AnalyticsService,
   buildApp,
   createCatalogService,
   createIdentityService,
@@ -152,6 +153,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         planning: unavailable<PlanningService>('planning'),
         execution: unavailable<ExecutionService>('execution'),
         accounting: unavailable<AccountingService>('accounting'),
+        analytics: unavailable<AnalyticsService>('analytics'),
         strategies: createStrategyService({ config, db: client.db, genesisHash: GENESIS }),
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

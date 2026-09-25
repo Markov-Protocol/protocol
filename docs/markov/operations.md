@@ -335,6 +335,38 @@ whose verification fails against the published keys is an incident:
 receipts are never re-signed in place; a corrected record is a new receipt
 for the changed intent state.
 
+## Performance analytics
+
+```
+markov performance wallet <walletId> [--period 7d|30d|90d|365d|all] [--export] --token <session|agent> --url …
+markov performance instance <instanceId> [--period …] [--export] --token <session|agent> --url …
+markov performance version <strategyId> <versionNumber> [--period …] [--export] [--token <session>] --url …
+markov performance rankings [--period 30d|90d|365d] [--limit n] --url …
+markov performance methodology --url …
+markov prices record --instrument <instrumentId> | --sol --kind <kind> --value <decimal> --observed-at <iso> --source <name> [--evidence k=v …] --token <operator> --url …
+markov prices history <instrumentId>|sol [--from <iso>] [--to <iso>] [--limit n] --url …
+```
+
+Migration `0014_analytics` adds `price_observations` (append-only, unique
+per asset, kind, source and observation time). Ingestion records every
+reference price a snapshot carries; operators record observations with
+evidence through `ops:catalog:write` (`analytics.price.recorded` audit
+action). Series are computed on read from the journal, the lots and every
+observation of the subject's assets, bounded (20,000 observations; 5,000
+journal entries) and rate limited (60/min per client, rankings 20/min);
+there is no snapshot job yet (OD-23). The methodology version is
+`stocks-v1`; changing a rule means a new version and a new ranking cohort.
+
+Operating: a return of `null` with `stale_price` or `stale_end` means no
+observation of an asset within 24 hours of the point; record or restore
+the source rather than relaxing the rule. `multiplier_unknown` means a
+scaled token has no multiplier evidence at that time (B04 verification or
+an applied corporate action supplies it). `unpriced_flow` means a deposit
+or withdrawal of an asset nobody can price at that moment. A ranking that
+lists a version unranked with `insufficient_history` is the 30-day product
+rule; `incomplete_window` means a day without an observation inside the
+window. Rankings never include an account's series, whatever it shows.
+
 ## Readiness and monitoring
 
 - Liveness (`/healthz`) restarts a hung process; readiness (`/readyz`) removes

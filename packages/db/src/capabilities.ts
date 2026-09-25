@@ -124,6 +124,13 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
       evidence: { session: 'B12', openDecision: 'OD-22' },
     },
     {
+      capability: 'analytics.performance',
+      status: 'FIXTURE_VERIFIED',
+      summary:
+        'Valuation series and window metrics (B13): recorded reference observations with freshness and kind precedence, historical multipliers, model and actual series on a daily grid with flow points, time-weighted and Modified Dietz returns, drawdown, turnover, realized and unrealized P&L, completeness, model-only rankings. Verified against independently derived fixture vectors and the fixture chain; the only price sources are the fixture feeds and operator entries (OD-23), so no live series exists.',
+      evidence: { session: 'B13', openDecision: 'OD-23' },
+    },
+    {
       capability: 'registry.strategy.publish',
       status: 'FIXTURE_VERIFIED',
       summary:

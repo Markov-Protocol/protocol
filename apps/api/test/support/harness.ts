@@ -28,6 +28,7 @@ import { expect } from 'vitest';
 import {
   buildApp,
   createAccountingService,
+  createAnalyticsService,
   createCatalogService,
   createExecutionService,
   createFundingService,
@@ -259,6 +260,7 @@ export async function withHarness(
           now,
         }),
         accounting,
+        analytics: createAnalyticsService({ config, db: client.db, now }),
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await accounting.registerSigningKey();

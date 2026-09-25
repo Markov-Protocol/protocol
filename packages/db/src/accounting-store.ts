@@ -93,7 +93,10 @@ export function toLot(row: LotRow): Lot {
   };
 }
 
-async function linesFor(db: Database, entryIds: readonly string[]): Promise<JournalLineRow[]> {
+export async function linesFor(
+  db: Database,
+  entryIds: readonly string[],
+): Promise<JournalLineRow[]> {
   if (entryIds.length === 0) {
     return [];
   }
@@ -104,7 +107,7 @@ async function linesFor(db: Database, entryIds: readonly string[]): Promise<Jour
     .orderBy(asc(journalLines.position));
 }
 
-function attachLines(rows: readonly JournalEntryRow[], lines: readonly JournalLineRow[]) {
+export function attachLines(rows: readonly JournalEntryRow[], lines: readonly JournalLineRow[]) {
   const byEntry = new Map<string, JournalLineRow[]>();
   for (const line of lines) {
     const bucket = byEntry.get(line.entryId) ?? [];

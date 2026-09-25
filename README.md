@@ -32,7 +32,10 @@ reconciliation with acknowledged external flows, signed verifiable
 receipts),
 **F10** (wallet signing of the exact prepared transaction, submission,
 per-transaction execution timeline with recovery, activity, receipts;
-design-reference realignment of tokens and navigation) and
+design-reference realignment of tokens and navigation),
+**B13** (recorded price observations, valuation with historical
+multipliers, model and actual performance series with cash-flow-aware
+returns, completeness and model-only rankings) and
 frontend sessions **F01** (shared design system), **F02** (Mark I shell) and
 **F03** (app sessions and account recovery) are complete. Backend sessions B02 to B18 and
 frontend sessions F02 to F20 follow in dependency order; see
@@ -119,7 +122,8 @@ bash scripts/ci/startup-check.sh   # headless: migrate, boot, health, graceful s
 | Execution: transactions built from the acknowledged plan's quote, decoded and validated against the plan (signer, accounts, mints, bounds, fees, reviewed programs), simulated, signed by the owner wallet, persisted before the one broadcast, reconciled from chain evidence to finality with fills from transaction meta, the same bytes resent while the blockhash lives, expiry and cancellation on evidence; buys and sells; durable worker reconciliation | implemented, tested (B10) against the fixture chain and fixture route program; no live venue builds (OD-21), nothing sent to a cluster; baskets are B11 |
 | Basket execution: whole-basket composition measured and simulated at plan time (atomic only with that evidence, staged with the reason otherwise), one composed transaction validated leg by leg with a fill per leg, staged runs built one transaction at a time with later legs quoted again against the approved bounds, partial completion on failure, expiry, stale terms or cancel after a fill, reviewed completion of exactly the unfilled legs at their original targets, batch states in the execution status | implemented, tested (B11) against the fixture chain and fixture venue; no live venue composes (OD-21) |
 | Accounting: append-only quantity journal balanced per asset in raw units, settled fills, fees and rent projected once, FIFO lots attributed to the matching instance or kept at wallet level, chain reconciliation with checkpoints that turns every unexplained difference into an external flow the owner acknowledges, wallet and instance holdings without valuation, canonical Ed25519-signed decision and execution receipts with published keys, offline CLI verification and opt-in redacted public reading | implemented, tested (B12) against the fixture chain; local signing key only, KMS signer open (OD-22); no live wallet reconciled |
-| Valuation and rankings, discovery, agents, maintenance | not started (B13 onward) |
+| Performance analytics: recorded reference observations (issuer feeds on ingestion, operator entries with evidence), valuation with historical multipliers, actual series per wallet and instance with deposits, withdrawals, purchases and sales as flows, model series per version held from its start without costs, time-weighted and Modified Dietz returns, drawdown, turnover, realized and unrealized P&L, fees, completeness with reasons, model-only rankings with the 30-day rule, methodology route, exports | implemented, tested (B13) against independently derived fixture vectors and the fixture chain; no live price source (OD-23), so production series stay incomplete rather than invented |
+| Discovery, agents, maintenance | not started (B14 onward) |
 | Web design system, exact formatters, internal component reference, production guards | implemented, tested (F01) |
 | Mark I shell, companion home, navigation with honest placeholder routes | implemented, tested (F02) |
 | App sessions: server-verified HttpOnly cookie, sign-in, expiry recovery, sign-out, account switch isolation, generated API client | implemented, tested against the local API (F03); hosted identity provider adapter BLOCKED (OD-05) |

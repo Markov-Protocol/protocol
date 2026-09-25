@@ -331,10 +331,31 @@ Error code added in B10: `TRANSACTION_REFUSED` (409). Capability rows:
 Capability rows: `accounting.journal` and `receipts.signing` are
 FIXTURE_VERIFIED (B12). Contract: `docs/markov/accounting-methodology.md`.
 
+## Endpoints (B13)
+
+| Method | Path                                                              | Principal                    | Purpose |
+| ------ | ----------------------------------------------------------------- | ---------------------------- | ------- |
+| GET    | /v1/me/instances/{instanceId}/performance?period=                 | user, agent `portfolio:read` | Actual series of the instance's lots (daily points plus every purchase as a contribution and every sale as a withdrawal), the window metrics (`7d`, `30d`, `90d`, `365d`, `all`: time-weighted return, Modified Dietz, drawdown, turnover, realized and unrealized P&L, fees), completeness, the methodology summary and the fixed note. Any incomplete point leaves the return null with the reason |
+| GET    | /v1/me/instances/{instanceId}/performance/export                  | user, agent `portfolio:read` | The complete record behind the answer: series, every window, the observations and multipliers used |
+| GET    | /v1/me/wallets/{walletId}/performance?period=                     | user, agent `portfolio:read` | Actual series of the wallet's journal balances with deposits, withdrawals and transfers as external flows valued at their time |
+| GET    | /v1/me/wallets/{walletId}/performance/export                      | user, agent `portfolio:read` | As above, complete |
+| GET    | /v1/strategies/{strategyId}/versions/{n}/performance?period=      | public / owner               | Model series of a registered, unmoderated version (whole base units bought at the first priced point after the freeze, held without costs or rebalancing); the strategy owner reads unpublished versions; `NOT_FOUND` otherwise |
+| GET    | /v1/strategies/{strategyId}/versions/{n}/performance/export       | public / owner               | As above, complete |
+| GET    | /v1/rankings/model?period=30d&limit=                              | public (20/min)              | Registered, unmoderated versions ranked by the time-weighted return of their model series over `30d`, `90d` or `365d` under one methodology version; entries without 30 days of complete history, with an incomplete window or a stale end price carry `rank: null`, no return and the reasons. No account is ranked |
+| GET    | /v1/performance/methodology                                       | public                       | The methodology in force (`stocks-v1`): currency, price freshness, ranking threshold, pricing, cash, flows, returns, model assumptions, document |
+| POST   | /v1/operator/prices/observations                                  | operator `ops:catalog:write` | Record a reference price observation for an instrument (`instrumentId`) or `SOL` (`asset`): kind, value, unit, observation time, source, evidence. 201; the same point recorded twice is one observation; `VALIDATION_FAILED` for a future time |
+| GET    | /v1/catalog/instruments/{instrumentId}/prices?from=&to=&limit=    | public / operator            | Recorded observations of an admitted or paused instrument, oldest first (operators read every status) |
+| GET    | /v1/prices/sol?from=&to=&limit=                                   | public                       | Recorded SOL observations (used to value network fees) |
+
+Catalog ingestion (B03/B04) records every reference price a snapshot
+carries as an observation (`sourceKind: issuer_feed`, or `fixture` for the
+fixture feeds), never twice. Capability row: `analytics.performance` is
+FIXTURE_VERIFIED (B13). Contract:
+`docs/markov/accounting-methodology.md` (Valuation and performance).
+
 ## Planned surface
 
-Discovery, valuation and rankings, maintenance, agents and operations
-routes are specified in the build document and arrive with sessions B13 to
-B18. Authentication,
+Discovery, maintenance, agents and operations routes are specified in the
+build document and arrive with sessions B14 to B18. Authentication,
 idempotency keys, cursor pagination and streaming are introduced with the
 first routes that need them (B02, B07, B10).

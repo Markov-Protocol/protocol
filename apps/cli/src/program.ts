@@ -2679,5 +2679,224 @@ export function buildProgram(io: CliIo = stdio): Command {
       }
     });
 
+  const performance = program
+    .command('performance')
+    .description(
+      'valuation series, cash-flow-aware returns, drawdown, turnover, completeness and model rankings (B13)',
+    );
+  const periodOption = ['--period <period>', '7d | 30d | 90d | 365d | all', 'all'] as const;
+  performance
+    .command('instance <instanceId>')
+    .description('actual performance of a strategy instance (its lots and their flows)')
+    .option(...periodOption)
+    .option(
+      '--export',
+      'the complete record behind the answer (observations, multipliers, every window)',
+    )
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        instanceId: string,
+        options: { period: string; export?: boolean; token: string; url: string },
+      ) => {
+        const path = `/v1/me/instances/${encodeURIComponent(instanceId)}/performance`;
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'GET',
+              options.export
+                ? `${path}/export`
+                : `${path}?period=${encodeURIComponent(options.period)}`,
+              undefined,
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  performance
+    .command('wallet <walletId>')
+    .description('actual performance of a verified wallet (deposits and withdrawals as flows)')
+    .option(...periodOption)
+    .option('--export', 'the complete record behind the answer')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        walletId: string,
+        options: { period: string; export?: boolean; token: string; url: string },
+      ) => {
+        const path = `/v1/me/wallets/${encodeURIComponent(walletId)}/performance`;
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'GET',
+              options.export
+                ? `${path}/export`
+                : `${path}?period=${encodeURIComponent(options.period)}`,
+              undefined,
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  performance
+    .command('version <strategyId> <versionNumber>')
+    .description('model performance of a version: the recipe held from its start, no costs')
+    .option(...periodOption)
+    .option('--export', 'the complete record behind the answer')
+    .option('--token <token>', 'user session (needed for an unpublished version of your own)')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        strategyId: string,
+        versionNumber: string,
+        options: { period: string; export?: boolean; token?: string; url: string },
+      ) => {
+        const path = `/v1/strategies/${encodeURIComponent(strategyId)}/versions/${encodeURIComponent(versionNumber)}/performance`;
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'GET',
+              options.export
+                ? `${path}/export`
+                : `${path}?period=${encodeURIComponent(options.period)}`,
+              undefined,
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  performance
+    .command('rankings')
+    .description(
+      'model-series ranking of published versions; incomplete histories are listed unranked',
+    )
+    .option('--period <period>', '30d | 90d | 365d', '30d')
+    .option('--limit <n>', 'at most this many entries', '50')
+    .option(...apiUrlOption)
+    .action(async (options: { period: string; limit: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/rankings/model?period=${encodeURIComponent(options.period)}&limit=${encodeURIComponent(options.limit)}`,
+          ),
+        ),
+      );
+    });
+  performance
+    .command('methodology')
+    .description('the performance methodology in force')
+    .option(...apiUrlOption)
+    .action(async (options: { url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/performance/methodology')));
+    });
+
+  const prices = program
+    .command('prices')
+    .description('recorded reference price observations: never quotes (B13)');
+  prices
+    .command('record')
+    .description('operator: record a reference price observation with its evidence')
+    .option('--instrument <instrumentId>', 'the instrument observed (omit for SOL)')
+    .option('--sol', 'record a SOL observation')
+    .requiredOption(
+      '--kind <kind>',
+      'secondary_market | issuer_mark | underlying_equity | implied_valuation',
+    )
+    .requiredOption('--value <decimal>', 'the observed price, decimal string')
+    .option('--unit <unit>', 'the price unit', 'USD')
+    .requiredOption('--observed-at <iso>', 'when the price was observed (ISO 8601)')
+    .requiredOption('--source <source>', 'secret-free source name')
+    .option('--evidence <key=value...>', 'evidence references')
+    .requiredOption('--token <token>', 'operator credential (ops:catalog:write)')
+    .option(...apiUrlOption)
+    .action(
+      async (options: {
+        instrument?: string;
+        sol?: boolean;
+        kind: string;
+        value: string;
+        unit: string;
+        observedAt: string;
+        source: string;
+        evidence?: string[];
+        token: string;
+        url: string;
+      }) => {
+        const evidence: Record<string, string> = {};
+        for (const item of options.evidence ?? []) {
+          const separator = item.indexOf('=');
+          if (separator > 0) {
+            evidence[item.slice(0, separator)] = item.slice(separator + 1);
+          }
+        }
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              '/v1/operator/prices/observations',
+              {
+                ...(options.sol ? { asset: 'SOL' } : { instrumentId: options.instrument }),
+                kind: options.kind,
+                value: options.value,
+                unit: options.unit,
+                observedAt: options.observedAt,
+                source: options.source,
+                evidence,
+              },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  prices
+    .command('history <instrumentId>')
+    .description('recorded observations of an instrument (or "sol")')
+    .option('--from <iso>')
+    .option('--to <iso>')
+    .option('--limit <n>', 'at most this many', '500')
+    .option('--token <token>', 'operator credential to read a non-public instrument')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        instrumentId: string,
+        options: { from?: string; to?: string; limit: string; token?: string; url: string },
+      ) => {
+        const query = new URLSearchParams({ limit: options.limit });
+        if (options.from) {
+          query.set('from', options.from);
+        }
+        if (options.to) {
+          query.set('to', options.to);
+        }
+        const path =
+          instrumentId.toLowerCase() === 'sol'
+            ? '/v1/prices/sol'
+            : `/v1/catalog/instruments/${encodeURIComponent(instrumentId)}/prices`;
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'GET',
+              `${path}?${query.toString()}`,
+              undefined,
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+
   return program;
 }

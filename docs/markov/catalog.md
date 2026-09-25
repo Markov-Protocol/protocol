@@ -99,7 +99,11 @@ migrations, sunsets and the multiplier in force.
 A catalog price is `issuer_mark`, `implied_valuation` or `secondary_market`
 with its unit, observation time and source, `expiresAt: null`, and `stale`
 computed at read time (older than 24 hours). It is never an
-`execution_quote` and no consumer may treat it as one.
+`execution_quote` and no consumer may treat it as one. Since B13 every
+reference price a snapshot carries is also recorded as a price observation
+(`GET /v1/catalog/instruments/{id}/prices`), the append-only history that
+valuations and rankings read; an implied valuation is recorded but never
+prices a token (`docs/markov/accounting-methodology.md`).
 
 ## Operator surface
 

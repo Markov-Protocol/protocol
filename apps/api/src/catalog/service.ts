@@ -78,11 +78,13 @@ import {
   recordInstrumentMultiplier,
   recordIssuerSnapshot,
   recordMintVerification,
+  recordPriceObservations,
   rejectCorporateAction,
 } from '@markov/db';
 import { createPrestocksFixtureSource, createPrestocksUrlSource } from '@markov/issuer-prestocks';
 import { createXstocksFixtureSource, createXstocksUrlSource } from '@markov/issuer-xstocks';
 import { type SolanaRpcClient, SolanaRpcError } from '@markov/solana-rpc';
+import { observationsFromInstruments } from '../analytics/service.js';
 import { ApiError } from '../errors.js';
 
 /** Any issuer feed source: fixture or configured URL, products or corporate actions. */
@@ -685,6 +687,14 @@ export function createCatalogService(deps: CatalogServiceDeps): CatalogService {
         writes,
         now: fetchedAt,
       });
+      // B13: every reference price the snapshot carries becomes a recorded observation (never twice).
+      await recordPriceObservations(
+        db,
+        observationsFromInstruments(
+          await listInstrumentsForPlanning(db, request.issuer),
+          request.source,
+        ),
+      );
       await audit(
         principal,
         'catalog.ingestion.applied',

@@ -17,6 +17,7 @@ import { baseTestEnv, testDatabaseUrl, withTemporaryDatabase } from '@markov/tes
 import { describe, expect, it } from 'vitest';
 import {
   type AccountingService,
+  type AnalyticsService,
   buildApp,
   createCatalogService,
   createIdentityService,
@@ -130,6 +131,7 @@ async function withHarness(
         planning: unavailable<PlanningService>('planning'),
         execution: unavailable<ExecutionService>('execution'),
         accounting: unavailable<AccountingService>('accounting'),
+        analytics: unavailable<AnalyticsService>('analytics'),
         strategies: unavailableStrategies,
         mintTestToken: (input) =>
           issuer.mint({
