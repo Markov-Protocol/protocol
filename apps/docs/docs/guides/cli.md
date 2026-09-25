@@ -167,6 +167,27 @@ the flows, never in the return; a ranking lists a short or incomplete
 history without a rank and without a number. The rules and the worked
 fixtures are in [accounting and performance](./performance.md).
 
+## Discovery, following and moderation
+
+```bash
+markov discovery explore --period 30d --sort rank --url $URL
+markov discovery explore --q tilt --issuer prestocks --limit 10 --url $URL
+markov discovery creator <publisherWallet> --url $URL
+markov discovery follow <strategyId> --token "$SESSION" --url $URL
+markov instance create --strategy <strategyId> --version-id <versionId> --wallet <walletId> --label following --token "$SESSION" --url $URL
+markov instance pin <instanceId> --version-id <newVersionId> --token "$SESSION" --url $URL   # explicit acceptance of a proposed version
+markov strategy moderate <strategyId> <versionId> --status hidden --reason "withheld pending review" --token "$MODERATOR" --url $URL
+markov strategy moderation <strategyId> --token "$MODERATOR" --url $URL
+```
+
+The explorer lists active strategies with a registered, unwithheld
+version and shows the model ranking's entry for each: a young or
+incomplete recipe is listed without a rank and without a return, with the
+reason. A follower's instance is offered a creator's new version only
+once it is registered and moves only when the follower pins it. Hiding a
+version is a recorded listing decision; the chain record stays readable
+([discovery](../reference/markov/discovery.md)).
+
 ## Database and operations
 
 ```bash

@@ -4,6 +4,7 @@ import { createIdentityVerifier, createTestIdentityIssuer, generateCredential } 
 import { loadConfig, type MarkovConfig } from '@markov/config';
 import {
   encodeBase58,
+  type Publication,
   type StrategyDetail,
   type StrategyDraftContent,
   type StrategyVersion,
@@ -20,7 +21,14 @@ import { createXstocksFixtureSource } from '@markov/issuer-xstocks';
 import { createSilentLogger } from '@markov/observability';
 import type { VenueAdapter } from '@markov/planning';
 import { FIXTURE_JURISDICTION_RULE_SET, FIXTURE_TERMS_DOCUMENT } from '@markov/policy';
-import { type Ed25519Signer, type FixtureLedger, signerFromPrivateKey } from '@markov/registry';
+import {
+  base64ToBytes,
+  bytesToBase64,
+  type Ed25519Signer,
+  type FixtureLedger,
+  signerFromPrivateKey,
+  signTransaction,
+} from '@markov/registry';
 import { SolanaRpcClient } from '@markov/solana-rpc';
 import { baseTestEnv, testDatabaseUrl, withTemporaryDatabase } from '@markov/testkit';
 import { createFixtureVenue } from '@markov/venue-jupiter';
@@ -30,12 +38,15 @@ import {
   createAccountingService,
   createAnalyticsService,
   createCatalogService,
+  createDiscoveryService,
   createExecutionService,
+  createFollowService,
   createFundingService,
   createIdentityService,
   createPlanningService,
   createPolicyService,
   createProbes,
+  createRegistryService,
   createStrategyService,
   type FollowService,
   type MarkovApi,
@@ -45,6 +56,7 @@ import {
 } from '../../src/index.js';
 import {
   createFixtureChain,
+  FIXTURE_REGISTRY_PROGRAM_ID,
   FIXTURE_STABLECOIN_MINT,
   GENESIS,
   prestocksFixtureRpcFetch,
@@ -86,6 +98,16 @@ export interface Harness {
   /** Fixture rules and terms published, jurisdiction declared and terms acknowledged for the session. */
   makeEligible: (sessionToken: string) => Promise<void>;
   freezeVersion: (sessionToken: string, content: StrategyDraftContent) => Promise<StrategyVersion>;
+  /**
+   * Registers a frozen version on the fixture ledger through the public
+   * flow (prepare, sign with the publisher wallet, submit, finality) and
+   * answers the registered publication. Requires `registry: true`.
+   */
+  register: (
+    sessionToken: string,
+    version: StrategyVersion,
+    wallet: { walletId: string; signer: Ed25519Signer },
+  ) => Promise<Publication>;
 }
 
 export interface HarnessOptions {
@@ -94,6 +116,8 @@ export interface HarnessOptions {
   readonly wrapVenue?: (venue: VenueAdapter) => VenueAdapter;
   /** EXECUTION_WRITES_ENABLED; submissions are policy-denied without it. */
   readonly writes?: boolean;
+  /** REGISTRY_PROGRAM_ID set to the fixture program: versions can be registered and followed (B08, B14). */
+  readonly registry?: boolean;
   /** Test control read by the fixture route program on every execution. */
   readonly fillShiftBps?: () => number;
   /** Test control: the most legs the fixture venue composes into one transaction (null: no limit). */
@@ -116,6 +140,7 @@ export async function withHarness(
         FUNDING_STABLECOIN_MINT: STABLECOIN,
         ...(options.venue === 'fixture' ? { EXECUTION_VENUE_PROVIDER: 'fixture' } : {}),
         ...(options.writes ? { EXECUTION_WRITES_ENABLED: 'true' } : {}),
+        ...(options.registry ? { REGISTRY_PROGRAM_ID: FIXTURE_REGISTRY_PROGRAM_ID } : {}),
         // Receipts (B12): a throwaway Ed25519 key per harness run; never a real key.
         RECEIPT_SIGNING_PROVIDER: 'local_key',
         RECEIPT_SIGNING_KEY: generateKeyPairSync('ed25519')
@@ -215,6 +240,7 @@ export async function withHarness(
         signer: receiptSignerOf(config),
         now,
       });
+      const analytics = createAnalyticsService({ config, db: client.db, now });
       const app = await buildApp({
         config,
         logger: createSilentLogger(),
@@ -236,9 +262,18 @@ export async function withHarness(
         funding,
         research: unavailable<ResearchService>('research'),
         watchlists: unavailable<WatchlistService>('watchlist'),
-        strategies: createStrategyService({ config, db: client.db, genesisHash: GENESIS }),
-        registry: unavailable<RegistryService>('registry'),
-        follows: unavailable<FollowService>('follows'),
+        strategies: createStrategyService({ config, db: client.db, genesisHash: GENESIS, now }),
+        registry: options.registry
+          ? createRegistryService({
+              config,
+              db: client.db,
+              genesisHash: GENESIS,
+              rpcClients: [rpc],
+            })
+          : unavailable<RegistryService>('registry'),
+        follows: options.registry
+          ? createFollowService({ db: client.db, now })
+          : unavailable<FollowService>('follows'),
         planning: createPlanningService({
           config,
           db: client.db,
@@ -260,7 +295,8 @@ export async function withHarness(
           now,
         }),
         accounting,
-        analytics: createAnalyticsService({ config, db: client.db, now }),
+        analytics,
+        discovery: createDiscoveryService({ db: client.db, analytics, now }),
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await accounting.registerSigningKey();
@@ -412,6 +448,42 @@ export async function withHarness(
         expect(frozen.statusCode, frozen.body).toBe(201);
         return frozen.json() as StrategyVersion;
       };
+      const register = async (
+        sessionToken: string,
+        version: StrategyVersion,
+        wallet: { walletId: string; signer: Ed25519Signer },
+      ): Promise<Publication> => {
+        const base = `/v1/me/strategies/${version.strategyId}/versions/${version.versionId}/publication`;
+        const prepared = await app.inject({
+          method: 'POST',
+          url: base,
+          headers: bearer(sessionToken),
+          payload: { walletId: wallet.walletId },
+        });
+        expect(prepared.statusCode, prepared.body).toBe(201);
+        const publication = prepared.json() as Publication;
+        const unsigned = base64ToBytes(publication.transaction?.unsignedTransaction ?? '');
+        const submitted = await app.inject({
+          method: 'POST',
+          url: `/v1/me/publications/${publication.publicationId}/submit`,
+          headers: bearer(sessionToken),
+          payload: {
+            signedTransaction: bytesToBase64(signTransaction(unsigned, wallet.signer).bytes),
+          },
+        });
+        expect(submitted.statusCode, submitted.body).toBe(200);
+        chain.advance(1);
+        chain.finalize();
+        const registered = await app.inject({
+          method: 'GET',
+          url: base,
+          headers: bearer(sessionToken),
+        });
+        expect(registered.statusCode, registered.body).toBe(200);
+        const result = registered.json() as Publication;
+        expect(result.state, registered.body).toBe('registered');
+        return result;
+      };
       const fund = (address: string, balance: Balance) => {
         chain.setLamports(address, BigInt(balance.lamports));
         if (balance.stablecoinRaw > 0n) {
@@ -433,6 +505,7 @@ export async function withHarness(
           linkWallet,
           makeEligible,
           freezeVersion,
+          register,
         });
       } finally {
         await app.close();

@@ -39,6 +39,7 @@ import {
   type PriceObservation,
   type PriceObservationRequest,
   RANKING_MIN_HISTORY_DAYS,
+  type RankingEntry,
   type RankingQuery,
   type RankingResponse,
   type SeriesSubject,
@@ -113,6 +114,8 @@ export interface AnalyticsService {
     versionNumber: number,
   ): Promise<PerformanceExport>;
   rankings(query: RankingQuery): Promise<RankingResponse>;
+  /** Every entry of the model ranking for a period, ranked and unranked, without a page limit (discovery reads it). */
+  rankingEntries(period: RankingQuery['period']): Promise<RankingEntry[]>;
   methodology(): MethodologySummary;
   recordObservation(
     principal: Principal,
@@ -597,6 +600,24 @@ export function createAnalyticsService(deps: AnalyticsServiceDeps): AnalyticsSer
     ),
   });
 
+  const rankingEntries = async (period: RankingQuery['period']): Promise<RankingEntry[]> => {
+    const rankable = await listRankableVersions(db);
+    const versions = rankable.map((entry) => entry.version);
+    const { facts, prices } = await modelInputs(versions);
+    const candidates: RankingCandidate[] = versions.map((version) => {
+      const series = modelSeries(version, facts, prices);
+      return {
+        strategyId: version.strategyId,
+        versionId: version.id,
+        versionNumber: version.versionNumber,
+        title: version.title,
+        series,
+        metrics: windowMetrics(series, period, { prices }),
+      };
+    });
+    return rankModelSeries(candidates);
+  };
+
   const history = async (
     asset: string,
     instrumentId: string | null,
@@ -632,30 +653,18 @@ export function createAnalyticsService(deps: AnalyticsServiceDeps): AnalyticsSer
     },
 
     async rankings(query) {
-      const rankable = await listRankableVersions(db);
-      const versions = rankable.map((entry) => entry.version);
-      const { facts, prices } = await modelInputs(versions);
-      const candidates: RankingCandidate[] = versions.map((version) => {
-        const series = modelSeries(version, facts, prices);
-        return {
-          strategyId: version.strategyId,
-          versionId: version.id,
-          versionNumber: version.versionNumber,
-          title: version.title,
-          series,
-          metrics: windowMetrics(series, query.period, { prices }),
-        };
-      });
       return {
         period: query.period,
         kind: 'model',
         methodologyVersion: PERFORMANCE_METHODOLOGY_VERSION,
         asOf: now().toISOString(),
         minHistoryDays: RANKING_MIN_HISTORY_DAYS,
-        entries: rankModelSeries(candidates).slice(0, query.limit),
+        entries: (await rankingEntries(query.period)).slice(0, query.limit),
         note: RANKING_NOTE,
       };
     },
+
+    rankingEntries,
 
     methodology() {
       return methodologySummary();

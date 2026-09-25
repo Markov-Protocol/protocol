@@ -93,6 +93,11 @@ methodology version. A version needs 30 days of complete history (a
 product rule), a complete window and a fresh end price; otherwise it is
 listed with `rank: null` and no return. An account's series is refused by
 kind, so deposits, transaction counts and unverified claims cannot enter.
+The public explorer (`GET /v1/strategies`, B14) shows exactly this entry
+next to each strategy's newest public version, so the rank on a row is
+the rank on the leaderboard; archived strategies and versions withheld by
+moderation are in neither
+([discovery](../reference/markov/discovery.md)).
 
 ## Fixtures you can recompute
 

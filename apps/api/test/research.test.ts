@@ -30,6 +30,7 @@ import {
   createProbes,
   createResearchService,
   createRetriever,
+  type DiscoveryService,
   type ExecutionService,
   type FollowService,
   type FundingService,
@@ -191,6 +192,7 @@ async function withHarness(
         execution: unavailable<ExecutionService>('execution'),
         accounting: unavailable<AccountingService>('accounting'),
         analytics: unavailable<AnalyticsService>('analytics'),
+        discovery: unavailable<DiscoveryService>('discovery'),
         strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

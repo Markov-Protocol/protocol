@@ -367,6 +367,36 @@ lists a version unranked with `insufficient_history` is the 30-day product
 rule; `incomplete_window` means a day without an observation inside the
 window. Rankings never include an account's series, whatever it shows.
 
+## Discovery and moderation
+
+```
+markov discovery explore [--q …] [--issuer …] [--instrument <id>] [--creator <wallet>] [--period 30d|90d|365d] [--sort rank|newest|followers] [--limit n] [--cursor c] --url …
+markov discovery creator <publisherWallet> --url …
+markov discovery follows|follow <strategyId>|unfollow <strategyId> --token <session> --url …
+markov strategy moderate <strategyId> <versionId> --status hidden|none --reason "…" [--reference <url>] --token <operator> --url …
+markov strategy moderation <strategyId> --token <operator> --url …
+```
+
+Migration `0015_discovery` adds `moderation_decisions` (append-only
+history of every moderation decision with reason, reference and the
+operator credential id). The explorer and creator pages are public,
+computed on read from the registered population (bounded at 500
+versions) and the B13 model ranking, rate limited at 60/min per client.
+Moderation needs an operator credential with `ops:discovery:write`
+(`markov operators create --scopes ops:discovery:read,ops:discovery:write`);
+each decision is audited as `strategy.moderate`. Hiding a version is a
+listing decision: it never touches the chain record, the owner's own
+reads or anyone's pin, and it withdraws proposals of that version from
+other people's instances. Restore visibility with `--status none` and a
+reason; the history shows both decisions.
+
+Operating: an explorer row with `rank: null` is the methodology speaking
+(`insufficient_history`, `incomplete_window`, `stale_end`), not a fault;
+record the missing observations rather than relaxing a rule. A creator
+page 404 means the wallet registered no listed strategy (archived and
+hidden versions do not count). Archiving a strategy removes it from the
+explorer and the ranking while everything it published stays readable.
+
 ## Documentation site
 
 `apps/docs` is the Docusaurus site served at `https://markov.pet/docs`

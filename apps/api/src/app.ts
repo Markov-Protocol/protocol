@@ -32,6 +32,7 @@ import type { AnalyticsService } from './analytics/service.js';
 import { authPlugin } from './auth/plugin.js';
 import type { IdentityService } from './auth/service.js';
 import type { CatalogService } from './catalog/service.js';
+import type { DiscoveryService } from './discovery/service.js';
 import { ApiError } from './errors.js';
 import type { ExecutionService } from './execution/service.js';
 import type { FollowService } from './follows/service.js';
@@ -44,6 +45,7 @@ import type { ResearchService } from './research/service.js';
 import { accountingRoutes } from './routes/accounting.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { catalogRoutes } from './routes/catalog.js';
+import { discoveryRoutes } from './routes/discovery.js';
 import { executionRoutes } from './routes/execution.js';
 import { followRoutes } from './routes/follows.js';
 import { fundingRoutes } from './routes/funding.js';
@@ -98,6 +100,7 @@ export interface AppDependencies {
   readonly execution: ExecutionService;
   readonly accounting: AccountingService;
   readonly analytics: AnalyticsService;
+  readonly discovery: DiscoveryService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -275,6 +278,11 @@ export async function buildApp(deps: AppDependencies) {
           description:
             'Valuation series and window metrics for instances, wallets and model recipes; model-only rankings; the methodology; recorded price observations',
         },
+        {
+          name: 'discovery',
+          description:
+            'The public explorer over registered strategies with chain provenance and methodology-aware ranking entries; creator pages keyed by the publishing wallet; operator moderation with recorded reasons',
+        },
       ],
     },
     transform: jsonSchemaTransform,
@@ -426,6 +434,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(executionRoutes, { execution: deps.execution });
   await app.register(accountingRoutes, { accounting: deps.accounting });
   await app.register(analyticsRoutes, { analytics: deps.analytics });
+  await app.register(discoveryRoutes, { discovery: deps.discovery });
 
   return app;
 }

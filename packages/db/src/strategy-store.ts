@@ -89,6 +89,15 @@ export async function findStrategy(
   return rows[0] ?? null;
 }
 
+/** A strategy by id regardless of owner: for rules that only need its status or lineage. */
+export async function findStrategyById(
+  db: Database,
+  strategyId: string,
+): Promise<StrategyRow | null> {
+  const rows = await db.select().from(strategies).where(eq(strategies.id, strategyId)).limit(1);
+  return rows[0] ?? null;
+}
+
 export async function listStrategies(
   db: Database,
   ownerUserId: string,
@@ -296,13 +305,16 @@ export async function freezeVersion(
         .returning(),
       'strategy update',
     );
-    // Followers learn about the new version; nothing moves their pins.
+    // The owner's own instances learn about the new version at once; other
+    // people's instances are offered it only once it is registered (B14),
+    // because they can read and pin nothing else. Nothing moves a pin.
     await tx
       .update(portfolioInstances)
       .set({ proposedVersionId: version.id, updatedAt: input.now })
       .where(
         and(
           eq(portfolioInstances.strategyId, strategy.id),
+          eq(portfolioInstances.ownerUserId, strategy.ownerUserId),
           eq(portfolioInstances.status, 'active'),
           ne(portfolioInstances.pinnedVersionId, version.id),
         ),

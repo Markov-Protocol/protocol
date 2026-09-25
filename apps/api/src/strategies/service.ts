@@ -31,6 +31,7 @@ import {
   findInstrumentsByIds,
   findPublicVersion,
   findStrategy,
+  findStrategyById,
   findVersion,
   findVersionById,
   freezeVersion,
@@ -600,13 +601,21 @@ export function createStrategyService(deps: StrategyServiceDeps): StrategyServic
 
     async createInstance(principal, request, requestId) {
       const owner = ownerOf(principal);
-      const strategy = await findStrategy(db, owner, request.strategyId);
-      if (!strategy) {
-        throw new ApiError('NOT_FOUND', 'no strategy with that id');
+      // The owner pins any of their versions; anyone else pins a registered,
+      // unmoderated version of an active strategy (B14), the same rule as a fork.
+      const owned = await findStrategy(db, owner, request.strategyId);
+      let version: StrategyVersionRow | null;
+      if (owned) {
+        version = await findVersion(db, owned.id, request.versionId);
+      } else {
+        const found = await findPublicVersion(db, request.strategyId, request.versionId);
+        version = found?.version ?? null;
+        if (version && (await findStrategyById(db, request.strategyId))?.status !== 'active') {
+          throw new ApiError('VALIDATION_FAILED', 'an archived strategy takes no new instances');
+        }
       }
-      const version = await findVersion(db, strategy.id, request.versionId);
       if (!version) {
-        throw new ApiError('NOT_FOUND', 'no version with that id');
+        throw new ApiError('NOT_FOUND', 'no public version with that id');
       }
       const wallet = (await listWallets(db, owner)).find((row) => row.id === request.walletId);
       if (!wallet) {
@@ -614,14 +623,14 @@ export function createStrategyService(deps: StrategyServiceDeps): StrategyServic
       }
       const instance = await createInstance(db, {
         ownerUserId: owner,
-        strategyId: strategy.id,
+        strategyId: version.strategyId,
         versionId: version.id,
         walletId: wallet.id,
         label: request.label,
         now: now(),
       });
       await audit(principal, 'instance.create', 'portfolio_instance', instance.id, requestId, {
-        strategyId: strategy.id,
+        strategyId: version.strategyId,
         versionId: version.id,
       });
       return instanceOf(instance);
@@ -646,9 +655,17 @@ export function createStrategyService(deps: StrategyServiceDeps): StrategyServic
       if (!row) {
         throw new ApiError('NOT_FOUND', 'no instance with that id');
       }
-      const version = await findVersion(db, row.strategyId, versionId);
+      // The strategy owner moves a pin to any of their versions; anyone else
+      // only to a registered, unmoderated one (B14): what they can read.
+      const ownsStrategy = (await findStrategy(db, owner, row.strategyId)) !== null;
+      const version = ownsStrategy
+        ? await findVersion(db, row.strategyId, versionId)
+        : ((await findPublicVersion(db, row.strategyId, versionId))?.version ?? null);
       if (!version) {
-        throw new ApiError('NOT_FOUND', 'no version with that id for this instance’s strategy');
+        throw new ApiError(
+          'NOT_FOUND',
+          'no public version with that id for this instance’s strategy',
+        );
       }
       const pinned = await pinInstance(db, {
         ownerUserId: owner,

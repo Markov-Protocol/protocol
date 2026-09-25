@@ -389,6 +389,66 @@ echo "no unranked entry shows a return: $INSUFFICIENT"; [ "$INSUFFICIENT" = "tru
 METHODOLOGY=$(node apps/cli/dist/main.js performance methodology --url "http://127.0.0.1:$API_PORT" | J 'j.version+":"+j.currency+":"+j.rankingMinHistoryDays')
 echo "methodology: $METHODOLOGY"; [ "$METHODOLOGY" = "stocks-v1:USD:30" ]
 
+echo "== discovery journey (B14): explorer -> young recipe listed without a rank -> creator page from chain records -> follow -> follower pinned to v1 -> creator registers v2 -> offered, never moved -> moderation hides v2 (chain record and pin untouched) -> visible again -> explicit acceptance"
+DISCOVERY_TOKEN=$(node apps/cli/dist/main.js operators create --label startup-discovery --scopes ops:discovery:read,ops:discovery:write --expires-days 1 | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const m=d.match(/mkv_op_[1-9A-HJ-NP-Za-km-z]+_[A-Za-z0-9_-]+/);if(!m){console.error(d);process.exit(1)}console.log(m[0])})')
+# V1 (registered above, then deprecated by its publisher) is the strategy's only public version; it froze today, so it lists without a rank.
+EXPLORE_JSON=$(node apps/cli/dist/main.js discovery explore --url "http://127.0.0.1:$API_PORT")
+EXPLORE=$(echo "$EXPLORE_JSON" | J 'j.matched+":"+j.strategies[0].strategyId+":"+j.strategies[0].latestVersion.versionNumber+":"+j.strategies[0].latestVersion.status+":"+j.strategies[0].performance.rank+":"+j.strategies[0].performance.timeWeightedReturn+":"+j.strategies[0].performance.reasons.includes("insufficient_history")+":"+j.strategies[0].followerCount+":"+j.sort+":"+j.minHistoryDays+":"+j.methodologyVersion')
+echo "explorer matched:strategy:version:status:rank:return:insufficient-history:followers:sort:min-days:methodology = $EXPLORE"; [ "$EXPLORE" = "1:$STRATEGY_ID:1:deprecated:null:null:true:0:rank:30:stocks-v1" ]
+USER_ID=$(node apps/cli/dist/main.js auth whoami --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.user.id')
+LEAKS=$(echo "$EXPLORE_JSON" | grep -c "$USER_ID\|$INSTANCE_ID\|$WALLET_ID\|$EXEC_WALLET_ID\|ownerUserId" || true)
+echo "private identifiers in the public explorer: $LEAKS"; [ "$LEAKS" = "0" ]
+PUBLISHER=$(echo "$EXPLORE_JSON" | J 'j.strategies[0].creator.publisherWallet')
+CREATOR=$(node apps/cli/dist/main.js discovery creator "$PUBLISHER" --url "http://127.0.0.1:$API_PORT" | J 'j.strategyCount+":"+j.versionCount+":"+j.followerCount+":"+j.strategies[0].strategyId+":"+(j.strategies[0].latestVersion.publisher===j.publisherWallet)')
+echo "creator page strategies:versions:followers:strategy:publisher-matches = $CREATOR"; [ "$CREATOR" = "1:1:0:$STRATEGY_ID:true" ]
+# A second person follows the strategy and pins its public version in an instance of their own.
+BOB_IDENTITY=$(node apps/cli/dist/main.js auth test-token --subject did:test:bob --url "http://127.0.0.1:$API_PORT")
+BOB_TOKEN=$(node apps/cli/dist/main.js auth session --identity-token "$BOB_IDENTITY" --url "http://127.0.0.1:$API_PORT" | J 'j.sessionToken')
+node apps/cli/dist/main.js auth demo-wallet-link --token "$BOB_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+BOB_WALLET_ID=$(curl -fsS -H "Authorization: Bearer $BOB_TOKEN" "http://127.0.0.1:$API_PORT/v1/me/wallets" | J 'j.wallets[0].walletId')
+FOLLOWED=$(node apps/cli/dist/main.js discovery follow "$STRATEGY_ID" --token "$BOB_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.follows.length+":"+j.follows[0].strategyId+":"+j.follows[0].latestVersion.versionNumber')
+echo "follow list count:strategy:latest = $FOLLOWED"; [ "$FOLLOWED" = "1:$STRATEGY_ID:1" ]
+FOLLOWERS=$(node apps/cli/dist/main.js discovery explore --sort followers --url "http://127.0.0.1:$API_PORT" | J 'j.strategies[0].followerCount+":"+j.sort')
+echo "explorer followers:sort = $FOLLOWERS"; [ "$FOLLOWERS" = "1:followers" ]
+BOB_INSTANCE=$(node apps/cli/dist/main.js instance create --strategy "$STRATEGY_ID" --version-id "$V1_ID" --wallet "$BOB_WALLET_ID" --label "following" --token "$BOB_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.instanceId+":"+j.pinnedVersionNumber+":"+j.proposedVersionId')
+echo "follower instance id:pinned:proposed = $BOB_INSTANCE"; case "$BOB_INSTANCE" in *:1:null) ;; *) exit 1;; esac
+BOB_INSTANCE_ID=${BOB_INSTANCE%%:*}
+UNPUBLISHED=$(node apps/cli/dist/main.js instance create --strategy "$STRATEGY_ID" --version-id "$V2_ID" --wallet "$BOB_WALLET_ID" --label "x" --token "$BOB_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "NOT_FOUND" || true)
+echo "follower cannot pin the unregistered v2: $UNPUBLISHED"; [ "$UNPUBLISHED" = "1" ]
+# The creator registers v2: the follower is offered it and keeps v1 until they accept.
+V2_DEMO=$(node apps/cli/dist/main.js strategy publish-demo "$STRATEGY_ID" --version-id "$V2_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" --fixture-control "http://127.0.0.1:$RPC_PORT/fixture/registry")
+V2_REG=$(echo "$V2_DEMO" | J 'j.registration.state+":"+j.registration.evidence.status')
+echo "v2 registration state:status = $V2_REG"; [ "$V2_REG" = "registered:active" ]
+V2_RECORD=$(echo "$V2_DEMO" | J 'j.registration.recordAddress')
+node apps/indexer/dist/main.js --once > /dev/null
+AFTER_V2=$(node apps/cli/dist/main.js instance list --token "$BOB_TOKEN" --url "http://127.0.0.1:$API_PORT" | V2_ID="$V2_ID" J 'j.instances[0].pinnedVersionNumber+":"+(j.instances[0].proposedVersionId===process.env.V2_ID)')
+echo "after v2 registration, follower pinned:proposed-is-v2 = $AFTER_V2"; [ "$AFTER_V2" = "1:true" ]
+LATEST=$(node apps/cli/dist/main.js discovery explore --url "http://127.0.0.1:$API_PORT" | J 'j.strategies[0].latestVersion.versionNumber+":"+j.strategies[0].versionCount+":"+j.strategies[0].title')
+echo "explorer latest:versions:title = $LATEST"; [ "$LATEST" = "2:2:Aerospace tilt v2" ]
+# Platform moderation is separate from the chain: hiding v2 removes it from listings and public reads, not from the ledger, and moves nobody's pin.
+NO_SCOPE=$(node apps/cli/dist/main.js strategy moderate "$STRATEGY_ID" "$V2_ID" --status hidden --reason "startup check" --token "$OPERATOR_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "HTTP 403" || true)
+echo "moderation without the scope refused: $NO_SCOPE"; [ "$NO_SCOPE" = "1" ]
+HIDDEN=$(node apps/cli/dist/main.js strategy moderate "$STRATEGY_ID" "$V2_ID" --status hidden --reason "startup check: withheld pending review" --token "$DISCOVERY_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.status+":"+j.previousStatus+":"+j.versionNumber')
+echo "hidden status:previous:version = $HIDDEN"; [ "$HIDDEN" = "hidden:none:2" ]
+WHILE_HIDDEN=$(node apps/cli/dist/main.js discovery explore --url "http://127.0.0.1:$API_PORT" | J 'j.strategies[0].latestVersion.versionNumber+":"+j.strategies[0].versionCount')
+echo "explorer while hidden latest:versions = $WHILE_HIDDEN"; [ "$WHILE_HIDDEN" = "1:1" ]
+HIDDEN_PUBLIC=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$API_PORT/v1/strategies/$STRATEGY_ID/versions/$V2_ID")
+echo "public read of the hidden version: $HIDDEN_PUBLIC"; [ "$HIDDEN_PUBLIC" = "404" ]
+CHAIN_RECORD=$(node apps/cli/dist/main.js registry record "$V2_RECORD" --url "http://127.0.0.1:$API_PORT" | J 'j.status+":"+String(j.version)')
+echo "chain record of the hidden version status:version-link = $CHAIN_RECORD"; [ "$CHAIN_RECORD" = "active:null" ]
+PROPOSAL_CLEARED=$(node apps/cli/dist/main.js instance list --token "$BOB_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.instances[0].pinnedVersionNumber+":"+j.instances[0].proposedVersionId')
+echo "follower after hiding pinned:proposed = $PROPOSAL_CLEARED"; [ "$PROPOSAL_CLEARED" = "1:null" ]
+HISTORY=$(node apps/cli/dist/main.js strategy moderation "$STRATEGY_ID" --token "$DISCOVERY_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.decisions.length+":"+j.versions.map(v=>v.versionNumber+"="+v.moderation).join(",")')
+echo "moderation history decisions:versions = $HISTORY"; [ "$HISTORY" = "1:2=hidden,1=none" ]
+VISIBLE=$(node apps/cli/dist/main.js strategy moderate "$STRATEGY_ID" "$V2_ID" --status none --reason "startup check: reviewed, nothing to withhold" --token "$DISCOVERY_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.status+":"+j.previousStatus')
+echo "visible again status:previous = $VISIBLE"; [ "$VISIBLE" = "none:hidden" ]
+REPROPOSED=$(node apps/cli/dist/main.js instance list --token "$BOB_TOKEN" --url "http://127.0.0.1:$API_PORT" | V2_ID="$V2_ID" J 'j.instances[0].pinnedVersionNumber+":"+(j.instances[0].proposedVersionId===process.env.V2_ID)')
+echo "follower after restoring pinned:proposed-is-v2 = $REPROPOSED"; [ "$REPROPOSED" = "1:true" ]
+ACCEPTED=$(node apps/cli/dist/main.js instance pin "$BOB_INSTANCE_ID" --version-id "$V2_ID" --token "$BOB_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.pinnedVersionNumber+":"+j.proposedVersionId')
+echo "follower accepts explicitly pinned:proposed = $ACCEPTED"; [ "$ACCEPTED" = "2:null" ]
+UNFOLLOWED=$(node apps/cli/dist/main.js discovery unfollow "$STRATEGY_ID" --token "$BOB_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.follows.length')
+echo "unfollowed, follows left: $UNFOLLOWED"; [ "$UNFOLLOWED" = "0" ]
+
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""
 

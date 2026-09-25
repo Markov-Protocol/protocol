@@ -353,9 +353,26 @@ fixture feeds), never twice. Capability row: `analytics.performance` is
 FIXTURE_VERIFIED (B13). Contract:
 `docs/markov/accounting-methodology.md` (Valuation and performance).
 
+## Endpoints (B14)
+
+| Method | Path                                                              | Principal                       | Purpose |
+| ------ | ----------------------------------------------------------------- | ------------------------------- | ------- |
+| GET    | /v1/strategies?q=&issuer=&instrumentId=&creator=&period=&sort=&limit=&cursor= | public (60/min)     | The explorer: one row per active strategy with a registered, unwithheld version (title, thesis excerpt, lineage, publishing wallet from the chain record, constituents, follower count) and the B13 model ranking entry of its newest public version for the period; unranked rows carry the reason and no return. Sort by rank, newest registration or followers; stable cursor pages |
+| GET    | /v1/creators/{publisherWallet}?period=                            | public (60/min)                 | Strategies whose newest public version this wallet registered, versions signed, first and latest registration, follower total; `NOT_FOUND` when it registered none |
+| POST   | /v1/operator/strategies/{strategyId}/versions/{versionId}/moderation | operator `ops:discovery:write` | Hide a version from discovery, rankings, public reads and follow targets, or make it visible again, with a recorded reason (and optional reference). 201 with the decision; 200 with the decision in force when the status already applied. The chain record stays readable and no pin moves |
+| GET    | /v1/operator/strategies/{strategyId}/moderation                   | operator `ops:discovery:read`   | Every version's moderation status and the decisions behind it, newest first |
+
+Instances (B07) since B14: `POST /v1/me/instances` and `POST
+/v1/me/instances/{id}/pin` accept a registered, unwithheld version of an
+active strategy the caller does not own (the owner pins any of theirs);
+other people's instances are offered a new version when its registration
+reaches `registered`, never at freeze. `GET /v1/rankings/model` and the
+explorer exclude archived strategies. Contract:
+`docs/markov/discovery.md`.
+
 ## Planned surface
 
-Discovery, maintenance, agents and operations routes are specified in the
-build document and arrive with sessions B14 to B18. Authentication,
+Maintenance, agents and operations routes are specified in the build
+document and arrive with sessions B15 to B18. Authentication,
 idempotency keys, cursor pagination and streaming are introduced with the
 first routes that need them (B02, B07, B10).

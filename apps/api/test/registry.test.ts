@@ -52,6 +52,7 @@ import {
   createProbes,
   createRegistryService,
   createStrategyService,
+  type DiscoveryService,
   type ExecutionService,
   type FundingService,
   type MarkovApi,
@@ -169,6 +170,7 @@ async function withHarness(
         execution: unavailable<ExecutionService>('execution'),
         accounting: unavailable<AccountingService>('accounting'),
         analytics: unavailable<AnalyticsService>('analytics'),
+        discovery: unavailable<DiscoveryService>('discovery'),
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();

@@ -104,8 +104,10 @@ registry record.
 
 There is no route that edits or deletes a version. Archiving a strategy
 (`PATCH …/{strategyId}` with `status: archived`) stops edits, freezes and
-forks of it and hides it from the default list; every version, instance
-and audit row stays readable. Restoring sets `status: active`.
+forks of it, hides it from the default list and, since B14, from the
+public explorer, creator pages and the model ranking; every version,
+instance, chain record and audit row stays readable. Restoring sets
+`status: active`.
 
 ## Canonical manifest and hashes
 
@@ -178,14 +180,21 @@ of absolute weight moves (⌊Σ|Δ| / 2⌋). It is the machine-readable
 
 An instance is a person's decision to follow one version in one of their
 own verified wallets (`walletId` from `/v1/me/wallets`). It pins
-`pinnedVersionId` explicitly at creation. When the strategy's creator
-freezes a newer version, every active instance of that strategy gets
-`proposedVersionId` set and nothing else: the pin does not move, no
-order is planned, no rebalance is implied. `POST
+`pinnedVersionId` explicitly at creation. The owner pins any version of
+their own strategy; anyone else pins a registered, unwithheld version of
+an active strategy (B14, the same rule as a fork; an archived strategy
+takes no new instances from others). When the strategy's creator freezes
+a newer version, the creator's own active instances get
+`proposedVersionId` set and nothing else; other people's instances are
+offered the version only once its registration reaches `registered`
+(they can read and pin nothing else). A proposal moves nothing: the pin
+does not move, no order is planned, no rebalance is implied. `POST
 /v1/me/instances/{instanceId}/pin` with an explicit `versionId` of the
-same strategy is the only way a pin changes; it clears the proposal. A
-closed instance refuses pin changes. Instances have no holdings or
-orders in B07; those arrive with execution and accounting (B09–B12).
+same strategy is the only way a pin changes (for an instance on someone
+else's strategy the target must itself be public); it clears the
+proposal. A closed instance refuses pin changes. Holdings and orders
+arrive with execution and accounting (B09–B12); discovery, following and
+moderation with B14 (`docs/markov/discovery.md`).
 
 ## Principals and scopes
 
@@ -194,12 +203,12 @@ orders in B07; those arrive with execution and accounting (B09–B12).
 | Read strategies, drafts, versions, diffs, instances | user; agent with `portfolio:read` |
 | Create a strategy, replace a draft | user; agent with `proposals:create` |
 | Freeze, fork, archive or restore, create an instance, move a pin | user only (interactive) |
-| Operator | no route; `ops:*` credentials cannot read private recipes |
+| Hide a registered version from discovery or make it visible again, read the moderation history | operator with `ops:discovery:write` / `ops:discovery:read` (B14); `ops:*` credentials cannot read private recipes |
 
 Every write is audited (`strategy.create`, `strategy.draft.save`,
 `strategy.version.freeze`, `strategy.fork`, `strategy.status`,
-`instance.create`, `instance.pin`) with the acting principal and
-secret-free details.
+`instance.create`, `instance.pin`, `strategy.moderate`) with the acting
+principal and secret-free details.
 
 ## CLI
 
@@ -227,6 +236,6 @@ acceptance, the diff and v1 unchanged afterwards.
 ## Not in this session
 
 Publication and on-chain registration with a publisher wallet (B08),
-moderation actions, allocation and orders from an instance (B09, B10),
+moderation actions (B14), allocation and orders from an instance (B09, B10),
 holdings and accounting (B11, B12), maintenance notifications (B15) and
 the app screens (F07).

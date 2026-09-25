@@ -1621,3 +1621,37 @@ export const priceObservations = pgTable(
     ),
   ],
 );
+
+/* ------------------------------------------------------- discovery (B14) */
+
+/**
+ * Platform moderation decisions on strategy versions. The flag in force
+ * lives on `strategy_versions.moderation`; this table is its append-only
+ * history with the reason and the operator credential. A hidden version
+ * leaves discovery, rankings, public reads and follow targets; the chain
+ * record stays readable and no instance moves.
+ */
+export const moderationDecisions = pgTable(
+  'moderation_decisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    strategyId: uuid('strategy_id')
+      .notNull()
+      .references(() => strategies.id, { onDelete: 'cascade' }),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => strategyVersions.id, { onDelete: 'cascade' }),
+    status: text('status').notNull(),
+    previousStatus: text('previous_status').notNull(),
+    reason: text('reason').notNull(),
+    reference: text('reference'),
+    decidedBy: text('decided_by').notNull(),
+    decidedAt: timestamp('decided_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('moderation_decisions_strategy_idx').on(table.strategyId, table.decidedAt),
+    index('moderation_decisions_version_idx').on(table.versionId, table.decidedAt),
+    enumCheck('moderation_decisions_status_check', table.status, MODERATION_STATUSES),
+    enumCheck('moderation_decisions_previous_check', table.previousStatus, MODERATION_STATUSES),
+  ],
+);

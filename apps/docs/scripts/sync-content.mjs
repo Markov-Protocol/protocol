@@ -49,6 +49,7 @@ const SOURCES = [
       'execution-planning',
       'execution-state-machine',
       'accounting-methodology',
+      'discovery',
       'agent-permissions',
       'provider-capabilities',
       'source-register',

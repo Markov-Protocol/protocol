@@ -66,7 +66,8 @@ transaction under a per-user advisory lock.
 ## Rate limits and bounds
 
 Routes carry per-client limits (for example reconciliation 30/min,
-receipts 60/min, performance series 60/min, rankings 20/min) and answer
+receipts 60/min, performance series 60/min, rankings 20/min, explorer and
+creator pages 60/min) and answer
 `RATE_LIMITED` with `429`. Bodies are capped (`API_BODY_LIMIT_BYTES`),
 lists are bounded and paginated by cursor where they can grow.
 
@@ -100,6 +101,7 @@ lists are bounded and paginated by cursor where they can grow.
 | execution | intents, plans, acknowledgements, transactions, submissions, reconciliation | [execution planning](../reference/markov/execution-planning.md), [state machine](../reference/markov/execution-state-machine.md) |
 | accounting | holdings, journal, reconciliation, receipts, keys | [accounting methodology](../reference/markov/accounting-methodology.md) |
 | analytics | performance series, rankings, methodology, price observations | [valuation and performance](../reference/markov/accounting-methodology.md#valuation-and-performance-b13) |
+| discovery | public explorer, creator pages, operator moderation | [discovery, following and moderation](../reference/markov/discovery.md) |
 
 The generated client (`packages/api-client`) validates every response at
 runtime against these schemas and is what the app's server uses.

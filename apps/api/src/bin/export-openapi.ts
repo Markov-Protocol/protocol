@@ -11,6 +11,7 @@ import type { AnalyticsService } from '../analytics/service.js';
 import { buildApp } from '../app.js';
 import type { IdentityService } from '../auth/service.js';
 import type { CatalogService } from '../catalog/service.js';
+import type { DiscoveryService } from '../discovery/service.js';
 import type { ExecutionService } from '../execution/service.js';
 import type { FollowService } from '../follows/service.js';
 import type { FundingService } from '../funding/service.js';
@@ -87,6 +88,11 @@ const unavailableAnalytics = new Proxy({} as AnalyticsService, {
     throw new Error('analytics service is unavailable in export mode');
   },
 });
+const unavailableDiscovery = new Proxy({} as DiscoveryService, {
+  get: () => () => {
+    throw new Error('discovery service is unavailable in export mode');
+  },
+});
 
 async function generate(): Promise<string> {
   const config = loadConfig({
@@ -130,6 +136,7 @@ async function generate(): Promise<string> {
     execution: unavailableExecution,
     accounting: unavailableAccounting,
     analytics: unavailableAnalytics,
+    discovery: unavailableDiscovery,
     mintTestToken: null,
   });
   await app.ready();

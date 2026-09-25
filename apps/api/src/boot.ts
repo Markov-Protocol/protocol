@@ -24,6 +24,7 @@ import { createAnalyticsService } from './analytics/service.js';
 import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
 import { createIdentityService } from './auth/service.js';
 import { createCatalogService } from './catalog/service.js';
+import { createDiscoveryService } from './discovery/service.js';
 import { createExecutionService } from './execution/service.js';
 import { createFollowService } from './follows/service.js';
 import { createFundingService } from './funding/service.js';
@@ -367,6 +368,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     );
   }
 
+  const analyticsService = createAnalyticsService({ config, db: dbClient.db });
   const app = await buildApp({
     config,
     logger,
@@ -411,7 +413,8 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
       genesisHash: expectedGenesisHash,
     }),
     accounting: accountingService,
-    analytics: createAnalyticsService({ config, db: dbClient.db }),
+    analytics: analyticsService,
+    discovery: createDiscoveryService({ db: dbClient.db, analytics: analyticsService }),
     mintTestToken,
   });
 

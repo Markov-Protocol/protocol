@@ -77,8 +77,10 @@ overflow, and the addition is checked anyway.
   the manifest, the on-chain lineage in `relation`/`parent_manifest_hash`.
 - **Operator**: none. No instruction lets Markov or anyone else change,
   hide, close or rewrite a record. Platform discovery moderation
-  (`strategy_versions.moderation`, OD-20) only decides what the public API
-  lists; the chain record exists regardless.
+  (`strategy_versions.moderation`, decided by operators with
+  `ops:discovery:write` and recorded with a reason, B14) only decides what
+  the public API lists; the chain record exists regardless and
+  `GET /v1/registry/records/{address}` keeps serving it.
 - **Upgrade authority**: the deployment's BPF upgradeable loader authority
   (OD-10). It is never renounced automatically and never held by the
   development session. Production requires an independently held multisig
@@ -275,7 +277,10 @@ are compared with the version (`verification.manifestHashMatches`,
 `verification.contentMatches`, `mismatches`).
 `GET /v1/registry/records/{address}` serves any indexed record, whether
 or not a Markov version matches it (permissionless registrations are
-records too); it links a version only when that version is public.
+records too); it links a version only when that version is public. A
+version withheld by moderation (B14) drops out of the public strategy and
+version routes, the explorer and the rankings while its record stays
+served with `version: null`.
 
 ## Indexer (`apps/indexer`)
 

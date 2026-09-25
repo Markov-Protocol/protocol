@@ -33,6 +33,7 @@ import {
   createPolicyService,
   createProbes,
   createStrategyService,
+  type DiscoveryService,
   type ExecutionService,
   type FollowService,
   type FundingService,
@@ -154,6 +155,7 @@ async function withHarness(fn: (h: Harness) => Promise<void>): Promise<void> {
         execution: unavailable<ExecutionService>('execution'),
         accounting: unavailable<AccountingService>('accounting'),
         analytics: unavailable<AnalyticsService>('analytics'),
+        discovery: unavailable<DiscoveryService>('discovery'),
         strategies: createStrategyService({ config, db: client.db, genesisHash: GENESIS }),
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

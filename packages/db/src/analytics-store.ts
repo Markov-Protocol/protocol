@@ -14,6 +14,7 @@ import {
   priceObservations,
   reconciliationCheckpoints,
   registryRecords,
+  strategies,
   strategyVersions,
 } from './schema.js';
 import type { StrategyVersionRow } from './strategy-store.js';
@@ -141,14 +142,24 @@ export interface RankableVersion {
   readonly record: RegistryRecordRow;
 }
 
-/** Every registered, unmoderated version with its indexed record: the public model-series population. */
+/**
+ * Every registered, unmoderated version of an active strategy with its
+ * indexed record: the public model-series population. Archiving a strategy
+ * takes its versions out of the ranking (B14) while their pages and series
+ * stay readable.
+ */
 export async function listRankableVersions(db: Database, limit = 500): Promise<RankableVersion[]> {
   return db
     .select({ version: strategyVersions, record: registryRecords })
     .from(strategyVersions)
+    .innerJoin(strategies, eq(strategies.id, strategyVersions.strategyId))
     .innerJoin(registryRecords, eq(registryRecords.versionId, strategyVersions.id))
     .where(
-      and(eq(strategyVersions.publication, 'registered'), eq(strategyVersions.moderation, 'none')),
+      and(
+        eq(strategies.status, 'active'),
+        eq(strategyVersions.publication, 'registered'),
+        eq(strategyVersions.moderation, 'none'),
+      ),
     )
     .orderBy(desc(strategyVersions.frozenAt), desc(strategyVersions.id))
     .limit(limit);

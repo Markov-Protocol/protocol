@@ -7,6 +7,7 @@ import type {
 } from '@markov/contracts';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from './client.js';
+import { proposeVersionToFollowers } from './discovery-store.js';
 import {
   registryIndexerState,
   registryRecords,
@@ -259,7 +260,7 @@ export async function updatePublication(
       throw new Error('publication update returned no row');
     }
     if (updated.operation === 'register' && patch.state !== undefined) {
-      await tx
+      const versions = await tx
         .update(strategyVersions)
         .set(
           patch.state === 'registered'
@@ -271,7 +272,30 @@ export async function updatePublication(
             eq(strategyVersions.id, updated.versionId),
             sql`${strategyVersions.publication} <> 'registered'`,
           ),
-        );
+        )
+        .returning({
+          strategyId: strategyVersions.strategyId,
+          moderation: strategyVersions.moderation,
+        });
+      const version = versions[0];
+      // Once registered and not withheld, the version is offered to other
+      // people's active instances of the strategy (B14); their pins stay.
+      if (patch.state === 'registered' && version && version.moderation === 'none') {
+        const owners = await tx
+          .select({ ownerUserId: strategies.ownerUserId })
+          .from(strategies)
+          .where(eq(strategies.id, version.strategyId))
+          .limit(1);
+        const owner = owners[0];
+        if (owner) {
+          await proposeVersionToFollowers(tx, {
+            strategyId: version.strategyId,
+            versionId: updated.versionId,
+            strategyOwnerUserId: owner.ownerUserId,
+            now,
+          });
+        }
+      }
     }
     return updated;
   });

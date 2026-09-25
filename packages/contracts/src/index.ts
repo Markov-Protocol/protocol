@@ -14,6 +14,7 @@ export * from './analytics.js';
 export * from './capabilities.js';
 export * from './catalog.js';
 export * from './codec.js';
+export * from './discovery.js';
 export * from './errors.js';
 export * from './execution.js';
 export * from './follow.js';

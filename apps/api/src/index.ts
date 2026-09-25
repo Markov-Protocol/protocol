@@ -10,6 +10,7 @@ export * from './app.js';
 export * from './auth/service.js';
 export * from './boot.js';
 export * from './catalog/service.js';
+export * from './discovery/service.js';
 export * from './errors.js';
 export * from './execution/service.js';
 export * from './follows/service.js';

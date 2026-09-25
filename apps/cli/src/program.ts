@@ -1703,6 +1703,59 @@ export function buildProgram(io: CliIo = stdio): Command {
         );
       },
     );
+  strategy
+    .command('moderate <strategyId> <versionId>')
+    .description(
+      'operator: hide a version from discovery, rankings and public reads, or make it visible again, with a recorded reason (B14)',
+    )
+    .requiredOption('--status <status>', 'hidden | none')
+    .requiredOption('--reason <text>', 'why, 3 to 500 characters; recorded with the decision')
+    .option('--reference <url>', 'where the decision is documented')
+    .requiredOption('--token <token>', 'operator credential (ops:discovery:write)')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        strategyId: string,
+        versionId: string,
+        options: { status: string; reason: string; reference?: string; token: string; url: string },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/operator/strategies/${encodeURIComponent(strategyId)}/versions/${encodeURIComponent(versionId)}/moderation`,
+              {
+                status: options.status,
+                reason: options.reason,
+                reference: options.reference ?? null,
+              },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  strategy
+    .command('moderation <strategyId>')
+    .description(
+      'operator: moderation status of every version of a strategy and the decisions behind it',
+    )
+    .requiredOption('--token <token>', 'operator credential (ops:discovery:read)')
+    .option(...apiUrlOption)
+    .action(async (strategyId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/operator/strategies/${encodeURIComponent(strategyId)}/moderation`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
   const intents = program
     .command('intents')
     .description('investment intents and bounded, hashed execution plans (B09)');
@@ -2798,6 +2851,118 @@ export function buildProgram(io: CliIo = stdio): Command {
     .option(...apiUrlOption)
     .action(async (options: { url: string }) => {
       io.out(json(await apiCall(options.url, 'GET', '/v1/performance/methodology')));
+    });
+
+  const discovery = program
+    .command('discovery')
+    .description(
+      'the public strategy explorer with chain provenance and methodology-aware ranking entries, creator pages and follows (B14)',
+    );
+  discovery
+    .command('explore')
+    .description(
+      'list public strategies: one row per active strategy with a registered, unwithheld version; unranked rows carry the reason and no return',
+    )
+    .option('--q <text>', 'match the title, thesis, a constituent symbol or company name')
+    .option('--issuer <issuer>', 'prestocks | xstocks | tessera')
+    .option('--instrument <instrumentId>', 'strategies holding this instrument')
+    .option('--creator <wallet>', 'strategies whose newest public version this wallet registered')
+    .option('--period <period>', '30d | 90d | 365d', '30d')
+    .option('--sort <sort>', 'rank | newest | followers', 'rank')
+    .option('--limit <n>', 'rows per page (at most 100)', '25')
+    .option('--cursor <cursor>', 'continue from the previous page')
+    .option(...apiUrlOption)
+    .action(
+      async (options: {
+        q?: string;
+        issuer?: string;
+        instrument?: string;
+        creator?: string;
+        period: string;
+        sort: string;
+        limit: string;
+        cursor?: string;
+        url: string;
+      }) => {
+        const query = new URLSearchParams();
+        for (const [key, value] of [
+          ['q', options.q],
+          ['issuer', options.issuer],
+          ['instrumentId', options.instrument],
+          ['creator', options.creator],
+          ['period', options.period],
+          ['sort', options.sort],
+          ['limit', options.limit],
+          ['cursor', options.cursor],
+        ] as const) {
+          if (value !== undefined) {
+            query.set(key, value);
+          }
+        }
+        io.out(json(await apiCall(options.url, 'GET', `/v1/strategies?${query.toString()}`)));
+      },
+    );
+  discovery
+    .command('creator <publisherWallet>')
+    .description(
+      'a creator page: the strategies whose newest public version this wallet registered, from chain records only',
+    )
+    .option('--period <period>', '30d | 90d | 365d', '30d')
+    .option(...apiUrlOption)
+    .action(async (publisherWallet: string, options: { period: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/creators/${encodeURIComponent(publisherWallet)}?period=${encodeURIComponent(options.period)}`,
+          ),
+        ),
+      );
+    });
+  discovery
+    .command('follows')
+    .description('the public strategies you follow, newest follow first')
+    .requiredOption('--token <token>', 'user session or agent credential (research:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/me/follows', undefined, options.token)));
+    });
+  discovery
+    .command('follow <strategyId>')
+    .description('follow a public strategy: bookkeeping on your account, never a pin or an order')
+    .requiredOption('--token <token>', 'user session')
+    .option(...apiUrlOption)
+    .action(async (strategyId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'PUT',
+            `/v1/me/follows/${encodeURIComponent(strategyId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  discovery
+    .command('unfollow <strategyId>')
+    .description('stop following a strategy')
+    .requiredOption('--token <token>', 'user session')
+    .option(...apiUrlOption)
+    .action(async (strategyId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'DELETE',
+            `/v1/me/follows/${encodeURIComponent(strategyId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
     });
 
   const prices = program
