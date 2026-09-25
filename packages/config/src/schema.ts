@@ -95,6 +95,8 @@ export const rawEnvSchema = z.object({
    */
   EXECUTION_VENUE_PROVIDER: z.enum(['disabled', 'fixture', 'configured_url']).default('disabled'),
   EXECUTION_VENUE_QUOTE_URL: z.url().optional(),
+  /** Optional gateway that builds transactions for its quotes (configured_url only); without it execution stays unavailable. */
+  EXECUTION_VENUE_BUILD_URL: z.url().optional(),
   /** Bearer token for the configured gateway; never logged, never part of a plan. */
   EXECUTION_VENUE_API_KEY: z.string().min(1).max(4000).optional(),
   /** Product complexity limit on recipe legs (B07), tightened downward for a beta; never raised above 10. */
@@ -161,6 +163,8 @@ export interface MarkovConfig {
       /** Null when no venue is configured; planning then refuses with PROVIDER_UNAVAILABLE. */
       readonly provider: 'fixture' | 'configured_url' | null;
       readonly quoteUrl: string | null;
+      /** Optional gateway that builds transactions for its quotes; without it execution is unavailable. */
+      readonly buildUrl: string | null;
       readonly apiKey: string | null;
     };
   };

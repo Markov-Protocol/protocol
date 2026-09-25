@@ -1,17 +1,35 @@
 import { createHash } from 'node:crypto';
 import {
+  type VenueBuildRequestPayload,
   type VenueQuote,
   type VenueQuoteRequest,
+  venueBuildRequestSchema,
+  venueBuildResponseSchema,
   venueQuoteRequestSchema,
   venueQuoteSchema,
 } from '@markov/contracts';
 import {
   canonicalJson,
   FIXTURE_ROUTE_PROGRAM_ID,
+  fixtureSwapInstruction,
   minimumOutputFor,
   type VenueAdapter,
+  type VenueBuild,
+  type VenueBuildRequest,
   VenueQuoteError,
 } from '@markov/planning';
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  associatedTokenAddress,
+  bytesToBase64,
+  COMPUTE_BUDGET_PROGRAM_ID,
+  compileLegacyMessage,
+  type Instruction,
+  SYSTEM_PROGRAM_ID,
+  unsignedTransaction,
+} from '@markov/solana-codec';
+
+export * from './fixture-program.js';
 
 /**
  * @markov/venue-jupiter
@@ -113,11 +131,70 @@ function pow10(exponent: number): bigint {
   return 10n ** BigInt(exponent);
 }
 
+/** Synthetic price impact for an input expressed in whole units of its own mint. */
+function impactBpsFor(wholeUnits: bigint): number {
+  return Number(
+    wholeUnits / FIXTURE_IMPACT_UNIT > BigInt(FIXTURE_MAX_IMPACT_BPS)
+      ? BigInt(FIXTURE_MAX_IMPACT_BPS)
+      : wholeUnits / FIXTURE_IMPACT_UNIT,
+  );
+}
+
+/**
+ * The fixture venue's price function, shared by its quotes and by the
+ * fixture route program's execution: exact-in output for a stablecoin →
+ * instrument buy or an instrument → stablecoin sell at the synthetic price
+ * less the fixed spread and the input-proportional impact. Null when the
+ * pair is not routed.
+ */
+export function fixtureSwapOutput(input: {
+  readonly stablecoin: { readonly mint: string; readonly decimals: number };
+  readonly prices: ReadonlyMap<string, FixturePrice>;
+  readonly inputMint: string;
+  readonly outputMint: string;
+  readonly inAmountRaw: bigint;
+}): { readonly outAmountRaw: bigint; readonly impactBps: number } | null {
+  const { stablecoin, inAmountRaw } = input;
+  if (input.inputMint === stablecoin.mint) {
+    const price = input.prices.get(input.outputMint);
+    if (!price) {
+      return null;
+    }
+    const impactBps = impactBpsFor(inAmountRaw / pow10(stablecoin.decimals));
+    const factorBps = BigInt(10_000 - FIXTURE_SPREAD_BPS - impactBps);
+    return {
+      outAmountRaw:
+        (inAmountRaw * pow10(price.decimals) * price.priceDenominator * factorBps) /
+        (pow10(stablecoin.decimals) * price.priceNumerator * 10_000n),
+      impactBps,
+    };
+  }
+  if (input.outputMint === stablecoin.mint) {
+    const price = input.prices.get(input.inputMint);
+    if (!price) {
+      return null;
+    }
+    // Impact scales with the stablecoin value of the input.
+    const notionalWhole =
+      (inAmountRaw * price.priceNumerator) / (price.priceDenominator * pow10(price.decimals));
+    const impactBps = impactBpsFor(notionalWhole);
+    const factorBps = BigInt(10_000 - FIXTURE_SPREAD_BPS - impactBps);
+    return {
+      outAmountRaw:
+        (inAmountRaw * pow10(stablecoin.decimals) * price.priceNumerator * factorBps) /
+        (pow10(price.decimals) * price.priceDenominator * 10_000n),
+      impactBps,
+    };
+  }
+  return null;
+}
+
 /**
  * Deterministic synthetic quotes: exact-in at the synthetic price less a
  * fixed spread and an input-proportional price impact, one route step
  * through the fixture program, a 30-second validity. The same request at
- * the same instant yields the same quote and reference.
+ * the same instant yields the same quote and reference. Buys consume the
+ * stablecoin; sells consume an instrument for the stablecoin.
  */
 export function createFixtureVenue(options: FixtureVenueOptions): VenueAdapter {
   const now = options.now ?? (() => new Date());
@@ -133,36 +210,38 @@ export function createFixtureVenue(options: FixtureVenueOptions): VenueAdapter {
       if (options.outage?.()) {
         throw new VenueQuoteError('unreachable', 'the fixture venue is in a simulated outage');
       }
-      if (request.inputMint !== stablecoin.mint) {
+      const sell = request.outputMint === stablecoin.mint && request.inputMint !== stablecoin.mint;
+      if (!sell && request.inputMint !== stablecoin.mint) {
         throw new VenueQuoteError(
           'unsupported_mint',
-          `the fixture venue only consumes ${stablecoin.mint}; input ${request.inputMint} is unsupported`,
+          `the fixture venue only routes against ${stablecoin.mint}; input ${request.inputMint} is unsupported`,
         );
       }
-      const price = prices.get(request.outputMint);
+      const price = prices.get(sell ? request.inputMint : request.outputMint);
       if (!price) {
         throw new VenueQuoteError(
           'unsupported_mint',
-          `the fixture venue has no route for output mint ${request.outputMint}`,
+          `the fixture venue has no route for ${sell ? 'input' : 'output'} mint ${sell ? request.inputMint : request.outputMint}`,
         );
       }
       const inAmount = BigInt(request.inAmountRaw);
-      if (inAmount < pow10(stablecoin.decimals)) {
+      if (!sell && inAmount < pow10(stablecoin.decimals)) {
         throw new VenueQuoteError(
           'no_route',
           `the fixture venue routes at least ${pow10(stablecoin.decimals)} raw input; ${inAmount} is below the minimum`,
         );
       }
-      const wholeUnits = inAmount / pow10(stablecoin.decimals);
-      const impactBps = Number(
-        wholeUnits / FIXTURE_IMPACT_UNIT > BigInt(FIXTURE_MAX_IMPACT_BPS)
-          ? BigInt(FIXTURE_MAX_IMPACT_BPS)
-          : wholeUnits / FIXTURE_IMPACT_UNIT,
-      );
-      const factorBps = BigInt(10_000 - FIXTURE_SPREAD_BPS - impactBps);
-      const outAmount =
-        (inAmount * pow10(price.decimals) * price.priceDenominator * factorBps) /
-        (pow10(stablecoin.decimals) * price.priceNumerator * 10_000n);
+      const priced = fixtureSwapOutput({
+        stablecoin,
+        prices,
+        inputMint: request.inputMint,
+        outputMint: request.outputMint,
+        inAmountRaw: inAmount,
+      });
+      if (!priced) {
+        throw new VenueQuoteError('no_route', 'the fixture venue has no route for this pair');
+      }
+      const { outAmountRaw: outAmount, impactBps } = priced;
       if (outAmount === 0n) {
         throw new VenueQuoteError('no_route', 'the input is too small for one output unit');
       }
@@ -191,6 +270,80 @@ export function createFixtureVenue(options: FixtureVenueOptions): VenueAdapter {
       };
       return venueQuoteSchema.parse(quote);
     },
+    async build(request) {
+      if (options.outage?.()) {
+        throw new VenueQuoteError('unreachable', 'the fixture venue is in a simulated outage');
+      }
+      return buildFixtureSwapTransaction(request);
+    },
+  };
+}
+
+/**
+ * The fixture venue's transaction for a quote: compute budget, an idempotent
+ * creation of the owner's output token account when asked, and the swap
+ * through the fixture route program. A legacy message with the owner as the
+ * only signer; every byte is decoded again by the execution validator.
+ */
+export function buildFixtureSwapTransaction(request: VenueBuildRequest): VenueBuild {
+  const { quote, owner } = request;
+  const source = associatedTokenAddress(owner, quote.inputMint, request.inputTokenProgram).address;
+  const destination = associatedTokenAddress(
+    owner,
+    quote.outputMint,
+    request.outputTokenProgram,
+  ).address;
+  const limit = new Uint8Array(5);
+  limit[0] = 2;
+  new DataView(limit.buffer).setUint32(1, request.computeUnitLimit, true);
+  const price = new Uint8Array(9);
+  price[0] = 3;
+  new DataView(price.buffer).setBigUint64(1, request.computeUnitPriceMicroLamports, true);
+  const instructions: Instruction[] = [
+    { programId: COMPUTE_BUDGET_PROGRAM_ID, accounts: [], data: limit },
+    { programId: COMPUTE_BUDGET_PROGRAM_ID, accounts: [], data: price },
+  ];
+  if (request.createOutputAccount) {
+    instructions.push({
+      programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+      accounts: [
+        { pubkey: owner, isSigner: true, isWritable: true },
+        { pubkey: destination, isSigner: false, isWritable: true },
+        { pubkey: owner, isSigner: false, isWritable: false },
+        { pubkey: quote.outputMint, isSigner: false, isWritable: false },
+        { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: request.outputTokenProgram, isSigner: false, isWritable: false },
+      ],
+      data: Uint8Array.of(1),
+    });
+  }
+  instructions.push(
+    fixtureSwapInstruction(
+      {
+        owner,
+        source,
+        destination,
+        inputMint: quote.inputMint,
+        outputMint: quote.outputMint,
+        inputTokenProgram: request.inputTokenProgram,
+        outputTokenProgram: request.outputTokenProgram,
+      },
+      {
+        inAmountRaw: BigInt(quote.inAmountRaw),
+        minimumOutRaw: BigInt(quote.otherAmountThresholdRaw),
+        slippageBps: quote.slippageBps,
+      },
+    ),
+  );
+  const message = compileLegacyMessage({
+    feePayer: owner,
+    instructions,
+    recentBlockhash: request.recentBlockhash,
+  });
+  return {
+    unsignedTransaction: bytesToBase64(unsignedTransaction(message)),
+    version: 'legacy',
+    sourceRef: 'fixture:venue',
   };
 }
 
@@ -205,6 +358,8 @@ export interface ConfiguredUrlVenueOptions {
   readonly fetchImpl?: typeof fetch;
   /** Route minimum the gateway documents, if any. */
   readonly minimumInputRaw?: bigint | null;
+  /** Gateway that builds transactions for its quotes; absent means execution is unavailable. */
+  readonly buildUrl?: string | null;
 }
 
 function sourceRefOf(url: URL): string {
@@ -212,21 +367,19 @@ function sourceRefOf(url: URL): string {
 }
 
 /**
- * POST the Markov quote request to a configured gateway and validate the
- * answer against the quote contract, with the same bounds as every other
- * outbound call: https only outside local/test, no redirects, a timeout
- * and a byte cap. The gateway's `sourceRef` is replaced by ours and its
- * `mode` must say `configured_url`; every economic field is still checked
- * by the planner before anything is built on it.
+ * POST the Markov quote request (and, when a build URL is configured, the
+ * build request) to a configured gateway and validate the answer against the
+ * contract, with the same bounds as every other outbound call: https only
+ * outside local/test, no redirects, a timeout and a byte cap. The gateway's
+ * `sourceRef` is replaced by ours and its `mode` must say `configured_url`;
+ * every economic field is still checked by the planner before anything is
+ * built on it, and every built byte is decoded by the execution validator.
  */
 export function createConfiguredUrlVenue(options: ConfiguredUrlVenueOptions): VenueAdapter {
-  const url = new URL(options.url);
-  if (url.username || url.password) {
-    throw new VenueQuoteError('insecure_url', 'venue URL must not embed credentials');
-  }
-  if (url.protocol !== 'https:' && !(options.allowInsecure && url.protocol === 'http:')) {
-    throw new VenueQuoteError('insecure_url', 'venue URL must use https');
-  }
+  const url = checkedUrl(options.url, options.allowInsecure === true);
+  const buildUrl = options.buildUrl
+    ? checkedUrl(options.buildUrl, options.allowInsecure === true)
+    : null;
   const timeoutMs = options.timeoutMs ?? 5_000;
   const maxBytes = options.maxBytes ?? 256 * 1024;
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -238,6 +391,52 @@ export function createConfiguredUrlVenue(options: ConfiguredUrlVenueOptions): Ve
   if (options.apiKey) {
     headers['authorization'] = `Bearer ${options.apiKey}`;
   }
+  const post = async (target: URL, body: unknown): Promise<unknown> => {
+    const ref = sourceRefOf(target);
+    let response: Response;
+    try {
+      response = await fetchImpl(target, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+        redirect: 'error',
+      });
+    } catch (cause) {
+      throw new VenueQuoteError('unreachable', `venue ${ref} did not answer`, cause);
+    }
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new VenueQuoteError('http', `venue ${ref} answered HTTP ${response.status}`);
+    }
+    const declared = Number(response.headers.get('content-length') ?? '0');
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new VenueQuoteError('oversized', `venue declares ${declared} bytes, limit ${maxBytes}`);
+    }
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    const reader = response.body?.getReader();
+    if (reader) {
+      for (;;) {
+        const step = await reader.read();
+        if (step.done) {
+          break;
+        }
+        total += step.value.byteLength;
+        if (total > maxBytes) {
+          await reader.cancel().catch(() => undefined);
+          throw new VenueQuoteError('oversized', `venue exceeded ${maxBytes} bytes`);
+        }
+        chunks.push(step.value);
+      }
+    }
+    try {
+      return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    } catch (cause) {
+      throw new VenueQuoteError('malformed', `venue ${ref} is not JSON`, cause);
+    }
+  };
   return {
     venue: 'jupiter',
     mode: 'configured_url',
@@ -245,53 +444,7 @@ export function createConfiguredUrlVenue(options: ConfiguredUrlVenueOptions): Ve
     minimumInputRaw: options.minimumInputRaw ?? null,
     async quote(input) {
       const request: VenueQuoteRequest = venueQuoteRequestSchema.parse(input);
-      let response: Response;
-      try {
-        response = await fetchImpl(url, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(request),
-          signal: AbortSignal.timeout(timeoutMs),
-          redirect: 'error',
-        });
-      } catch (cause) {
-        throw new VenueQuoteError('unreachable', `venue ${sourceRef} did not answer`, cause);
-      }
-      if (!response.ok) {
-        await response.body?.cancel().catch(() => undefined);
-        throw new VenueQuoteError('http', `venue ${sourceRef} answered HTTP ${response.status}`);
-      }
-      const declared = Number(response.headers.get('content-length') ?? '0');
-      if (Number.isFinite(declared) && declared > maxBytes) {
-        await response.body?.cancel().catch(() => undefined);
-        throw new VenueQuoteError(
-          'oversized',
-          `venue declares ${declared} bytes, limit ${maxBytes}`,
-        );
-      }
-      const chunks: Uint8Array[] = [];
-      let total = 0;
-      const reader = response.body?.getReader();
-      if (reader) {
-        for (;;) {
-          const step = await reader.read();
-          if (step.done) {
-            break;
-          }
-          total += step.value.byteLength;
-          if (total > maxBytes) {
-            await reader.cancel().catch(() => undefined);
-            throw new VenueQuoteError('oversized', `venue exceeded ${maxBytes} bytes`);
-          }
-          chunks.push(step.value);
-        }
-      }
-      let payload: unknown;
-      try {
-        payload = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-      } catch (cause) {
-        throw new VenueQuoteError('malformed', `venue ${sourceRef} is not JSON`, cause);
-      }
+      const payload = await post(url, request);
       const parsed = venueQuoteSchema.safeParse(payload);
       if (!parsed.success) {
         throw new VenueQuoteError(
@@ -302,13 +455,56 @@ export function createConfiguredUrlVenue(options: ConfiguredUrlVenueOptions): Ve
             .join('; ')}`,
         );
       }
-      if (parsed.data.mode !== 'configured_url' || parsed.data.venue !== 'jupiter') {
+      if (parsed.data.mode !== 'configured_url') {
         throw new VenueQuoteError(
           'malformed',
-          `venue ${sourceRef} answered mode ${parsed.data.mode} for ${parsed.data.venue}; expected a configured_url jupiter quote`,
+          `venue ${sourceRef} answered mode ${parsed.data.mode}; a configured gateway must say configured_url`,
         );
       }
       return { ...parsed.data, sourceRef };
     },
+    build:
+      buildUrl === null
+        ? null
+        : async (request) => {
+            const payload: VenueBuildRequestPayload = venueBuildRequestSchema.parse({
+              schemaVersion: '1',
+              quote: request.quote,
+              owner: request.owner,
+              inputTokenProgram: request.inputTokenProgram,
+              outputTokenProgram: request.outputTokenProgram,
+              recentBlockhash: request.recentBlockhash,
+              computeUnitLimit: request.computeUnitLimit,
+              computeUnitPriceMicroLamports: request.computeUnitPriceMicroLamports.toString(),
+              createOutputAccount: request.createOutputAccount,
+            });
+            const answer = await post(buildUrl, payload);
+            const parsed = venueBuildResponseSchema.safeParse(answer);
+            if (!parsed.success) {
+              throw new VenueQuoteError(
+                'malformed',
+                `venue ${sourceRefOf(buildUrl)} did not answer the build contract: ${parsed.error.issues
+                  .slice(0, 3)
+                  .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+                  .join('; ')}`,
+              );
+            }
+            return {
+              unsignedTransaction: parsed.data.unsignedTransaction,
+              version: parsed.data.version,
+              sourceRef: sourceRefOf(buildUrl),
+            };
+          },
   };
+}
+
+function checkedUrl(text: string, allowInsecure: boolean): URL {
+  const url = new URL(text);
+  if (url.username || url.password) {
+    throw new VenueQuoteError('insecure_url', 'venue URL must not embed credentials');
+  }
+  if (url.protocol !== 'https:' && !(allowInsecure && url.protocol === 'http:')) {
+    throw new VenueQuoteError('insecure_url', 'venue URL must use https');
+  }
+  return url;
 }

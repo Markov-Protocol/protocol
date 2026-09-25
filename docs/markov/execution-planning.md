@@ -201,10 +201,27 @@ acknowledged one and returns the intent to `QUOTED`. Audit actions:
 `planning.intent.created`, `planning.plan.built`, `planning.plan.refused`,
 `planning.plan.acknowledged`, `planning.intent.cancelled`.
 
-## What is not built
+## Sells (B10)
 
-No transaction is built, signed, simulated or submitted; no budget is
-reserved; nothing rebalances or sells. The `AUTHORIZED` to `FINALIZED`
-states, per-batch states, message and instruction validation, submission
-identity and recovery are B10 and B11. Plans from the fixture venue are
-never executable.
+A `single_sell` intent is budgeted in raw units of the instrument to sell:
+`budget.mint`, `symbol` and `decimals` are the instrument's, and the plan's
+`side` is `sell` with one leg whose `inputMint` is the instrument and whose
+`outputMint` is the platform stablecoin. Funds preflight observes the
+wallet's balance of the instrument (`funds.inputRaw`; a shortfall names
+`funds.instrument`) and the SOL fee bound; route minimums, which venues
+document in stablecoin units, do not apply to the instrument input and no
+protocol fee reserve is taken from it. The venue is quoted instrument →
+stablecoin; the policy notional is the stablecoin the sell is expected to
+receive. Everything else (quote checks, program matrix, hash, validity,
+acknowledgement) is the same as for buys.
+
+## What is executed and what is not
+
+B10 executes single-leg plans (`docs/markov/execution-state-machine.md`):
+one transaction built from the plan's quote, validated against the plan,
+simulated, signed by the owner, submitted once and reconciled to finality.
+Multi-constituent plans stay staged and are refused by the build step
+(`STAGED_NOT_SUPPORTED`) until B11 composes and simulates them batch by
+batch. Nothing rebalances. Plans from the fixture venue execute only against
+the fixture chain of local and test modes; no live route has been built or
+sent.

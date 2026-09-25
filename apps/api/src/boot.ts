@@ -19,6 +19,7 @@ import { createConfiguredUrlVenue, createFixtureVenue } from '@markov/venue-jupi
 import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
 import { createIdentityService } from './auth/service.js';
 import { createCatalogService } from './catalog/service.js';
+import { createExecutionService } from './execution/service.js';
 import { createFollowService } from './follows/service.js';
 import { createFundingService } from './funding/service.js';
 import { createNetworkIdentityMonitor } from './network-monitor.js';
@@ -306,6 +307,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
             url: venueConfig.quoteUrl as string,
             apiKey: venueConfig.apiKey,
             allowInsecure: nonproduction,
+            buildUrl: venueConfig.buildUrl,
           });
   if (venue === null) {
     logger.warn(
@@ -313,8 +315,15 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     );
   } else {
     logger.info(
-      { venue: venue.venue, mode: venue.mode, sourceRef: venue.sourceRef },
-      'execution venue configured',
+      {
+        venue: venue.venue,
+        mode: venue.mode,
+        sourceRef: venue.sourceRef,
+        builds: venue.build !== null,
+      },
+      venue.build === null
+        ? 'execution venue configured for quotes only; transactions cannot be built (EXECUTION_VENUE_BUILD_URL)'
+        : 'execution venue configured',
     );
   }
   const researchService = createResearchService({
@@ -359,6 +368,14 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
       policy: policyService,
       funding: fundingService,
       venue,
+      genesisHash: expectedGenesisHash,
+    }),
+    execution: createExecutionService({
+      config,
+      db: dbClient.db,
+      policy: policyService,
+      venue,
+      rpcClients: clients,
       genesisHash: expectedGenesisHash,
     }),
     mintTestToken,

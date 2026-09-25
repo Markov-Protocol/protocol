@@ -172,6 +172,7 @@ function buildPlan(legCount: 1 | 2): ExecutionPlan {
     planId: '11111111-1111-4111-8111-111111111111',
     intentId: '22222222-2222-4222-8222-222222222222',
     kind: legCount === 1 ? 'single_buy' : 'basket_investment',
+    side: 'buy',
     mode: 'fixture',
     network: { cluster: 'localnet', genesisHash: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG' },
     wallet: { walletId: '33333333-3333-4333-8333-333333333333', address: WALLET },
@@ -183,6 +184,7 @@ function buildPlan(legCount: 1 | 2): ExecutionPlan {
       budgetRaw: 1_000_000_000n,
       budgetMode: 'all_in_stablecoin',
     },
+    stablecoin: { mint: USDC, symbol: 'USDC', decimals: 6 },
     allocation,
     legs: allocation.legs.map((entry, index) => ({
       instrumentId: `44444444-4444-4444-8444-44444444444${index}`,
@@ -213,6 +215,7 @@ function buildPlan(legCount: 1 | 2): ExecutionPlan {
       observedAt: NOW.toISOString(),
       slot: 1000,
       stablecoinRaw: 1_000_000_000n,
+      inputRaw: 1_000_000_000n,
       lamports: 5_000_000n,
     },
     evidence: {
@@ -296,6 +299,7 @@ describe('assemblePlan', () => {
       planId: plan.planId,
       intentId: plan.intentId,
       kind: 'single_buy',
+      side: 'buy',
       mode: 'fixture',
       network: plan.network,
       wallet: plan.wallet,
@@ -307,6 +311,7 @@ describe('assemblePlan', () => {
         budgetRaw: 1_000_000_000n,
         budgetMode: 'all_in_stablecoin',
       },
+      stablecoin: { mint: USDC, symbol: 'USDC', decimals: 6 },
       allocation: allocateBudget({
         budgetRaw: 1_000_000_000n,
         mode: 'all_in_stablecoin',
@@ -333,7 +338,13 @@ describe('assemblePlan', () => {
         },
       ],
       fees: { feePayer: WALLET, rentExemptTokenAccountLamports: 2_039_280n, newTokenAccounts: 1 },
-      funds: { observedAt: NOW.toISOString(), slot: 1000, stablecoinRaw: 10n, lamports: 100n },
+      funds: {
+        observedAt: NOW.toISOString(),
+        slot: 1000,
+        stablecoinRaw: 10n,
+        inputRaw: 10n,
+        lamports: 100n,
+      },
       evidence: { eligibilityDecisionId: null, policyVersion: null, instrumentUpdatedAt: [] },
       createdAt: NOW,
     });

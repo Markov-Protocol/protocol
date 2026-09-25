@@ -1,4 +1,4 @@
-import { ByteReader, ByteWriter } from './bytes.js';
+import { ByteReader, ByteWriter } from '@markov/solana-codec';
 
 /**
  * The subset of Borsh the registry program uses (`anchor_lang`'s default

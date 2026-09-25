@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { createEd25519TestWallet, generateCredential } from '@markov/auth';
+import { generateCredential } from '@markov/auth';
 import { describeConfig, type MarkovConfig, tryLoadConfig } from '@markov/config';
 import {
   executionPlanSchema,
@@ -8,6 +8,7 @@ import {
   PLATFORM_HEALTH_WORKFLOW_TYPE,
   type PlatformHealthReport,
   platformHealthReportSchema,
+  preparedTransactionSchema,
   type ReadinessResponse,
 } from '@markov/contracts';
 import {
@@ -416,13 +417,21 @@ export function buildProgram(io: CliIo = stdio): Command {
     )
     .requiredOption('--token <token>', 'user session token')
     .option('--url <url>', 'API base URL', 'http://127.0.0.1:3000')
-    .action(async (options: { token: string; url: string }) => {
-      const wallet = createEd25519TestWallet();
+    .option(
+      '--keep-key <path>',
+      'NONPRODUCTION: write the wallet private key (PKCS#8, base64, mode 0600) to this file so `intents sign` can use it; never on a mainnet cluster',
+    )
+    .action(async (options: { token: string; url: string; keepKey?: string }) => {
+      const { generateKeyPairSync } = await import('node:crypto');
+      const { encodeBase58 } = await import('@markov/contracts');
+      const { signerFromPrivateKey } = await import('@markov/registry');
+      const { privateKey } = generateKeyPairSync('ed25519');
+      const signer = signerFromPrivateKey(privateKey);
       const challenge = (await apiCall(
         options.url,
         'POST',
         '/v1/me/wallets/challenges',
-        { address: wallet.address },
+        { address: signer.publicKey },
         options.token,
       )) as {
         challengeId: string;
@@ -434,14 +443,26 @@ export function buildProgram(io: CliIo = stdio): Command {
         '/v1/me/wallets',
         {
           challengeId: challenge.challengeId,
-          address: wallet.address,
-          signature: wallet.sign(challenge.message),
+          address: signer.publicKey,
+          signature: encodeBase58(signer.sign(new TextEncoder().encode(challenge.message))),
         },
         options.token,
       );
-      io.err(
-        'the private key of this demo wallet existed only in this process and is now discarded',
-      );
+      if (options.keepKey) {
+        const { writeFile } = await import('node:fs/promises');
+        await writeFile(
+          options.keepKey,
+          `${privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64')}\n`,
+          { mode: 0o600 },
+        );
+        io.err(
+          `NONPRODUCTION: the demo wallet's private key was written to ${options.keepKey}; delete it when the check is done`,
+        );
+      } else {
+        io.err(
+          'the private key of this demo wallet existed only in this process and is now discarded',
+        );
+      }
       io.out(json(link));
     });
 
@@ -1688,12 +1709,16 @@ export function buildProgram(io: CliIo = stdio): Command {
   intents
     .command('create')
     .description(
-      'create an intent: a basket investment in a pinned version (--version-id) or a single buy (--instrument)',
+      'create an intent: a basket investment in a pinned version (--version-id), a single buy (--instrument) or a single sell (--instrument --sell)',
     )
     .requiredOption('--wallet <walletId>', 'one of your verified wallets')
     .requiredOption('--budget <raw>', 'budget in raw base units of the platform stablecoin')
     .option('--version-id <versionId>', 'the pinned version to invest in')
-    .option('--instrument <instrumentId>', 'the admitted instrument to buy')
+    .option('--instrument <instrumentId>', 'the admitted instrument to buy (or sell with --sell)')
+    .option(
+      '--sell',
+      'a single sell: the budget is raw units of the instrument to sell for the stablecoin',
+    )
     .option('--mode <mode>', 'all_in_stablecoin | investable_notional', 'all_in_stablecoin')
     .option(
       '--slippage-bps <n>',
@@ -1708,6 +1733,7 @@ export function buildProgram(io: CliIo = stdio): Command {
         budget: string;
         versionId?: string;
         instrument?: string;
+        sell?: boolean;
         mode: string;
         slippageBps?: string;
         idempotencyKey?: string;
@@ -1716,9 +1742,12 @@ export function buildProgram(io: CliIo = stdio): Command {
       }) => {
         if (!options.versionId && !options.instrument) {
           throw new CliExit(
-            'pass --version-id for a basket investment or --instrument for a single buy',
+            'pass --version-id for a basket investment or --instrument for a single buy or sell',
             64,
           );
+        }
+        if (options.sell && !options.instrument) {
+          throw new CliExit('--sell needs --instrument', 64);
         }
         io.out(
           json(
@@ -1727,7 +1756,11 @@ export function buildProgram(io: CliIo = stdio): Command {
               'POST',
               '/v1/me/intents',
               {
-                kind: options.versionId ? 'basket_investment' : 'single_buy',
+                kind: options.versionId
+                  ? 'basket_investment'
+                  : options.sell
+                    ? 'single_sell'
+                    : 'single_buy',
                 strategyVersionId: options.versionId ?? null,
                 instrumentId: options.instrument ?? null,
                 walletId: options.wallet,
@@ -1847,6 +1880,160 @@ export function buildProgram(io: CliIo = stdio): Command {
             options.url,
             'POST',
             `/v1/me/intents/${encodeURIComponent(intentId)}/cancel`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  intents
+    .command('build <intentId>')
+    .description(
+      'build, validate and simulate the transaction of an acknowledged single-leg plan; nothing is signed or sent',
+    )
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (intentId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/me/intents/${encodeURIComponent(intentId)}/transactions`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  intents
+    .command('sign')
+    .description(
+      'NONPRODUCTION: sign a prepared transaction with a key file from `auth demo-wallet-link --keep-key`; prints the signed transaction (base64)',
+    )
+    .requiredOption('--key-file <path>', 'the PKCS#8 base64 key file of the demo wallet')
+    .option('--file <path>', 'prepared transaction JSON file')
+    .option('--input <json>', 'prepared transaction JSON inline')
+    .option(
+      '--message-hash <hex>',
+      'refuse to sign unless the prepared message hash equals this value (what was reviewed)',
+    )
+    .action(
+      async (options: { keyFile: string; file?: string; input?: string; messageHash?: string }) => {
+        const { createPrivateKey } = await import('node:crypto');
+        const { readFile } = await import('node:fs/promises');
+        const { base64ToBytes, bytesToBase64, messageHashHex, parseTransaction } = await import(
+          '@markov/registry'
+        );
+        const { signerFromPrivateKey, signTransaction } = await import('@markov/registry');
+        const parsed = preparedTransactionSchema.safeParse(await readContent(options));
+        if (!parsed.success) {
+          throw new CliExit(
+            `not a prepared transaction: ${parsed.error.issues
+              .slice(0, 5)
+              .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+              .join('; ')}`,
+            65,
+          );
+        }
+        const prepared = parsed.data;
+        const unsigned = base64ToBytes(prepared.unsignedTransaction);
+        const hash = messageHashHex(parseTransaction(unsigned).messageBytes);
+        if (hash !== prepared.messageHash) {
+          throw new CliExit(
+            'the prepared bytes do not hash to the stated message hash; nothing was signed',
+            65,
+          );
+        }
+        if (options.messageHash && options.messageHash !== hash) {
+          throw new CliExit(
+            `the message hash ${hash} is not the reviewed ${options.messageHash}; nothing was signed`,
+            65,
+          );
+        }
+        const privateKey = createPrivateKey({
+          key: Buffer.from((await readFile(options.keyFile, 'utf8')).trim(), 'base64'),
+          format: 'der',
+          type: 'pkcs8',
+        });
+        const signer = signerFromPrivateKey(privateKey);
+        if (signer.publicKey !== prepared.expectedSigner) {
+          throw new CliExit(
+            `the key file holds ${signer.publicKey}, not the expected signer ${prepared.expectedSigner}; nothing was signed`,
+            65,
+          );
+        }
+        const signed = signTransaction(unsigned, signer);
+        io.out(
+          json({
+            intentId: prepared.intentId,
+            transactionIndex: prepared.transactionIndex,
+            messageHash: hash,
+            signature: signed.signature,
+            signedTransaction: bytesToBase64(signed.bytes),
+          }),
+        );
+      },
+    );
+  intents
+    .command('submit <intentId>')
+    .description(
+      'submit an owner-signed transaction; the same signed bytes again answer the same attempt, never a second one',
+    )
+    .requiredOption('--signed <base64>', 'the signed transaction (base64)')
+    .option('--transaction-index <n>', 'the prepared transaction index', '0')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        intentId: string,
+        options: { signed: string; transactionIndex: string; token: string; url: string },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              `/v1/me/intents/${encodeURIComponent(intentId)}/transactions/${encodeURIComponent(options.transactionIndex)}/submissions`,
+              { signedTransaction: options.signed },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  intents
+    .command('execution <intentId>')
+    .description(
+      'execution status: prepared transactions, attempts, fills and reconciliation evidence (a live attempt is reconciled on the way)',
+    )
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (intentId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/intents/${encodeURIComponent(intentId)}/execution`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  intents
+    .command('reconcile <intentId>')
+    .description('reconcile a live attempt from chain evidence now')
+    .requiredOption('--token <token>', 'user session token')
+    .option(...apiUrlOption)
+    .action(async (intentId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/me/intents/${encodeURIComponent(intentId)}/execution/reconciliations`,
             undefined,
             options.token,
           ),

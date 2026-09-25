@@ -1,4 +1,10 @@
-import { compareBytes, isZeroBytes } from './bytes.js';
+import {
+  compareBytes,
+  isZeroBytes,
+  pubkeyBytes,
+  SPL_TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+} from '@markov/solana-codec';
 import {
   MAX_LEGS,
   RELATIONS,
@@ -6,7 +12,6 @@ import {
   SCHEMA_VERSION,
   TOTAL_BPS,
 } from './layout.js';
-import { pubkeyBytes, SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from './pubkey.js';
 
 /**
  * The program's `RegistryError` codes in declaration order (Anchor numbers

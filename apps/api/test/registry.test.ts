@@ -50,6 +50,7 @@ import {
   createProbes,
   createRegistryService,
   createStrategyService,
+  type ExecutionService,
   type FundingService,
   type MarkovApi,
   type PlanningService,
@@ -163,6 +164,7 @@ async function withHarness(
         }),
         follows: createFollowService({ db: client.db }),
         planning: unavailable<PlanningService>('planning'),
+        execution: unavailable<ExecutionService>('execution'),
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await app.ready();

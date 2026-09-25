@@ -1,0 +1,27 @@
+{
+  "name": "@markov/execution",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@markov/contracts": "workspace:*",
+    "@markov/planning": "workspace:*",
+    "@markov/solana-codec": "workspace:*"
+  },
+  "devDependencies": {},
+  "description": "Execution of approved plans (B10): decoding every instruction of a built transaction with lookup tables resolved, validating its effects against the approved plan, verifying the owner's signature over the exact message, one live attempt per intent, and reconciling attempts from chain evidence; no HTTP, database or provider SDK"
+}

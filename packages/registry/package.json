@@ -19,8 +19,9 @@
   },
   "dependencies": {
     "@markov/contracts": "workspace:*",
+    "@markov/solana-codec": "workspace:*",
     "@markov/solana-rpc": "workspace:*"
   },
   "devDependencies": {},
-  "description": "Strategy registry SDK: program-derived addresses, the exact instruction and account encodings of programs/strategy-registry, the rule mirror, legacy transaction encoding and verification, and the in-memory fixture ledger for tests"
+  "description": "Strategy registry SDK: program-derived addresses, the exact instruction and account encodings of programs/strategy-registry, the rule mirror, publication helpers and the fixture ledger (the fixture chain of @markov/solana-codec executing the registry program) for tests"
 }

@@ -167,6 +167,17 @@ export interface SolanaSignatureStatus {
   readonly confirmationStatus: 'processed' | 'confirmed' | 'finalized' | null;
 }
 
+const tokenBalanceSchema = z.object({
+  accountIndex: z.number().int().nonnegative(),
+  mint: z.string().min(32).max(44),
+  owner: z.string().min(32).max(44).optional(),
+  programId: z.string().min(32).max(44).optional(),
+  uiTokenAmount: z.object({
+    amount: z.string().regex(/^\d+$/),
+    decimals: z.number().int().min(0).max(18),
+  }),
+});
+
 const transactionSchema = z
   .object({
     slot: z.number().int().nonnegative(),
@@ -176,10 +187,40 @@ const transactionSchema = z
         err: transactionErrorSchema.nullable(),
         fee: z.number().int().nonnegative().optional(),
         logMessages: z.array(z.string()).nullable().optional(),
+        preBalances: z.array(z.number().int().nonnegative()).optional(),
+        postBalances: z.array(z.number().int().nonnegative()).optional(),
+        preTokenBalances: z.array(tokenBalanceSchema).nullable().optional(),
+        postTokenBalances: z.array(tokenBalanceSchema).nullable().optional(),
+        computeUnitsConsumed: z.number().int().nonnegative().optional(),
+        loadedAddresses: z
+          .object({
+            writable: z.array(z.string().min(32).max(44)),
+            readonly: z.array(z.string().min(32).max(44)),
+          })
+          .optional(),
       })
       .nullable(),
+    transaction: z
+      .object({
+        signatures: z.array(z.string()).optional(),
+        message: z
+          .object({ accountKeys: z.array(z.string().min(32).max(44)).optional() })
+          .optional(),
+      })
+      .optional(),
+    version: z.union([z.literal('legacy'), z.number().int()]).optional(),
   })
   .nullable();
+
+export interface SolanaTokenBalance {
+  readonly accountIndex: number;
+  readonly mint: string;
+  readonly owner: string | null;
+  readonly programId: string | null;
+  /** Raw base units as a decimal string. */
+  readonly amount: string;
+  readonly decimals: number;
+}
 
 export interface SolanaTransaction {
   readonly slot: number;
@@ -188,6 +229,30 @@ export interface SolanaTransaction {
   readonly err: unknown | null;
   readonly fee: number | null;
   readonly logs: readonly string[];
+  /** Every account of the transaction in index order: static keys, then loaded writable, then loaded read-only. */
+  readonly accountKeys: readonly string[];
+  readonly preBalances: readonly number[];
+  readonly postBalances: readonly number[];
+  readonly preTokenBalances: readonly SolanaTokenBalance[];
+  readonly postTokenBalances: readonly SolanaTokenBalance[];
+  readonly computeUnitsConsumed: number | null;
+  readonly version: 'legacy' | number | null;
+}
+
+const simulationSchema = z.object({
+  context: z.object({ slot: z.number().int() }),
+  value: z.object({
+    err: transactionErrorSchema.nullable(),
+    logs: z.array(z.string()).nullable(),
+    unitsConsumed: z.number().int().nonnegative().optional(),
+  }),
+});
+
+export interface SolanaSimulation {
+  readonly slot: number;
+  readonly err: unknown | null;
+  readonly logs: readonly string[];
+  readonly unitsConsumed: number | null;
 }
 
 const programAccountsSchema = z.array(
@@ -482,12 +547,66 @@ export class SolanaRpcClient {
     if (result === null) {
       return null;
     }
+    const meta = result.meta;
+    const toBalance = (entry: z.infer<typeof tokenBalanceSchema>): SolanaTokenBalance => ({
+      accountIndex: entry.accountIndex,
+      mint: entry.mint,
+      owner: entry.owner ?? null,
+      programId: entry.programId ?? null,
+      amount: entry.uiTokenAmount.amount,
+      decimals: entry.uiTokenAmount.decimals,
+    });
     return {
       slot: result.slot,
       blockTime: result.blockTime ?? null,
-      err: result.meta?.err ?? null,
-      fee: result.meta?.fee ?? null,
-      logs: result.meta?.logMessages ?? [],
+      err: meta?.err ?? null,
+      fee: meta?.fee ?? null,
+      logs: meta?.logMessages ?? [],
+      accountKeys: [
+        ...(result.transaction?.message?.accountKeys ?? []),
+        ...(meta?.loadedAddresses?.writable ?? []),
+        ...(meta?.loadedAddresses?.readonly ?? []),
+      ],
+      preBalances: meta?.preBalances ?? [],
+      postBalances: meta?.postBalances ?? [],
+      preTokenBalances: (meta?.preTokenBalances ?? []).map(toBalance),
+      postTokenBalances: (meta?.postTokenBalances ?? []).map(toBalance),
+      computeUnitsConsumed: meta?.computeUnitsConsumed ?? null,
+      version: result.version ?? null,
+    };
+  }
+
+  /**
+   * Simulate a wire transaction without broadcasting it (agave `simulateTransaction`).
+   * `sigVerify` checks the signatures the transaction carries; the caller
+   * passes it only for a signed transaction.
+   */
+  async simulateTransaction(
+    transactionBase64: string,
+    options: {
+      readonly sigVerify?: boolean;
+      readonly replaceRecentBlockhash?: boolean;
+      readonly commitment?: 'processed' | 'confirmed' | 'finalized';
+    } = {},
+  ): Promise<SolanaSimulation> {
+    const result = await this.call(
+      'simulateTransaction',
+      [
+        transactionBase64,
+        {
+          encoding: 'base64',
+          sigVerify: options.sigVerify === true,
+          replaceRecentBlockhash: options.replaceRecentBlockhash === true,
+          commitment: options.commitment ?? 'confirmed',
+        },
+      ],
+      simulationSchema,
+    );
+    return {
+      slot: result.context.slot,
+      err: result.value.err,
+      logs: result.value.logs ?? [],
+      unitsConsumed: result.value.unitsConsumed ?? null,
     };
   }
 

@@ -23,6 +23,7 @@ import {
   createFundingService,
   createIdentityService,
   createProbes,
+  type ExecutionService,
   type FollowService,
   type MarkovApi,
   type PlanningService,
@@ -227,6 +228,7 @@ async function withHarness(
         registry: unavailable<RegistryService>('registry'),
         follows: unavailable<FollowService>('follows'),
         planning: unavailable<PlanningService>('planning'),
+        execution: unavailable<ExecutionService>('execution'),
         strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

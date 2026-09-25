@@ -59,9 +59,11 @@ packages/amounts    exact BigInt decimals, on-chain double conversion, raw/scale
 packages/policy     pure eligibility, limits, capability-state and policy evaluation rules (B05)
 packages/research   pure research rules: thesis validation, safe-retrieval policy, sanitiser, mapping, model adapter contract (B06)
 packages/strategy   pure recipe rules: exact-weight validation, admission snapshots, canonical manifest and content digest, version diff (B07)
-packages/registry   registry SDK: program-derived addresses, instruction and account encodings, rules mirror, legacy transaction codec and verification, publication state machine, fixture ledger (B08)
+packages/solana-codec  pure Solana wire formats: base58/base64, Ed25519, derived and associated-token addresses, token layouts, legacy and v0 messages with lookup tables, signing, and the in-memory fixture chain executing real bytes (B10, ADR-0009)
+packages/registry   registry SDK: program-derived addresses, instruction and account encodings, rules mirror, publication state machine, the registry program's fixture executor (B08)
 packages/planning   pure execution planning: largest-remainder base-unit allocation, beta fee policy, quote checks and the reviewed route/program matrix, plan assembly with bounds and validity, canonical plan hash, intent state machine (B09)
-packages/venue-jupiter  venue adapters answering the Markov quote contract: synthetic fixture venue (local/test) and bounded configured-URL gateway; live Jupiter interface BLOCKED (OD-21) (B09)
+packages/venue-jupiter  venue adapters answering the Markov quote and build contracts: synthetic fixture venue with its route program semantics (local/test) and bounded configured-URL gateway; live Jupiter interface BLOCKED (OD-21) (B09, B10)
+packages/execution  pure execution rules: exhaustive instruction decoding, transaction validation against the plan, signed-submission checks, reconciliation decisions from chain evidence, fills from transaction meta (B10)
 programs/strategy-registry  Anchor program recording immutable version recipes, program-test suite and shared vectors (B08); programs/idl-build generates its IDL
 packages/api-client generated OpenAPI client with runtime contract validation, used by the app server (F03)
 packages/testkit    test-only helpers (never imported by production code)
@@ -73,8 +75,8 @@ docs/markov         this contract, ADRs, registers
 docs/sessions       per-session evidence
 ```
 
-Planned packages follow the specification: execution (B10/B11),
-portfolio, integrations, agent-tools, receipts; `infra` for deployment.
+Planned packages follow the specification: portfolio, integrations,
+agent-tools, receipts; `infra` for deployment.
 
 ## Dependency direction
 
@@ -84,10 +86,13 @@ each other; `appDeny` in the rules file keeps databases, configuration, RPC
 clients and signers out of the browser build (ADR-0006).
 `@markov/contracts` imports nothing internal. Provider SDK families are
 restricted to their owning package (`tooling/boundaries/rules.json`);
-`@solana/*`, `@jup-ag/*` and `@meteora-ag/*` currently have no owner, so
-importing them fails the check until an ADR assigns one; the venue adapter
-talks to a gateway with plain `fetch` through the Markov quote contract and
-uses no provider SDK. `pnpm boundaries:check`
+`@solana/*`, `@jup-ag/*` and `@meteora-ag/*` have no owner, so importing
+them fails the check (ADR-0009 keeps the Solana wire formats in
+`@markov/solana-codec` without an SDK); the venue adapter talks to a gateway
+with plain `fetch` through the Markov quote and build contracts and uses no
+provider SDK. Domain packages never depend on `@markov/db`: the execution
+lifecycle drives a structurally typed store port that the API and the worker
+both implement over the database. `pnpm boundaries:check`
 runs in CI.
 
 ## Runtime modes

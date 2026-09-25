@@ -135,7 +135,37 @@ describe('SolanaRpcClient', () => {
             : {
                 slot: 9,
                 blockTime: 1_758_800_000,
-                meta: { err: null, fee: 5000, logMessages: ['ok'] },
+                meta: {
+                  err: null,
+                  fee: 5000,
+                  logMessages: ['ok'],
+                  preBalances: [10_000, 0],
+                  postBalances: [4_000, 1_000],
+                  preTokenBalances: [],
+                  postTokenBalances: [
+                    {
+                      accountIndex: 1,
+                      mint: 'So11111111111111111111111111111111111111112',
+                      owner: 'Acct1111111111111111111111111111111111111111',
+                      programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+                      uiTokenAmount: {
+                        amount: '1000',
+                        decimals: 6,
+                        uiAmount: 0.001,
+                        uiAmountString: '0.001',
+                      },
+                    },
+                  ],
+                  computeUnitsConsumed: 150,
+                  loadedAddresses: {
+                    writable: ['Acct2222222222222222222222222222222222222222'],
+                    readonly: [],
+                  },
+                },
+                transaction: {
+                  message: { accountKeys: ['Acct1111111111111111111111111111111111111111'] },
+                },
+                version: 0,
               },
         getProgramAccounts: () => [
           {
@@ -184,12 +214,32 @@ describe('SolanaRpcClient', () => {
     expect(server.requests.at(-1)).toMatchObject({
       params: [['a', 'b', 'c'], { searchTransactionHistory: true }],
     });
+    // B10: balances, token balances and loaded addresses are read for fills; account keys are static then loaded.
     expect(await rpc.getTransaction('sig', 'finalized')).toEqual({
       slot: 9,
       blockTime: 1_758_800_000,
       err: null,
       fee: 5000,
       logs: ['ok'],
+      accountKeys: [
+        'Acct1111111111111111111111111111111111111111',
+        'Acct2222222222222222222222222222222222222222',
+      ],
+      preBalances: [10_000, 0],
+      postBalances: [4_000, 1_000],
+      preTokenBalances: [],
+      postTokenBalances: [
+        {
+          accountIndex: 1,
+          mint: 'So11111111111111111111111111111111111111112',
+          owner: 'Acct1111111111111111111111111111111111111111',
+          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+          amount: '1000',
+          decimals: 6,
+        },
+      ],
+      computeUnitsConsumed: 150,
+      version: 0,
     });
     expect(await rpc.getTransaction('missing', 'finalized')).toBeNull();
     const accounts = await rpc.getProgramAccounts(PROGRAM, 'finalized', [{ dataSize: 3 }]);

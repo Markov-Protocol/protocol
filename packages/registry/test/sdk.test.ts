@@ -1,6 +1,6 @@
 import { generateKeyPairSync } from 'node:crypto';
+import { ByteReader } from '@markov/solana-codec';
 import { describe, expect, it } from 'vitest';
-import { ByteReader } from '../src/bytes.js';
 import {
   base64ToBytes,
   bytesToBase64,

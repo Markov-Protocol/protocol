@@ -90,6 +90,7 @@ function structure(raw: RawEnv): MarkovConfig {
       venue: {
         provider: raw.EXECUTION_VENUE_PROVIDER === 'disabled' ? null : raw.EXECUTION_VENUE_PROVIDER,
         quoteUrl: raw.EXECUTION_VENUE_QUOTE_URL ?? null,
+        buildUrl: raw.EXECUTION_VENUE_BUILD_URL ?? null,
         apiKey: raw.EXECUTION_VENUE_API_KEY ?? null,
       },
     },
@@ -312,6 +313,7 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
     ['XSTOCKS_FEED_URL', config.catalog.xstocksFeedUrl],
     ['XSTOCKS_EVENTS_URL', config.catalog.xstocksEventsUrl],
     ['EXECUTION_VENUE_QUOTE_URL', config.execution.venue.quoteUrl],
+    ['EXECUTION_VENUE_BUILD_URL', config.execution.venue.buildUrl],
   ] as const) {
     if (value === null) {
       continue;
@@ -501,6 +503,10 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
           config.execution.venue.quoteUrl === null
             ? null
             : redactUrl(config.execution.venue.quoteUrl),
+        buildUrl:
+          config.execution.venue.buildUrl === null
+            ? null
+            : redactUrl(config.execution.venue.buildUrl),
         apiKeyConfigured: config.execution.venue.apiKey !== null,
       },
     },

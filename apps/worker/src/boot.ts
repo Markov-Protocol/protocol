@@ -2,6 +2,7 @@ import { describeConfig, type EnvSource, type MarkovConfig, tryLoadConfig } from
 import type { BoundPlatformIdentity } from '@markov/contracts';
 import { createDbClient, type DbClient, getMigrationState, readPlatformIdentity } from '@markov/db';
 import { createLogger, type Logger } from '@markov/observability';
+import { ensureReconciliationWorkflow } from './reconciliation.js';
 import { createPlatformWorker, type PlatformWorker } from './worker.js';
 
 export const EXIT_CONFIG = 78;
@@ -22,6 +23,8 @@ export interface WorkerBootOptions {
   readonly env?: EnvSource;
   readonly logger?: Logger;
   readonly taskQueue?: string;
+  /** Start (or find) the durable execution reconciliation workflow for the queue; on by default. */
+  readonly reconciliation?: boolean;
 }
 
 export interface BootedWorker {
@@ -115,6 +118,14 @@ export async function bootWorker(options: WorkerBootOptions = {}): Promise<Boote
       genesisHash,
       ...(options.taskQueue ? { taskQueue: options.taskQueue } : {}),
     });
+    if (options.reconciliation !== false) {
+      await ensureReconciliationWorkflow({
+        config,
+        logger,
+        taskQueue: worker.taskQueue,
+        identity: worker.identity,
+      });
+    }
     return {
       config,
       worker,

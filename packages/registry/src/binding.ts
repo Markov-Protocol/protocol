@@ -1,4 +1,10 @@
-import { compareBytes, hexToBytes } from './bytes.js';
+import {
+  compareBytes,
+  hexToBytes,
+  pubkeyBytes,
+  SPL_TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+} from '@markov/solana-codec';
 import {
   HASH_LENGTH,
   RELATIONS,
@@ -7,7 +13,6 @@ import {
   SCHEMA_VERSION,
   type VersionRecord,
 } from './layout.js';
-import { pubkeyBytes, SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from './pubkey.js';
 
 /**
  * Binding between a frozen strategy version (B07) and its on-chain record:

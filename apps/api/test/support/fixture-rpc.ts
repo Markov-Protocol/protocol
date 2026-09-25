@@ -9,9 +9,19 @@ import {
 } from '@markov/catalog';
 import { KNOWN_GENESIS_HASHES } from '@markov/config';
 import { decodeBase58 } from '@markov/contracts';
-import { type FixtureLedger, fetchForLedger } from '@markov/registry';
+import { FIXTURE_ROUTE_PROGRAM_ID } from '@markov/planning';
+import { type FixtureLedger, fetchForLedger, FixtureLedger as Ledger } from '@markov/registry';
+import {
+  FIXTURE_PRICES,
+  fixtureRouteProgramExecutor,
+  fixtureSwapOutput,
+} from '@markov/venue-jupiter';
 
 export const GENESIS = KNOWN_GENESIS_HASHES.devnet;
+/** Synthetic stablecoin mint of local and test funding reads; not a real token. */
+export const FIXTURE_STABLECOIN_MINT = 'GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9ts';
+/** Development placeholder registry program id (programs/strategy-registry/src/lib.rs); never deployed. */
+export const FIXTURE_REGISTRY_PROGRAM_ID = '6SAPG2iavaEAv628NpuZuSwgKxGhqU23C769w7FfGpuZ';
 
 interface FixtureMint {
   symbol: string;
@@ -21,23 +31,16 @@ interface FixtureMint {
   extensions?: Record<string, unknown>[];
 }
 
-const prestocksMints = (
-  JSON.parse(
-    readFileSync(
-      new URL('../../../../packages/issuer-prestocks/fixtures/fixture-mints.json', import.meta.url),
-      'utf8',
-    ),
-  ) as { mints: FixtureMint[] }
-).mints;
+function loadMints(file: string): FixtureMint[] {
+  return (
+    JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf8')) as { mints: FixtureMint[] }
+  ).mints;
+}
 
-const xstocksMints = (
-  JSON.parse(
-    readFileSync(
-      new URL('../../../../packages/issuer-xstocks/fixtures/fixture-mints.json', import.meta.url),
-      'utf8',
-    ),
-  ) as { mints: FixtureMint[] }
-).mints;
+const prestocksMints = loadMints(
+  '../../../../packages/issuer-prestocks/fixtures/fixture-mints.json',
+);
+const xstocksMints = loadMints('../../../../packages/issuer-xstocks/fixtures/fixture-mints.json');
 const xstocksAuthority = new Uint8Array(32).fill(7);
 
 function xstocksExtension(raw: Record<string, unknown>): ExtensionFixtureSpec {
@@ -93,12 +96,8 @@ export function xstocksFixtureMintAccounts(): Map<string, { owner: string; data:
   return accounts;
 }
 
-/**
- * JSON-RPC stand-in serving the PreStocks fixture mints as real-shaped
- * accounts; FXGRID is deliberately absent. With a ledger, registry methods
- * (blockhashes, submissions, statuses, records) are answered by it.
- */
-export function prestocksFixtureRpcFetch(ledger?: FixtureLedger): typeof fetch {
+/** The PreStocks fixture mints as real-shaped accounts; FXGRID is deliberately absent. */
+export function prestocksFixtureMintAccounts(): Map<string, { owner: string; data: Uint8Array }> {
   const accounts = new Map<string, { owner: string; data: Uint8Array }>();
   for (const item of prestocksMints) {
     if (item.symbol === 'FXGRID') {
@@ -118,75 +117,77 @@ export function prestocksFixtureRpcFetch(ledger?: FixtureLedger): typeof fetch {
       }),
     });
   }
-  const answer = (method: string, params: unknown): unknown => {
-    const list = Array.isArray(params) ? params : [];
-    switch (method) {
-      case 'getGenesisHash':
-        return GENESIS;
-      case 'getHealth':
-        return 'ok';
-      case 'getVersion':
-        return { 'solana-core': 'fixture' };
-      case 'getAccountInfo': {
-        const account = accounts.get(String(list[0]));
-        return {
-          context: { slot: 4242 },
-          value: account
-            ? {
-                data: [Buffer.from(account.data).toString('base64'), 'base64'],
-                executable: false,
-                lamports: 1,
-                owner: account.owner,
-                space: account.data.length,
-              }
-            : null,
-        };
-      }
-      default:
-        return null;
-    }
-  };
-  if (ledger) {
-    return fetchForLedger(ledger, answer);
-  }
-  return (async (_input: string | URL | Request, init?: RequestInit) => {
-    const body = JSON.parse(String(init?.body)) as {
-      id: number;
-      method: string;
-      params: unknown[];
-    };
-    let result: unknown;
-    switch (body.method) {
-      case 'getGenesisHash':
-        result = GENESIS;
-        break;
-      case 'getHealth':
-        result = 'ok';
-        break;
-      case 'getVersion':
-        result = { 'solana-core': 'fixture' };
-        break;
-      case 'getAccountInfo': {
-        const account = accounts.get(String(body.params[0]));
-        result = {
-          context: { slot: 4242 },
-          value: account
-            ? {
-                data: [Buffer.from(account.data).toString('base64'), 'base64'],
-                executable: false,
-                lamports: 1,
-                owner: account.owner,
-                space: account.data.length,
-              }
-            : null,
-        };
-        break;
-      }
-      default:
-        result = null;
-    }
-    return new Response(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }), {
-      headers: { 'content-type': 'application/json' },
+  return accounts;
+}
+
+export interface FixtureChainOptions {
+  readonly registryProgramId?: string;
+  readonly genesisHash?: string;
+  /** Unix seconds the chain stamps blocks with; defaults to the wall clock. */
+  readonly now?: () => number;
+  /** Test control read on every execution of the fixture route program. */
+  readonly fillShiftBps?: () => number;
+}
+
+/**
+ * Registers the fixture mints (PreStocks and xStocks with their extension
+ * data; FXGRID known but absent on chain), the synthetic stablecoin and the
+ * fixture route program executing the venue's synthetic prices on a chain.
+ */
+export function installFixtures(
+  chain: FixtureLedger,
+  options: Pick<FixtureChainOptions, 'fillShiftBps'> = {},
+): FixtureLedger {
+  const programOf = (item: FixtureMint) =>
+    item.tokenProgram === 'token-2022' ? TOKEN_2022_PROGRAM_ID : SPL_TOKEN_PROGRAM_ID;
+  const accounts = new Map([...prestocksFixtureMintAccounts(), ...xstocksFixtureMintAccounts()]);
+  for (const item of [...prestocksMints, ...xstocksMints]) {
+    const account = accounts.get(item.mint);
+    chain.registerMint(item.mint, {
+      decimals: item.decimals,
+      tokenProgram: programOf(item),
+      ...(account ? { data: account.data } : {}),
     });
-  }) as typeof fetch;
+  }
+  chain.registerMint(FIXTURE_STABLECOIN_MINT, { decimals: 6, tokenProgram: SPL_TOKEN_PROGRAM_ID });
+  const prices = new Map(FIXTURE_PRICES.map((price) => [price.mint, price]));
+  chain.registerProgram(
+    FIXTURE_ROUTE_PROGRAM_ID,
+    fixtureRouteProgramExecutor({
+      outputFor: (inputMint, outputMint, inAmountRaw) =>
+        fixtureSwapOutput({
+          stablecoin: { mint: FIXTURE_STABLECOIN_MINT, decimals: 6 },
+          prices,
+          inputMint,
+          outputMint,
+          inAmountRaw,
+        })?.outAmountRaw ?? null,
+      ...(options.fillShiftBps ? { fillShiftBps: options.fillShiftBps } : {}),
+    }),
+    'fixture-amm',
+  );
+  return chain;
+}
+
+/**
+ * A fixture chain with the fixtures installed and the registry program
+ * registered. Funding is set through `setLamports`/`setTokenBalance`;
+ * balances then move only through landed transactions.
+ */
+export function createFixtureChain(options: FixtureChainOptions = {}): FixtureLedger {
+  const chain = new Ledger({
+    programId: options.registryProgramId ?? FIXTURE_REGISTRY_PROGRAM_ID,
+    genesisHash: options.genesisHash ?? GENESIS,
+    ...(options.now ? { now: options.now } : {}),
+  });
+  return installFixtures(chain, options);
+}
+
+/**
+ * JSON-RPC stand-in over a fixture chain with the fixtures installed. A
+ * ledger a test constructed itself (registry tests) gets the fixture mints
+ * installed on the way; without one a fresh chain is created.
+ */
+export function prestocksFixtureRpcFetch(ledger?: FixtureLedger): typeof fetch {
+  return fetchForLedger(ledger ? installFixtures(ledger) : createFixtureChain());
 }

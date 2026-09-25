@@ -11,6 +11,7 @@ DBNAME="markov_startup_$(date +%s)_$RANDOM"
 psql "$ADMIN_URL" -v ON_ERROR_STOP=1 -qc "CREATE DATABASE \"$DBNAME\"" >/dev/null
 DB_URL="${ADMIN_URL%/*}/$DBNAME"
 cleanup() {
+  [ -n "${KEY_DIR:-}" ] && rm -rf "$KEY_DIR" || true
   [ -n "${API_PID:-}" ] && kill "$API_PID" 2>/dev/null || true
   [ -n "${RPC_PID:-}" ] && kill "$RPC_PID" 2>/dev/null || true
   psql "$ADMIN_URL" -qc "DROP DATABASE IF EXISTS \"$DBNAME\" WITH (FORCE)" >/dev/null || true
@@ -28,6 +29,9 @@ export DATABASE_URL="$DB_URL" SOLANA_CLUSTER=devnet SOLANA_RPC_PRIMARY_URL="http
 export REGISTRY_PROGRAM_ID="${MARKOV_FIXTURE_REGISTRY_PROGRAM_ID:-6SAPG2iavaEAv628NpuZuSwgKxGhqU23C769w7FfGpuZ}"
 # Execution planning (B09): the synthetic stablecoin the fixture RPC serves balances for, and the fixture venue.
 export FUNDING_STABLECOIN_MINT=GGN3oqBE6a9iJ5icpTXu1FPpXVRx1hHgQdjk5Dcmd9ts EXECUTION_VENUE_PROVIDER=fixture
+# Execution (B10): writes are enabled for the fixture chain; the demo wallet key lives in a temp dir for the check only.
+export EXECUTION_WRITES_ENABLED=true
+KEY_DIR=$(mktemp -d)
 API_PORT=$((30000 + RANDOM % 20000)); export API_PORT API_HOST=127.0.0.1
 
 echo "== markov db migrate"
@@ -105,12 +109,12 @@ node apps/cli/dist/main.js policy terms acknowledge --terms-version 2026-09-24 -
 STEPS=$(node apps/cli/dist/main.js policy eligibility --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.outcome+":"+j.terms.complete+":"+j.steps.join(","))})')
 echo "eligibility status: $STEPS"; [ "$STEPS" = "eligible:true:" ]
 AVAIL=$(node apps/cli/dist/main.js policy availability "$AERO_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.capabilities.discoverable+":"+j.capabilities.quoteable+":"+j.capabilities.buyable+":"+j.conditions.join(","))})')
-# Since B09 the venue quote capability is fixture-verified, so an eligible person can be quoted; buying waits for B10.
-echo "capability states: $AVAIL"; [ "$AVAIL" = "true:true:false:execution_disabled" ]
+# Since B10 execution writes are enabled for the fixture chain and the venue is fixture-verified: an eligible person can be quoted and can buy.
+echo "capability states: $AVAIL"; [ "$AVAIL" = "true:true:true:" ]
 ALLOWED=$(node apps/cli/dist/main.js policy evaluate --instrument "$AERO_ID" --notional 100000000 --intent startup-1 --cash 1000000000 --reserve --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.outcome+":"+(j.reservation?j.reservation.status:"none")+":"+j.budget.dailyUsedUsdcRaw)})')
 echo "quote-stage evaluation with reservation: $ALLOWED"; [ "$ALLOWED" = "allow:held:100000000" ]
 SUBMIT=$(node apps/cli/dist/main.js policy evaluate --instrument "$AERO_ID" --notional 100000000 --intent startup-1 --stage submit --cash 1000000000 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(j.outcome+":"+j.denials.map(x=>x.code).join(","))})')
-echo "submit-stage evaluation: $SUBMIT"; [ "$SUBMIT" = "deny:EXECUTION_DISABLED" ]
+echo "submit-stage evaluation with declared exposure: $SUBMIT"; [ "$SUBMIT" = "allow:" ]
 CAPPED=$(node apps/cli/dist/main.js policy evaluate --instrument "$AERO_ID" --notional 1500000000 --intent startup-2 --cash 100000000000 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);const x=j.denials[0];console.log(x.code+":"+x.limit+":"+x.observed)})')
 echo "order above the cap: $CAPPED"; [ "$CAPPED" = "ORDER_CAP_EXCEEDED:1000000000:1500000000" ]
 RELEASED=$(node apps/cli/dist/main.js policy reservations release startup-1 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).status))')
@@ -220,6 +224,60 @@ INTENT_STATE=$(node apps/cli/dist/main.js intents show "$INTENT_ID" --token "$SE
 echo "intent state:latest-plan = $INTENT_STATE"; [ "$INTENT_STATE" = "AWAITING_APPROVAL:true" ]
 CANCELLED=$(node apps/cli/dist/main.js intents cancel "$INTENT_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).state))')
 echo "cancelled state = $CANCELLED"; [ "$CANCELLED" = "CANCELLED" ]
+
+echo "== execution journey (B10): buy -> sign -> submit -> finality -> sell; changed signature, retry, lost answer, no second purchase"
+J() { node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);console.log(eval(process.argv[1]))})' "$1"; }
+KEY_FILE="$KEY_DIR/demo-wallet.key"
+EXEC_WALLET=$(node apps/cli/dist/main.js auth demo-wallet-link --keep-key "$KEY_FILE" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>/dev/null)
+EXEC_WALLET_ID=$(echo "$EXEC_WALLET" | J 'j.walletId')
+EXEC_WALLET_ADDRESS=$(echo "$EXEC_WALLET" | J 'j.address')
+curl -fsS -X POST -H "content-type: application/json" -d "{\"address\":\"$EXEC_WALLET_ADDRESS\",\"lamports\":50000000,\"stablecoinRaw\":\"1000000000\"}" "http://127.0.0.1:$RPC_PORT/fixture/funding" > /dev/null
+# AERO_ID was admitted by the catalog journey above.
+BUY_ID=$(node apps/cli/dist/main.js intents create --instrument "$AERO_ID" --wallet "$EXEC_WALLET_ID" --budget 100000000 --idempotency-key startup-buy-1 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.intentId')
+BUY_PLAN=$(node apps/cli/dist/main.js intents plan "$BUY_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+BUY_PLAN_ID=$(echo "$BUY_PLAN" | J 'j.planId'); BUY_PLAN_HASH=$(echo "$BUY_PLAN" | J 'j.planHash')
+BUY_MAX_IN=$(echo "$BUY_PLAN" | J 'j.legs[0].maxInputRaw'); BUY_EXPECTED=$(echo "$BUY_PLAN" | J 'j.legs[0].expectedOutputRaw')
+BEFORE_ACK=$(node apps/cli/dist/main.js intents build "$BUY_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "PLAN_NOT_APPROVED" || true)
+echo "build before acknowledgement refused: $BEFORE_ACK"; [ "$BEFORE_ACK" = "1" ]
+node apps/cli/dist/main.js intents acknowledge "$BUY_ID" "$BUY_PLAN_ID" --plan-hash "$BUY_PLAN_HASH" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+BUY_TX=$(node apps/cli/dist/main.js intents build "$BUY_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+BUY_TX_SUMMARY=$(echo "$BUY_TX" | BUY_MAX_IN="$BUY_MAX_IN" J 'j.state+":"+j.effects.side+":"+(j.effects.maxInputRaw===process.env.BUY_MAX_IN)+":"+j.simulation.status+":"+j.instructions.map(i=>i.kind).join(",")')
+echo "prepared state:side:bounded:simulation:instructions = $BUY_TX_SUMMARY"; [ "$BUY_TX_SUMMARY" = "prepared:buy:true:ok:compute_unit_limit,compute_unit_price,ata_create,route_swap" ]
+BUY_MESSAGE_HASH=$(echo "$BUY_TX" | J 'j.messageHash')
+WRONG_SIG=$(node apps/cli/dist/main.js intents submit "$BUY_ID" --signed "$(head -c 200 /dev/zero | base64 -w0)" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" 2>&1 | grep -c "SIGNATURE_MISMATCH" || true)
+echo "changed signature refused: $WRONG_SIG"; [ "$WRONG_SIG" = "1" ]
+BUY_SIGNED_JSON=$(node apps/cli/dist/main.js intents sign --key-file "$KEY_FILE" --input "$BUY_TX" --message-hash "$BUY_MESSAGE_HASH")
+BUY_SIGNED=$(echo "$BUY_SIGNED_JSON" | J 'j.signedTransaction')
+BUY_SUBMIT=$(node apps/cli/dist/main.js intents submit "$BUY_ID" --signed "$BUY_SIGNED" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.state+":"+j.attempts.length+":"+j.attempts[0].state')
+echo "submitted state:attempts:attempt-state = $BUY_SUBMIT"; [ "$BUY_SUBMIT" = "SUBMITTED:1:submitted" ]
+RETRY=$(node apps/cli/dist/main.js intents submit "$BUY_ID" --signed "$BUY_SIGNED" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.attempts.length')
+echo "retry with the same bytes creates no second attempt: $RETRY"; [ "$RETRY" = "1" ]
+curl -fsS -X POST -H "content-type: application/json" -d '{"action":"finalize"}' "http://127.0.0.1:$RPC_PORT/fixture/chain" > /dev/null
+BUY_FINAL=$(node apps/cli/dist/main.js intents reconcile "$BUY_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+BUY_FINAL_SUMMARY=$(echo "$BUY_FINAL" | BUY_MAX_IN="$BUY_MAX_IN" BUY_EXPECTED="$BUY_EXPECTED" J 'j.state+":"+j.fills.length+":"+(j.fills[0].inputSpentRaw===process.env.BUY_MAX_IN)+":"+(j.fills[0].outputReceivedRaw===process.env.BUY_EXPECTED)+":"+j.fills[0].withinBounds+":"+j.nextAction')
+echo "finalized state:fills:spent-bounded:received-expected:within-bounds:next = $BUY_FINAL_SUMMARY"; [ "$BUY_FINAL_SUMMARY" = "FINALIZED:1:true:true:true:none" ]
+BOUGHT=$(echo "$BUY_FINAL" | J 'j.fills[0].outputReceivedRaw')
+SELL_ID=$(node apps/cli/dist/main.js intents create --instrument "$AERO_ID" --sell --wallet "$EXEC_WALLET_ID" --budget "$BOUGHT" --idempotency-key startup-sell-1 --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.intentId+":"+j.kind+":"+j.budget.symbol')
+echo "sell intent id:kind:budget-symbol = $SELL_ID"; case "$SELL_ID" in *:single_sell:FXAERO) ;; *) exit 1;; esac
+SELL_ID=${SELL_ID%%:*}
+SELL_PLAN=$(node apps/cli/dist/main.js intents plan "$SELL_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+SELL_PLAN_SUMMARY=$(echo "$SELL_PLAN" | BOUGHT="$BOUGHT" J 'j.side+":"+j.legs[0].side+":"+(j.legs[0].maxInputRaw===process.env.BOUGHT)+":"+(j.funds.inputRaw===process.env.BOUGHT)')
+echo "sell plan side:leg-side:input-bounded:funds-observed = $SELL_PLAN_SUMMARY"; [ "$SELL_PLAN_SUMMARY" = "sell:sell:true:true" ]
+node apps/cli/dist/main.js intents acknowledge "$SELL_ID" "$(echo "$SELL_PLAN" | J 'j.planId')" --plan-hash "$(echo "$SELL_PLAN" | J 'j.planHash')" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" > /dev/null
+SELL_TX=$(node apps/cli/dist/main.js intents build "$SELL_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT")
+SELL_SIGNED=$(node apps/cli/dist/main.js intents sign --key-file "$KEY_FILE" --input "$SELL_TX" | J 'j.signedTransaction')
+# Timeout after broadcast: the node executes the sell but its answer is lost; reconciliation recovers it without a second send.
+curl -fsS -X POST -H "content-type: application/json" -d '{"action":"lose-next-response"}' "http://127.0.0.1:$RPC_PORT/fixture/chain" > /dev/null
+SELL_SUBMIT=$(node apps/cli/dist/main.js intents submit "$SELL_ID" --signed "$SELL_SIGNED" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.state+":"+j.attempts[0].state+":"+j.reconciliation.frozen')
+echo "lost answer state:attempt:frozen = $SELL_SUBMIT"; [ "$SELL_SUBMIT" = "UNKNOWN_REQUIRES_RECONCILIATION:unknown:true" ]
+SELL_RETRY=$(node apps/cli/dist/main.js intents submit "$SELL_ID" --signed "$SELL_SIGNED" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | J 'j.attempts.length')
+echo "retry during reconciliation creates no second attempt: $SELL_RETRY"; [ "$SELL_RETRY" = "1" ]
+curl -fsS -X POST -H "content-type: application/json" -d '{"action":"finalize"}' "http://127.0.0.1:$RPC_PORT/fixture/chain" > /dev/null
+SELL_FINAL=$(node apps/cli/dist/main.js intents reconcile "$SELL_ID" --token "$SESSION_TOKEN" --url "http://127.0.0.1:$API_PORT" | BOUGHT="$BOUGHT" J 'j.state+":"+j.fills.length+":"+j.fills[0].side+":"+(j.fills[0].inputSpentRaw===process.env.BOUGHT)+":"+j.attempts.length')
+echo "sell finalized state:fills:side:spent-all:attempts = $SELL_FINAL"; [ "$SELL_FINAL" = "FINALIZED:1:sell:true:1" ]
+EXEC_FUNDING=$(curl -fsS -H "Authorization: Bearer $SESSION_TOKEN" "http://127.0.0.1:$API_PORT/v1/me/wallets/$EXEC_WALLET_ID/funding" | J '(BigInt(j.stablecoin.raw) < 1000000000n && BigInt(j.stablecoin.raw) > 990000000n)+":"+(Number(j.sol.lamports) < 50000000)')
+echo "wallet after buy and sell: stablecoin within the round trip, SOL paid fees = $EXEC_FUNDING"; [ "$EXEC_FUNDING" = "true:true" ]
+rm -f "$KEY_FILE"
 
 echo "== graceful shutdown"
 kill -TERM "$API_PID"; wait "$API_PID" || true; API_PID=""

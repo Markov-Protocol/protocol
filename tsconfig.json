@@ -38,6 +38,9 @@
       "path": "packages/strategy"
     },
     {
+      "path": "packages/solana-codec"
+    },
+    {
       "path": "packages/registry"
     },
     {
@@ -45,6 +48,9 @@
     },
     {
       "path": "packages/venue-jupiter"
+    },
+    {
+      "path": "packages/execution"
     },
     {
       "path": "packages/db"

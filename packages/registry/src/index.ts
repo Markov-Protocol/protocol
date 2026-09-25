@@ -6,7 +6,8 @@
  * records without a provider SDK. `docs/markov/strategy-registry.md` is the
  * contract; `programs/strategy-registry` is the program.
  */
-export * from './binding.js';
+
+export * from '@markov/solana-codec';
 export {
   base64ToBytes,
   bytesEqual,
@@ -16,12 +17,11 @@ export {
   concatBytes,
   hexToBytes,
   isZeroBytes,
-} from './bytes.js';
+} from '@markov/solana-codec';
+export * from './binding.js';
 export * from './explorer.js';
 export * from './layout.js';
 export * from './ledger.js';
 export * from './observe.js';
-export * from './pubkey.js';
 export * from './publication.js';
 export * from './rules.js';
-export * from './transaction.js';

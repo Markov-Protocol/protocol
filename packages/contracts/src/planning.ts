@@ -19,7 +19,12 @@ import { networkIdentitySchema, sha256HexSchema } from './registry.js';
  */
 export const PLANNING_SCHEMA_VERSION = '1' as const;
 
-export const INTENT_KINDS = ['basket_investment', 'single_buy'] as const;
+export const INTENT_KINDS = ['basket_investment', 'single_buy', 'single_sell'] as const;
+
+/** Which way a leg moves value: buys spend the stablecoin, sells spend the instrument. */
+export const PLAN_SIDES = ['buy', 'sell'] as const;
+export const planSideSchema = z.enum(PLAN_SIDES);
+export type PlanSide = z.infer<typeof planSideSchema>;
 export const intentKindSchema = z.enum(INTENT_KINDS);
 export type IntentKind = z.infer<typeof intentKindSchema>;
 
@@ -117,17 +122,43 @@ export const venueQuoteSchema = z.object({
 });
 export type VenueQuote = z.infer<typeof venueQuoteSchema>;
 
+/** What a gateway receives to build the transaction for a quote it gave (configured venues). */
+export const venueBuildRequestSchema = z.object({
+  schemaVersion: z.literal(PLANNING_SCHEMA_VERSION),
+  quote: venueQuoteSchema,
+  owner: base58AddressSchema,
+  inputTokenProgram: base58AddressSchema,
+  outputTokenProgram: base58AddressSchema,
+  recentBlockhash: z.string().min(32).max(44),
+  computeUnitLimit: z.number().int().positive().max(1_400_000),
+  computeUnitPriceMicroLamports: rawAmountSchema,
+  createOutputAccount: z.boolean(),
+});
+export type VenueBuildRequestPayload = z.infer<typeof venueBuildRequestSchema>;
+
+export const venueBuildResponseSchema = z.object({
+  schemaVersion: z.literal(PLANNING_SCHEMA_VERSION),
+  /** Base64 of the unsigned wire transaction (zeroed signature slots in front of the message). */
+  unsignedTransaction: z.string().min(1).max(4000),
+  version: z.enum(['legacy', 'v0']),
+});
+export type VenueBuildResponsePayload = z.infer<typeof venueBuildResponseSchema>;
+
 export const intentCreateRequestSchema = z
   .object({
     schemaVersion: z.literal(PLANNING_SCHEMA_VERSION).default(PLANNING_SCHEMA_VERSION),
     kind: intentKindSchema,
     /** The pinned version to invest in (basket investment). */
     strategyVersionId: idSchema.nullable().default(null),
-    /** The instrument to buy (single buy). */
+    /** The instrument to buy (single buy) or to sell (single sell). */
     instrumentId: idSchema.nullable().default(null),
     /** One of the caller's verified wallets: it pays, signs later and receives the constituents. */
     walletId: idSchema,
-    /** Raw base units of the platform stablecoin (the only budget currency in V1). */
+    /**
+     * Raw base units of what leaves the wallet: the platform stablecoin for a
+     * basket investment or a single buy, the instrument itself for a single
+     * sell (an exact quantity, never a stablecoin target).
+     */
     budget: z.object({ rawAmount: rawAmountSchema }),
     budgetMode: budgetModeSchema.default('all_in_stablecoin'),
     executionPreference: executionPreferenceSchema.default('atomic_or_explicit_staged_review'),
@@ -149,11 +180,22 @@ export const intentCreateRequestSchema = z
         message: 'a basket investment names the pinned version',
       });
     }
-    if (value.kind === 'single_buy' && value.instrumentId === null) {
+    if (
+      (value.kind === 'single_buy' || value.kind === 'single_sell') &&
+      value.instrumentId === null
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['instrumentId'],
-        message: 'a single buy names the instrument',
+        message: 'a single buy or sell names the instrument',
+      });
+    }
+    if (value.kind === 'single_sell' && value.budgetMode !== 'all_in_stablecoin') {
+      context.addIssue({
+        code: 'custom',
+        path: ['budgetMode'],
+        message:
+          'a sell spends an exact quantity of the instrument; there is no investable notional',
       });
     }
   });
@@ -233,9 +275,15 @@ export const planLegSchema = z.object({
   mint: base58AddressSchema,
   tokenProgram: tokenProgramSchema,
   decimals: z.number().int().min(0).max(18),
-  side: z.literal('buy'),
+  side: planSideSchema,
   weightBps: basisPointsSchema,
+  /** What this leg spends and what it receives, with the units each amount is quoted in. */
   inputMint: base58AddressSchema,
+  inputSymbol: z.string().max(10),
+  inputDecimals: z.number().int().min(0).max(18),
+  outputMint: base58AddressSchema,
+  outputSymbol: z.string().max(10),
+  outputDecimals: z.number().int().min(0).max(18),
   /** The allocation target for this leg. */
   targetInputRaw: rawAmountSchema,
   /** The most that may leave the wallet for this leg: the quote's exact input, never above the target. */
@@ -302,12 +350,15 @@ export const planGroupingSchema = z.object({
 export const planFundsSchema = z.object({
   observedAt: z.iso.datetime(),
   slot: z.number().int().nonnegative(),
+  /** The wallet's platform stablecoin balance at observation. */
   stablecoinRaw: rawAmountSchema,
+  /** The wallet's balance of what the plan spends (the stablecoin for buys, the instrument for a sell). */
+  inputRaw: rawAmountSchema,
   lamports: rawAmountSchema,
   sufficient: z.boolean(),
   shortfalls: z.array(
     z.object({
-      asset: z.enum(['stablecoin', 'sol']),
+      asset: z.enum(['stablecoin', 'sol', 'instrument']),
       requiredRaw: rawAmountSchema,
       observedRaw: rawAmountSchema,
     }),
@@ -320,6 +371,7 @@ export const executionPlanSchema = z.object({
   schemaVersion: z.literal(PLANNING_SCHEMA_VERSION),
   intentId: idSchema,
   kind: intentKindSchema,
+  side: planSideSchema,
   mode: planModeSchema,
   network: networkIdentitySchema,
   wallet: z.object({ walletId: idSchema, address: base58AddressSchema }),

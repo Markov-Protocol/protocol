@@ -264,6 +264,7 @@ describe('identity and credential configuration', () => {
     expect(loadConfig(base).execution.venue).toEqual({
       provider: null,
       quoteUrl: null,
+      buildUrl: null,
       apiKey: null,
     });
     expect(

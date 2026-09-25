@@ -276,16 +276,32 @@ and cancels. Signing and submission arrive with B10/F10.
 | POST   | /v1/me/intents/{intentId}/cancel                         | user                                       | Cancel before any signature (idempotent); refused once the intent left the planning states |
 
 Intent states in B09: `DRAFT` → `QUOTED` → `AWAITING_APPROVAL`, with
-`EXPIRED` and `CANCELLED`; the execution states are defined and reserved
-for B10/B11 (`docs/markov/execution-planning.md`). Plans built from the
-fixture venue are labelled `mode: fixture` and cannot be executed. The
-build document proposes these operations under `/v1/intents`; this API
-keeps every owner-scoped resource under `/v1/me/` as the other sessions do.
+`EXPIRED` and `CANCELLED`; the execution states follow in B10
+(`docs/markov/execution-state-machine.md`). Plans built from the fixture
+venue are labelled `mode: fixture` and execute only against the fixture
+chain of local and test modes. The build document proposes these operations
+under `/v1/intents`; this API keeps every owner-scoped resource under
+`/v1/me/` as the other sessions do. Since B10 `POST /v1/me/intents` also
+creates a `single_sell` (the budget is raw units of the instrument to sell
+for the platform stablecoin) and `cancel` records a `CANCEL_REQUESTED` after
+a broadcast (`PLAN_CHANGED` when the intent moves meanwhile).
+
+## Endpoints (B10)
+
+| Method | Path                                                                   | Principal                    | Purpose |
+| ------ | ---------------------------------------------------------------------- | ---------------------------- | ------- |
+| POST   | /v1/me/intents/{intentId}/transactions                                 | user (20/min)                | Build, decode, validate against the acknowledged plan and simulate the transaction of a single-leg plan (buy or sell); stored and answered as a `PreparedTransaction` (201) with decoded instructions, validated effects and simulation evidence; the intent moves to `AUTHORIZED`. `TRANSACTION_REFUSED` (409, `details[0]` names `PLAN_NOT_APPROVED`, `VALIDATION_FAILED` with one detail per failed check, `SIMULATION_FAILED`, `STAGED_NOT_SUPPORTED`, `ATTEMPT_IN_FLIGHT`), `QUOTE_EXPIRED` past the plan's validity, `PLAN_CHANGED` when the intent moved on, `PROVIDER_UNAVAILABLE` without a building venue or node. A rebuild supersedes an unsigned or expired earlier transaction |
+| POST   | /v1/me/intents/{intentId}/transactions/{transactionIndex}/submissions  | user (20/min)                | Submit the owner-signed transaction: byte-identical prepared message, exactly one valid Ed25519 signature by the expected signer (`SIGNATURE_MISMATCH` otherwise, nothing sent); plan still valid (`QUOTE_EXPIRED`) and blockhash still able to land (`TRANSACTION_REFUSED`/`TRANSACTION_EXPIRED`); policy at stage `submit` with a reservation (`POLICY_DENIED`); the attempt persisted before the one broadcast. 201 with the execution status for a new attempt (`SUBMITTED`, `FAILED` on a preflight verdict, `UNKNOWN_REQUIRES_RECONCILIATION` without an answer); 200 with the status when the same signed bytes were submitted before. A retry never creates a second attempt |
+| GET    | /v1/me/intents/{intentId}/execution                                    | user, agent `portfolio:read` | Execution status: current prepared transactions, attempts, fills (from the landed transactions' balance changes), reconciliation evidence and `nextAction` (`build`, `sign`, `wait`, `reconcile`, `review`, `none`); a live attempt is reconciled from the node on the way (throttled to every 2 s) and unsigned transactions whose blockhash passed are marked expired |
+| POST   | /v1/me/intents/{intentId}/execution/reconciliations                    | user (60/min)                | Reconcile a live attempt now: signature status and finalized block height, the same bytes resent while the blockhash lives, states settled on evidence only |
+
+Error code added in B10: `TRANSACTION_REFUSED` (409). Capability rows:
+`execution.jupiter.build` and `execution.spot.submit` are FIXTURE_VERIFIED.
 
 ## Planned surface
 
 Discovery, portfolio,
-execution submission, receipts, maintenance, agents and operations routes
-are specified in the build document and arrive with sessions B10 to B18. Authentication,
+staged basket execution, receipts, maintenance, agents and operations routes
+are specified in the build document and arrive with sessions B11 to B18. Authentication,
 idempotency keys, cursor pagination and streaming are introduced with the
 first routes that need them (B02, B07, B10).

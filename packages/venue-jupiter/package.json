@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@markov/contracts": "workspace:*",
-    "@markov/planning": "workspace:*"
+    "@markov/planning": "workspace:*",
+    "@markov/solana-codec": "workspace:*"
   },
   "devDependencies": {},
   "description": "Venue adapters answering the Markov quote contract: a synthetic fixture venue for local and test modes and an operator-configured gateway URL; the live Jupiter interface is unverified from the build environment (OD-21) and no provider SDK is used"

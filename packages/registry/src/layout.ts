@@ -1,13 +1,17 @@
 import { createHash } from 'node:crypto';
-import { BorshReader, BorshWriter } from './borsh.js';
-import { bytesEqual, concatBytes, isZeroBytes } from './bytes.js';
 import {
+  type AccountMeta,
+  bytesEqual,
+  concatBytes,
   findProgramAddress,
+  type Instruction,
+  isZeroBytes,
   PUBLIC_KEY_LENGTH,
   pubkeyBase58,
   pubkeyBytes,
   SYSTEM_PROGRAM_ID,
-} from './pubkey.js';
+} from '@markov/solana-codec';
+import { BorshReader, BorshWriter } from './borsh.js';
 
 /**
  * The exact binary encodings of `programs/strategy-registry`: Anchor
@@ -241,17 +245,9 @@ export function recordAddress(programId: string, manifestHash: Uint8Array): Reco
   return { address: pubkeyBase58(derived.address), bump: derived.bump };
 }
 
-export interface AccountMeta {
-  readonly pubkey: string;
-  readonly isSigner: boolean;
-  readonly isWritable: boolean;
-}
-
-export interface RegistryInstruction {
-  readonly programId: string;
-  readonly accounts: readonly AccountMeta[];
-  readonly data: Uint8Array;
-}
+export type { AccountMeta };
+/** A registry instruction is an ordinary instruction of the codec. */
+export type RegistryInstruction = Instruction;
 
 /**
  * The `register_version` instruction: publisher (signer, pays), the record

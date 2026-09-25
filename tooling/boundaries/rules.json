@@ -55,14 +55,20 @@
     "@markov/strategy": {
       "allow": ["@markov/contracts"]
     },
+    "@markov/solana-codec": {
+      "allow": ["@markov/contracts"]
+    },
     "@markov/registry": {
-      "allow": ["@markov/contracts", "@markov/solana-rpc"]
+      "allow": ["@markov/contracts", "@markov/solana-codec", "@markov/solana-rpc"]
     },
     "@markov/planning": {
       "allow": ["@markov/contracts"]
     },
     "@markov/venue-jupiter": {
-      "allow": ["@markov/contracts", "@markov/planning"]
+      "allow": ["@markov/contracts", "@markov/planning", "@markov/solana-codec"]
+    },
+    "@markov/execution": {
+      "allow": ["@markov/contracts", "@markov/planning", "@markov/solana-codec"]
     }
   },
   "apps": ["@markov/api", "@markov/worker", "@markov/indexer", "@markov/cli", "@markov/web"],

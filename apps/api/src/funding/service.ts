@@ -28,6 +28,12 @@ export interface FundingServiceDeps {
 
 export interface FundingService {
   walletFunding(principal: Principal, walletId: string): Promise<WalletFundingResponse>;
+  /** The wallet's balance of one mint (sum of its token accounts) as the network reports it now. */
+  tokenBalance(
+    principal: Principal,
+    walletId: string,
+    mint: string,
+  ): Promise<{ readonly raw: bigint; readonly tokenAccounts: number; readonly slot: number }>;
 }
 
 /** Amount field of an SPL Token / Token-2022 token account (u64 little-endian at byte 64). */
@@ -49,7 +55,40 @@ export function createFundingService(deps: FundingServiceDeps): FundingService {
     throw new Error('funding service needs at least one RPC client');
   }
 
+  const requireWallet = async (principal: Principal, walletId: string) => {
+    if ((principal.class !== 'user' && principal.class !== 'agent') || principal.userId === null) {
+      throw new ApiError(
+        'FORBIDDEN',
+        'this operation requires a user session or an agent acting for one',
+      );
+    }
+    const wallet = (await listWallets(db, principal.userId)).find((row) => row.id === walletId);
+    if (!wallet) {
+      throw new ApiError('NOT_FOUND', 'no verified wallet with that id');
+    }
+    return wallet;
+  };
+
   return {
+    async tokenBalance(principal, walletId, mint) {
+      const wallet = await requireWallet(principal, walletId);
+      try {
+        const accounts = await rpc.getTokenAccountsByOwner(wallet.address, mint, COMMITMENT);
+        let raw = 0n;
+        for (const account of accounts.accounts) {
+          raw += tokenAccountAmount(account.data);
+        }
+        return { raw, tokenAccounts: accounts.accounts.length, slot: accounts.slot };
+      } catch (error) {
+        if (error instanceof SolanaRpcError) {
+          throw new ApiError(
+            'PROVIDER_UNAVAILABLE',
+            `the RPC endpoint could not be read (${error.kind}); the balance is unknown, not zero`,
+          );
+        }
+        throw error;
+      }
+    },
     async walletFunding(principal, walletId) {
       if (
         (principal.class !== 'user' && principal.class !== 'agent') ||

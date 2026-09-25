@@ -31,6 +31,7 @@ import { authPlugin } from './auth/plugin.js';
 import type { IdentityService } from './auth/service.js';
 import type { CatalogService } from './catalog/service.js';
 import { ApiError } from './errors.js';
+import type { ExecutionService } from './execution/service.js';
 import type { FollowService } from './follows/service.js';
 import type { FundingService } from './funding/service.js';
 import type { NetworkIdentitySource } from './network-monitor.js';
@@ -39,6 +40,7 @@ import type { PolicyService } from './policy/service.js';
 import type { RegistryService } from './registry/service.js';
 import type { ResearchService } from './research/service.js';
 import { catalogRoutes } from './routes/catalog.js';
+import { executionRoutes } from './routes/execution.js';
 import { followRoutes } from './routes/follows.js';
 import { fundingRoutes } from './routes/funding.js';
 import { identityRoutes } from './routes/identity.js';
@@ -89,6 +91,7 @@ export interface AppDependencies {
   readonly registry: RegistryService;
   readonly follows: FollowService;
   readonly planning: PlanningService;
+  readonly execution: ExecutionService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -254,7 +257,7 @@ export async function buildApp(deps: AppDependencies) {
         {
           name: 'execution',
           description:
-            'Investment intents and bounded, hashed execution plans reviewed by the owner before any signature',
+            'Investment intents, bounded hashed plans reviewed by the owner, validated transactions signed by the owner wallet, submission and reconciliation to finality',
         },
         {
           name: 'follows',
@@ -409,6 +412,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(registryRoutes, { registry: deps.registry });
   await app.register(followRoutes, { follows: deps.follows });
   await app.register(planningRoutes, { planning: deps.planning });
+  await app.register(executionRoutes, { execution: deps.execution });
 
   return app;
 }

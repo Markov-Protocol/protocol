@@ -11,6 +11,7 @@ import {
   type IntentState,
   PLANNING_SCHEMA_VERSION,
   type PlanAcknowledgementRequest,
+  type PlanSide,
   type PolicyDecision,
   type VenueQuote,
 } from '@markov/contracts';
@@ -25,14 +26,17 @@ import {
   findStrategy,
   findVersionById,
   type IntentRow,
+  insertOutboxEvent,
   insertPlan,
   insertVenueQuotes,
+  listCurrentPreparedTransactions,
   listIntents,
   listWallets,
   markPlanStatus,
   recordAuditEvent,
   type StrategyVersionRow,
   transitionIntent,
+  updatePreparedTransactionState,
 } from '@markov/db';
 import {
   allocateBudget,
@@ -251,6 +255,12 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
       }
       let version: StrategyVersionRow | null = null;
       let instrumentId: string | null = null;
+      /** What the budget is denominated in: the stablecoin, or the instrument itself for a sell. */
+      let budgetUnit = {
+        mint: stablecoin.mint,
+        symbol: stablecoin.symbol,
+        decimals: stablecoin.decimals,
+      };
       if (request.kind === 'basket_investment') {
         const versionId = request.strategyVersionId as string;
         const found = await findVersionById(db, versionId);
@@ -271,6 +281,13 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
       } else {
         const instrument = await requireAdmitted(request.instrumentId as string, 'the instrument');
         instrumentId = instrument.instrumentId;
+        if (request.kind === 'single_sell') {
+          budgetUnit = {
+            mint: instrument.mint,
+            symbol: instrument.symbol,
+            decimals: instrument.decimals,
+          };
+        }
       }
       const limits = await policy.limits(principal);
       const maxSlippage = limits.effective.maxSlippageBps;
@@ -309,9 +326,9 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         versionId: version?.id ?? null,
         instrumentId,
         budget: {
-          mint: stablecoin.mint,
-          symbol: stablecoin.symbol,
-          decimals: stablecoin.decimals,
+          mint: budgetUnit.mint,
+          symbol: budgetUnit.symbol,
+          decimals: budgetUnit.decimals,
           raw: request.budget.rawAmount,
         },
         budgetMode: request.budgetMode,
@@ -371,8 +388,9 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
           'no execution venue is configured (EXECUTION_VENUE_PROVIDER); plans cannot be quoted',
         );
       }
+      const side: PlanSide = intent.kind === 'single_sell' ? 'sell' : 'buy';
       const stablecoin = config.funding.stablecoin;
-      if (stablecoin === null || stablecoin.mint !== intent.budgetMint) {
+      if (stablecoin === null || (side === 'buy' && stablecoin.mint !== intent.budgetMint)) {
         throw new ApiError(
           'PROVIDER_UNAVAILABLE',
           'the configured stablecoin differs from the one the intent was budgeted in',
@@ -402,6 +420,13 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
           await requireAdmitted(leg.instrumentId, `constituent ${leg.instrumentId}`),
         );
       }
+      const sold = side === 'sell' ? (instruments[0] as InstrumentDetail) : null;
+      if (sold !== null && sold.mint !== intent.budgetMint) {
+        throw new ApiError(
+          'PLAN_CHANGED',
+          'the instrument mint differs from the one the intent was budgeted in; create a new intent',
+        );
+      }
 
       // 2. Funds as the network reports them now; nothing is reserved.
       const funds = await funding.walletFunding(principal, intent.walletId);
@@ -414,6 +439,11 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
       const stablecoinRaw = BigInt(funds.stablecoin.raw);
       const lamports = BigInt(funds.sol.lamports);
       const rentExempt = BigInt(funds.requirements.rentExemptTokenAccountLamports);
+      // What the plan spends: the stablecoin for buys, the instrument's own balance for a sell.
+      const inputRaw =
+        sold === null
+          ? stablecoinRaw
+          : (await funding.tokenBalance(principal, intent.walletId, sold.mint)).raw;
 
       // 3. Integer allocation, refused (not reshaped) when a route minimum is not met.
       const budgetRaw = BigInt(intent.budgetRaw);
@@ -424,10 +454,11 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         legs: recipe.map((leg) => ({
           key: leg.instrumentId,
           weightBps: leg.weightBps,
-          minimumInputRaw: venue.minimumInputRaw,
+          // Route minimums are documented in stablecoin units; a sell's input is the instrument.
+          minimumInputRaw: side === 'buy' ? venue.minimumInputRaw : null,
         })),
         cashWeightBps,
-        feeReserveRaw: protocolFeeRaw(budgetRaw),
+        feeReserveRaw: side === 'buy' ? protocolFeeRaw(budgetRaw) : 0n,
       });
       if (!allocation.ok) {
         await audit(principal, 'planning.plan.refused', 'intent', intent.id, requestId, {
@@ -459,10 +490,10 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         newTokenAccounts: recipe.length,
       });
       const shortfalls: { path: string; message: string }[] = [];
-      if (stablecoinRaw < allocation.totalSpendRaw) {
+      if (inputRaw < allocation.totalSpendRaw) {
         shortfalls.push({
-          path: 'funds.stablecoin',
-          message: `the plan spends up to ${allocation.totalSpendRaw} raw ${stablecoin.symbol}; the wallet holds ${stablecoinRaw}`,
+          path: sold === null ? 'funds.stablecoin' : 'funds.instrument',
+          message: `the plan spends up to ${allocation.totalSpendRaw} raw ${sold === null ? stablecoin.symbol : sold.symbol}; the wallet holds ${inputRaw}`,
         });
       }
       if (lamports < feeBound.totalLamportsMax) {
@@ -476,8 +507,12 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
       }
 
       // 5. One quote and one policy decision per constituent; every quote is checked before use.
-      // Exposure declared to policy: the other legs as positions, and the cash the wallet keeps after the plan.
-      const cashAfterRaw = stablecoinRaw - allocation.totalSpendRaw + allocation.cash.targetRaw;
+      // Exposure declared to policy: the other legs as positions, and the cash the wallet keeps after the plan
+      // (a sell leaves the stablecoin untouched until its output arrives).
+      const cashAfterRaw =
+        side === 'buy'
+          ? stablecoinRaw - allocation.totalSpendRaw + allocation.cash.targetRaw
+          : stablecoinRaw;
       const limits = await policy.limits(principal);
       const mode = venue.mode === 'fixture' ? 'fixture' : 'live';
       const planLegs: PlanLegInput[] = [];
@@ -485,13 +520,15 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
       const accepted: { legIndex: number; quote: VenueQuote }[] = [];
       for (const [index, leg] of allocation.legs.entries()) {
         const instrument = instruments[index] as InstrumentDetail;
+        const inputMint = side === 'buy' ? stablecoin.mint : instrument.mint;
+        const outputMint = side === 'buy' ? instrument.mint : stablecoin.mint;
         let quote: VenueQuote;
         try {
           quote = await venue.quote({
             schemaVersion: PLANNING_SCHEMA_VERSION,
             venue: 'jupiter',
-            inputMint: stablecoin.mint,
-            outputMint: instrument.mint,
+            inputMint,
+            outputMint,
             inAmountRaw: leg.targetRaw.toString(),
             slippageBps: intent.slippageBps,
             swapMode: 'exact_in',
@@ -506,8 +543,8 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
           throw error;
         }
         const issues = checkQuote(quote, {
-          inputMint: stablecoin.mint,
-          outputMint: instrument.mint,
+          inputMint,
+          outputMint,
           targetInputRaw: leg.targetRaw,
           slippageBps: intent.slippageBps,
           maxSlippageBps: limits.effective.maxSlippageBps,
@@ -541,9 +578,10 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
           principal,
           {
             stage: 'quote',
-            side: 'buy',
+            side,
             instrumentId: instrument.instrumentId,
-            notionalUsdcRaw: quote.inAmountRaw,
+            // Stablecoin notional: what a buy spends, what a sell is expected to receive.
+            notionalUsdcRaw: side === 'buy' ? quote.inAmountRaw : quote.outAmountRaw,
             intentId: `${intent.id}:${index}`,
             venue: 'jupiter',
             slippageBps: intent.slippageBps,
@@ -613,6 +651,7 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         planId: randomUUID(),
         intentId: intent.id,
         kind: intent.kind as Intent['kind'],
+        side,
         mode,
         network: { cluster: config.solana.cluster, genesisHash: deps.genesisHash },
         wallet: { walletId: intent.walletId, address: intent.walletAddress },
@@ -626,11 +665,16 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
                 manifestHash: version.manifestHash,
               },
         input: {
+          mint: intent.budgetMint,
+          symbol: intent.budgetSymbol,
+          decimals: intent.budgetDecimals,
+          budgetRaw,
+          budgetMode,
+        },
+        stablecoin: {
           mint: stablecoin.mint,
           symbol: stablecoin.symbol,
           decimals: stablecoin.decimals,
-          budgetRaw,
-          budgetMode,
         },
         allocation,
         legs: planLegs,
@@ -643,6 +687,7 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
           observedAt: funds.observedAt,
           slot: funds.slot,
           stablecoinRaw,
+          inputRaw,
           lamports,
         },
         evidence: {
@@ -789,8 +834,63 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
       const userId = ownerOf(principal);
       const at = now();
       const intent = await requireIntent(userId, intentId, at);
-      if (intent.state === 'CANCELLED') {
+      if (intent.state === 'CANCELLED' || intent.state === 'CANCEL_REQUESTED') {
         return toIntent(intent);
+      }
+      if (intent.state === 'AUTHORIZED') {
+        // A prepared, unsigned transaction is withdrawn; nothing was broadcast.
+        const moved = await transitionIntent(db, {
+          intentId: intent.id,
+          from: ['AUTHORIZED'],
+          to: 'CANCELLED',
+          reason: 'cancelled by the owner before any signature was submitted',
+          now: at,
+        });
+        if (!moved) {
+          throw new ApiError('PLAN_CHANGED', 'the intent changed while it was being cancelled');
+        }
+        if (intent.latestPlanId !== null) {
+          for (const row of await listCurrentPreparedTransactions(db, intent.latestPlanId)) {
+            if (row.state === 'prepared' || row.state === 'expired') {
+              await updatePreparedTransactionState(db, row.id, 'cancelled', at);
+            }
+          }
+        }
+        await insertOutboxEvent(db, {
+          kind: 'execution.cancelled',
+          aggregateType: 'intent',
+          aggregateId: intent.id,
+          ownerUserId: userId,
+          payload: { fromState: intent.state },
+          now: at,
+        });
+        await audit(principal, 'planning.intent.cancelled', 'intent', intent.id, requestId, {
+          fromState: intent.state,
+        });
+        return toIntent(moved);
+      }
+      if (
+        intent.state === 'SUBMITTING' ||
+        intent.state === 'SUBMITTED' ||
+        intent.state === 'UNKNOWN_REQUIRES_RECONCILIATION'
+      ) {
+        // Signed bytes may already be with a node: the request is recorded, the transaction can
+        // still land, and reconciliation settles CANCELLED (expired unseen) or the landed outcome.
+        const moved = await transitionIntent(db, {
+          intentId: intent.id,
+          from: ['SUBMITTING', 'SUBMITTED', 'UNKNOWN_REQUIRES_RECONCILIATION'],
+          to: 'CANCEL_REQUESTED',
+          reason:
+            'cancellation requested after broadcast; the signed transaction can still land and reconciliation decides',
+          now: at,
+        });
+        if (!moved) {
+          throw new ApiError('PLAN_CHANGED', 'the intent changed while it was being cancelled');
+        }
+        await audit(principal, 'planning.intent.cancel_requested', 'intent', intent.id, requestId, {
+          fromState: intent.state,
+        });
+        return toIntent(moved);
       }
       const moved = await transitionIntent(db, {
         intentId: intent.id,
@@ -802,7 +902,7 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
       if (!moved) {
         throw new ApiError(
           'VALIDATION_FAILED',
-          `the intent is ${intent.state}; only DRAFT, QUOTED and AWAITING_APPROVAL intents can be cancelled here`,
+          `the intent is ${intent.state}; only open intents can be cancelled`,
         );
       }
       await audit(principal, 'planning.intent.cancelled', 'intent', intent.id, requestId, {

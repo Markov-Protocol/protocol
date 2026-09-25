@@ -10,6 +10,7 @@
 export * from './allocate.js';
 export * from './canonical.js';
 export * from './fees.js';
+export * from './fixture-route.js';
 export * from './plan.js';
 export * from './programs.js';
 export * from './quote-check.js';

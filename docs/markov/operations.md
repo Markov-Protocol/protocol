@@ -225,8 +225,50 @@ burst of `PROGRAM_NOT_REVIEWED` means the venue routes through a program
 the matrix has not reviewed (`packages/planning/src/programs.ts`), which
 is a review task, never a config switch. Plans expire with their quotes
 (30 s from the fixture venue) and policy decisions; an open intent expires
-after 24 hours. Nothing in B09 signs, submits or reserves; B10 adds the
-transaction lifecycle. Contract: `docs/markov/execution-planning.md`.
+after 24 hours. Contract: `docs/markov/execution-planning.md`.
+
+## Execution
+
+```
+markov intents create --instrument <instrumentId> --sell --wallet <walletId> --budget <rawInstrumentUnits> --token <session> --url …
+markov intents build <intentId> --token <session> --url …          # build, validate, simulate; answers the prepared transaction
+markov intents sign --key-file <path> --input '<prepared json>' [--message-hash <hex>]   # NONPRODUCTION: demo wallet key from `auth demo-wallet-link --keep-key`
+markov intents submit <intentId> --signed <base64> [--transaction-index 0] --token <session> --url …
+markov intents execution <intentId> --token <session|agent> --url … # status with attempts, fills, evidence
+markov intents reconcile <intentId> --token <session> --url …
+```
+
+`EXECUTION_WRITES_ENABLED=true` is required for any submission (policy
+denies with `EXECUTION_DISABLED` otherwise); it is refused outside the
+write-capable modes and on mainnet outside production, where it also needs
+the `BETA_*` caps, the allowlist and `RELEASE_EVIDENCE_REF`. A
+`configured_url` venue builds only with `EXECUTION_VENUE_BUILD_URL` (https
+outside local/test); without it plans are quoted but every build answers
+`PROVIDER_UNAVAILABLE`. Migration `0011_execution` adds
+`prepared_transactions`, `execution_attempts` (at most one live attempt per
+intent), `execution_fills` (one per signature and leg) and `outbox_events`.
+Audit actions: `execution.transaction.prepared`,
+`execution.transaction.refused` (with the refusal codes),
+`execution.submission.refused`, `execution.attempt.persisted`,
+`execution.attempt.submitted`, `execution.attempt.failed`,
+`execution.attempt.unknown`, `execution.reconciled`,
+`planning.intent.cancel_requested`.
+
+The worker starts one durable `executionReconciliationWorkflow` per task
+queue (`execution-reconciliation:<queue>`) at boot and finds it running on
+restarts; it runs one round every 5 s over every live attempt (signature
+status, finalized block height, resend of the same bytes, settlement on
+evidence). The API reconciles a live attempt on status reads too (throttled)
+and on demand. Operating: a growing count of intents in
+`UNKNOWN_REQUIRES_RECONCILIATION` means the node is not answering (the
+attempts keep their signed bytes and settle once it does) or a fill
+violated its bounds (`execution_fills.within_bounds = false`, frozen for a
+person's review); `execution.transaction.refused` audit rows with
+`VALIDATION_FAILED` codes mean the venue produced bytes the plan does not
+explain, which is a venue incident, never a config switch. Never rebuild or
+re-sign on a person's behalf: a stuck attempt is observed, resent as the
+same bytes while its blockhash lives, and expires on evidence. Contract:
+`docs/markov/execution-state-machine.md`.
 
 ## Readiness and monitoring
 

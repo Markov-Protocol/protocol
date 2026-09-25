@@ -6,5 +6,9 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src"],
-  "references": [{ "path": "../contracts" }, { "path": "../solana-rpc" }]
+  "references": [
+    { "path": "../contracts" },
+    { "path": "../solana-codec" },
+    { "path": "../solana-rpc" }
+  ]
 }

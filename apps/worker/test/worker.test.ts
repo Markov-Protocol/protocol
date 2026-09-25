@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { KNOWN_GENESIS_HASHES } from '@markov/config';
-import { PLATFORM_HEALTH_WORKFLOW_TYPE, type PlatformHealthReport } from '@markov/contracts';
+import {
+  EXECUTION_RECONCILIATION_WORKFLOW_TYPE,
+  type ExecutionReconciliationReport,
+  PLATFORM_HEALTH_WORKFLOW_TYPE,
+  type PlatformHealthReport,
+} from '@markov/contracts';
 import { bindPlatformIdentity, createDbClient, runMigrations } from '@markov/db';
 import { createSilentLogger } from '@markov/observability';
 import {
@@ -103,6 +108,31 @@ describe.skipIf(adminUrl === null || temporalAddress === null)(
             database: { ok: true },
             requestedBy: 'worker-test',
           });
+          // The durable reconciliation loop (B10): a bounded run over an empty attempt set reports
+          // rounds and no attempts; the boot-started singleton for this queue is already running.
+          const reconciliation = await temporal.workflow.execute<
+            (input: {
+              requestedBy: string;
+              rounds: number;
+              intervalSeconds: number;
+              batchSize: number;
+            }) => Promise<ExecutionReconciliationReport>
+          >(EXECUTION_RECONCILIATION_WORKFLOW_TYPE, {
+            taskQueue,
+            workflowId: `execution-reconciliation-test-${randomUUID()}`,
+            args: [{ requestedBy: 'worker-test', rounds: 2, intervalSeconds: 1, batchSize: 10 }],
+            workflowExecutionTimeout: '60 seconds',
+          });
+          expect(reconciliation).toMatchObject({
+            requestedBy: 'worker-test',
+            rounds: 2,
+            attemptsSeen: 0,
+            settled: 0,
+          });
+          expect(reconciliation.lastRound?.attempts).toBe(0);
+          const singleton = temporal.workflow.getHandle(`execution-reconciliation:${taskQueue}`);
+          expect((await singleton.describe()).status.name).toBe('RUNNING');
+          await singleton.terminate('worker test finished');
         } finally {
           await connection.close();
           booted.shutdown();

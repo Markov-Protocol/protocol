@@ -1,6 +1,6 @@
 import type { SolanaCluster } from '@markov/contracts';
+import { bytesToHex } from '@markov/solana-codec';
 import { compareRecordToVersion, type VersionBinding } from './binding.js';
-import { bytesToHex } from './bytes.js';
 import { explorerUrl } from './explorer.js';
 import { decodeVersionRecord, RECORD_STATUSES, type VersionRecord } from './layout.js';
 import { registryErrorName } from './rules.js';

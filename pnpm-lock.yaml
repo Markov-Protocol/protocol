@@ -62,6 +62,9 @@ importers:
       '@markov/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@markov/execution':
+        specifier: workspace:*
+        version: link:../../packages/execution
       '@markov/issuer-prestocks':
         specifier: workspace:*
         version: link:../../packages/issuer-prestocks
@@ -83,6 +86,9 @@ importers:
       '@markov/research':
         specifier: workspace:*
         version: link:../../packages/research
+      '@markov/solana-codec':
+        specifier: workspace:*
+        version: link:../../packages/solana-codec
       '@markov/solana-rpc':
         specifier: workspace:*
         version: link:../../packages/solana-rpc
@@ -273,9 +279,15 @@ importers:
       '@markov/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@markov/execution':
+        specifier: workspace:*
+        version: link:../../packages/execution
       '@markov/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@markov/solana-rpc':
+        specifier: workspace:*
+        version: link:../../packages/solana-rpc
       '@temporalio/activity':
         specifier: 1.24.0
         version: 1.24.0
@@ -375,6 +387,18 @@ importers:
         specifier: 0.31.11
         version: 0.31.11
 
+  packages/execution:
+    dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@markov/planning':
+        specifier: workspace:*
+        version: link:../planning
+      '@markov/solana-codec':
+        specifier: workspace:*
+        version: link:../solana-codec
+
   packages/formatters:
     dependencies:
       '@markov/contracts':
@@ -462,11 +486,20 @@ importers:
       '@markov/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@markov/solana-codec':
+        specifier: workspace:*
+        version: link:../solana-codec
       '@markov/solana-rpc':
         specifier: workspace:*
         version: link:../solana-rpc
 
   packages/research:
+    dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+  packages/solana-codec:
     dependencies:
       '@markov/contracts':
         specifier: workspace:*
@@ -558,6 +591,9 @@ importers:
       '@markov/planning':
         specifier: workspace:*
         version: link:../planning
+      '@markov/solana-codec':
+        specifier: workspace:*
+        version: link:../solana-codec
 
 packages:
 

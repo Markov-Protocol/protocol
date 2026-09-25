@@ -8,6 +8,7 @@
 export * from './capabilities.js';
 export * from './catalog-store.js';
 export * from './client.js';
+export * from './execution-store.js';
 export * from './follow-store.js';
 export * from './identity.js';
 export * from './identity-store.js';

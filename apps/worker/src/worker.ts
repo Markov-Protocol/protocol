@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { MarkovConfig } from '@markov/config';
 import type { DbClient } from '@markov/db';
 import type { Logger } from '@markov/observability';
+import { SolanaRpcClient } from '@markov/solana-rpc';
 import {
   DefaultLogger,
   type LogEntry,
@@ -124,6 +125,12 @@ export async function createPlatformWorker(
       config: options.config,
       dbClient: options.dbClient,
       genesisHash: options.genesisHash,
+      rpc: new SolanaRpcClient({
+        url: options.config.solana.rpc.primaryUrl,
+        timeoutMs: options.config.solana.rpc.timeoutMs,
+        maxResponseBytes: options.config.solana.rpc.maxResponseBytes,
+      }),
+      logger: options.logger,
     }),
     shutdownGraceTime: `${options.config.shutdownTimeoutMs} ms`,
   });

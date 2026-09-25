@@ -1,0 +1,25 @@
+{
+  "name": "@markov/solana-codec",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@markov/contracts": "workspace:*"
+  },
+  "devDependencies": {},
+  "description": "SDK-free Solana primitives: byte helpers, public keys and program-derived addresses, SPL token account and associated-token-address derivation, legacy and versioned message and transaction codecs with Ed25519 verification, and the in-memory fixture chain that executes registered program semantics for tests"
+}

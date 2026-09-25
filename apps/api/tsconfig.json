@@ -26,6 +26,9 @@
       "path": "../../packages/db"
     },
     {
+      "path": "../../packages/execution"
+    },
+    {
       "path": "../../packages/issuer-prestocks"
     },
     {
@@ -42,6 +45,9 @@
     },
     {
       "path": "../../packages/research"
+    },
+    {
+      "path": "../../packages/solana-codec"
     },
     {
       "path": "../../packages/solana-rpc"

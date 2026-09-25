@@ -9,6 +9,7 @@ import { createSilentLogger } from '@markov/observability';
 import { buildApp } from '../app.js';
 import type { IdentityService } from '../auth/service.js';
 import type { CatalogService } from '../catalog/service.js';
+import type { ExecutionService } from '../execution/service.js';
 import type { FollowService } from '../follows/service.js';
 import type { FundingService } from '../funding/service.js';
 import type { PlanningService } from '../planning/service.js';
@@ -69,6 +70,11 @@ const unavailablePlanning = new Proxy({} as PlanningService, {
     throw new Error('planning service is unavailable in export mode');
   },
 });
+const unavailableExecution = new Proxy({} as ExecutionService, {
+  get: () => () => {
+    throw new Error('execution service is unavailable in export mode');
+  },
+});
 
 async function generate(): Promise<string> {
   const config = loadConfig({
@@ -109,6 +115,7 @@ async function generate(): Promise<string> {
     registry: unavailableRegistry,
     follows: unavailableFollows,
     planning: unavailablePlanning,
+    execution: unavailableExecution,
     mintTestToken: null,
   });
   await app.ready();

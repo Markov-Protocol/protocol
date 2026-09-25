@@ -62,8 +62,12 @@ describe('fixture venue', () => {
     await expect(venue.quote({ ...request, outputMint: DRIFT })).rejects.toMatchObject({
       kind: 'unsupported_mint',
     });
+    // A sell (instrument in, stablecoin out) is routed; an unpriced instrument is not.
+    const sell = await venue.quote({ ...request, inputMint: AERO, outputMint: USDC });
+    expect(sell.inputMint).toBe(AERO);
+    expect(BigInt(sell.outAmountRaw) > 0n).toBe(true);
     await expect(
-      venue.quote({ ...request, inputMint: AERO, outputMint: USDC }),
+      venue.quote({ ...request, inputMint: DRIFT, outputMint: USDC }),
     ).rejects.toMatchObject({ kind: 'unsupported_mint' });
     await expect(venue.quote({ ...request, inAmountRaw: '999999' })).rejects.toMatchObject({
       kind: 'no_route',

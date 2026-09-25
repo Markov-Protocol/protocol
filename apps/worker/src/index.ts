@@ -6,4 +6,5 @@
  */
 export * from './activities.js';
 export * from './boot.js';
+export * from './reconciliation.js';
 export * from './worker.js';

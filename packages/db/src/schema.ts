@@ -1,13 +1,16 @@
 import {
+  ATTEMPT_STATES,
   BUDGET_MODES,
   CAPABILITY_STATUSES,
   type CatalogPrice,
   CORPORATE_ACTION_STATUSES,
   CORPORATE_ACTION_TYPES,
   type CorporateActionDetails,
+  type DecodedInstruction,
   type Disclosures,
   ELIGIBILITY_CAPABILITIES,
   ELIGIBILITY_OUTCOMES,
+  EXECUTION_EVENT_KINDS,
   type ExecutionPlan,
   type ExtensionAssessment,
   type FrozenLeg,
@@ -29,6 +32,7 @@ import {
   type OnChainMint,
   type OwnerLimits,
   PLAN_MODES,
+  PLAN_SIDES,
   PLAN_STATUSES,
   type PolicyDenial,
   PUBLICATION_LIFECYCLE,
@@ -42,6 +46,7 @@ import {
   type RegistryRecord,
   type ResearchSubject,
   RUN_STATUSES,
+  type SimulationEvidence,
   SNAPSHOT_KINDS,
   SNAPSHOT_STATUSES,
   SOURCE_ROLES,
@@ -52,6 +57,8 @@ import {
   THESIS_VISIBILITIES,
   type ThesisStatement,
   TOKEN_PROGRAMS,
+  TRANSACTION_VERSIONS,
+  type TransactionEffects,
   VENUE_QUOTE_MODES,
   type VenueQuote,
 } from '@markov/contracts';
@@ -1174,5 +1181,175 @@ export const venueQuotes = pgTable(
   (table) => [
     index('venue_quotes_intent_idx').on(table.intentId, table.createdAt),
     enumCheck('venue_quotes_mode_check', table.mode, VENUE_QUOTE_MODES),
+  ],
+);
+
+/* ------------------------------------------------------------ execution (B10) */
+
+/**
+ * A built, validated and simulated transaction for one batch of an approved
+ * plan. The unsigned bytes are stored exactly as validated; the approval and
+ * the owner's signature bind to `message_hash`. An older prepared transaction
+ * of the same index is superseded when a fresh blockhash is needed.
+ */
+export const preparedTransactions = pgTable(
+  'prepared_transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    intentId: uuid('intent_id')
+      .notNull()
+      .references(() => intents.id, { onDelete: 'cascade' }),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => executionPlans.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    transactionIndex: integer('transaction_index').notNull(),
+    batch: integer('batch').notNull(),
+    legIndexes: jsonb('leg_indexes').$type<number[]>().notNull(),
+    version: text('version').notNull(),
+    messageHash: text('message_hash').notNull(),
+    /** Base64 unsigned wire transaction: zeroed signature slots in front of the message. */
+    unsignedTransaction: text('unsigned_transaction').notNull(),
+    feePayer: text('fee_payer').notNull(),
+    expectedSigner: text('expected_signer').notNull(),
+    recentBlockhash: text('recent_blockhash').notNull(),
+    lastValidBlockHeight: bigint('last_valid_block_height', { mode: 'number' }).notNull(),
+    buildSource: text('build_source').notNull(),
+    instructions: jsonb('instructions').$type<DecodedInstruction[]>().notNull(),
+    effects: jsonb('effects').$type<TransactionEffects>().notNull(),
+    simulation: jsonb('simulation').$type<SimulationEvidence>().notNull(),
+    state: text('state').notNull().default('prepared'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('prepared_transactions_intent_idx').on(
+      table.intentId,
+      table.transactionIndex,
+      table.createdAt,
+    ),
+    index('prepared_transactions_hash_idx').on(table.messageHash),
+    enumCheck('prepared_transactions_state_check', table.state, ATTEMPT_STATES),
+    enumCheck('prepared_transactions_version_check', table.version, TRANSACTION_VERSIONS),
+  ],
+);
+
+/**
+ * One owner-signed submission of a prepared transaction. Persisted with its
+ * signature and signed bytes before any broadcast; the same bytes may be sent
+ * again while the blockhash is valid. At most one live attempt per intent.
+ */
+export const executionAttempts = pgTable(
+  'execution_attempts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    transactionId: uuid('transaction_id')
+      .notNull()
+      .references(() => preparedTransactions.id, { onDelete: 'cascade' }),
+    intentId: uuid('intent_id')
+      .notNull()
+      .references(() => intents.id, { onDelete: 'cascade' }),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => executionPlans.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    transactionIndex: integer('transaction_index').notNull(),
+    /** The base58 fee-payer signature: the transaction id on chain. */
+    signature: text('signature').notNull(),
+    /** Base64 signed wire transaction, kept for safe resends; never logged. */
+    signedTransaction: text('signed_transaction').notNull(),
+    messageHash: text('message_hash').notNull(),
+    state: text('state').notNull(),
+    reason: text('reason'),
+    /** The policy spend reservation taken at submission, released or consumed with the outcome. */
+    reservationId: uuid('reservation_id'),
+    lastValidBlockHeight: bigint('last_valid_block_height', { mode: 'number' }).notNull(),
+    submittedAt: timestamp('submitted_at', { withTimezone: true, mode: 'date' }),
+    lastSentAt: timestamp('last_sent_at', { withTimezone: true, mode: 'date' }),
+    lastCheckedAt: timestamp('last_checked_at', { withTimezone: true, mode: 'date' }),
+    confirmationStatus: text('confirmation_status'),
+    slot: bigint('slot', { mode: 'number' }),
+    resendCount: integer('resend_count').notNull().default(0),
+    chainError: text('chain_error'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('execution_attempts_signature_unique').on(table.signature),
+    uniqueIndex('execution_attempts_live_unique')
+      .on(table.intentId)
+      .where(sql`"state" IN ('submitting', 'submitted', 'confirmed', 'unknown')`),
+    index('execution_attempts_intent_idx').on(table.intentId, table.createdAt),
+    index('execution_attempts_state_idx').on(table.state, table.updatedAt),
+    enumCheck('execution_attempts_state_check', table.state, ATTEMPT_STATES),
+  ],
+);
+
+/** Observed settlement of one leg from the landed transaction's own balance changes. */
+export const executionFills = pgTable(
+  'execution_fills',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    intentId: uuid('intent_id')
+      .notNull()
+      .references(() => intents.id, { onDelete: 'cascade' }),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => executionPlans.id, { onDelete: 'cascade' }),
+    attemptId: uuid('attempt_id')
+      .notNull()
+      .references(() => executionAttempts.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    legIndex: integer('leg_index').notNull(),
+    signature: text('signature').notNull(),
+    slot: bigint('slot', { mode: 'number' }).notNull(),
+    blockTime: timestamp('block_time', { withTimezone: true, mode: 'date' }),
+    side: text('side').notNull(),
+    inputMint: text('input_mint').notNull(),
+    outputMint: text('output_mint').notNull(),
+    inputSpentRaw: text('input_spent_raw').notNull(),
+    outputReceivedRaw: text('output_received_raw').notNull(),
+    feeLamports: text('fee_lamports').notNull(),
+    lamportsSpent: text('lamports_spent').notNull(),
+    withinBounds: boolean('within_bounds').notNull(),
+    source: text('source').notNull().default('transaction_meta'),
+    observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('execution_fills_signature_leg_unique').on(table.signature, table.legIndex),
+    index('execution_fills_intent_idx').on(table.intentId, table.createdAt),
+    enumCheck('execution_fills_side_check', table.side, PLAN_SIDES),
+  ],
+);
+
+/**
+ * Transactional outbox: events written in the same database transaction as
+ * the state they announce, published by a worker later. Nothing here is a
+ * message to a person; consumers arrive with the maintenance and companion
+ * sessions.
+ */
+export const outboxEvents = pgTable(
+  'outbox_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: text('kind').notNull(),
+    aggregateType: text('aggregate_type').notNull(),
+    aggregateId: uuid('aggregate_id').notNull(),
+    ownerUserId: uuid('owner_user_id').references(() => users.id, { onDelete: 'cascade' }),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('outbox_events_pending_idx').on(table.publishedAt, table.createdAt),
+    index('outbox_events_aggregate_idx').on(table.aggregateType, table.aggregateId),
+    enumCheck('outbox_events_kind_check', table.kind, EXECUTION_EVENT_KINDS),
   ],
 );

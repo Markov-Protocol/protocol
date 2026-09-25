@@ -1,4 +1,4 @@
-import type { ExecutionPlan, IntentKind, PlanMode, VenueQuote } from '@markov/contracts';
+import type { ExecutionPlan, IntentKind, PlanMode, PlanSide, VenueQuote } from '@markov/contracts';
 import type { Allocation } from './allocate.js';
 import { canonicalJson, sha256Hex } from './canonical.js';
 import {
@@ -20,6 +20,7 @@ export interface PlanLegInput {
   readonly tokenProgram: ExecutionPlan['legs'][number]['tokenProgram'];
   readonly decimals: number;
   readonly weightBps: number;
+  /** Raw units of the leg's input: the stablecoin for buys, the instrument for a sell. */
   readonly targetInputRaw: bigint;
   readonly quote: VenueQuote;
   readonly policyDecision: {
@@ -33,6 +34,8 @@ export interface PlanAssemblyInput {
   readonly planId: string;
   readonly intentId: string;
   readonly kind: IntentKind;
+  /** Buys spend the stablecoin for the constituents; a sell spends the instrument for the stablecoin. */
+  readonly side: PlanSide;
   readonly mode: PlanMode;
   readonly network: ExecutionPlan['network'];
   readonly wallet: ExecutionPlan['wallet'];
@@ -43,6 +46,12 @@ export interface PlanAssemblyInput {
     readonly decimals: number;
     readonly budgetRaw: bigint;
     readonly budgetMode: ExecutionPlan['input']['budgetMode'];
+  };
+  /** The platform stablecoin: what buys spend and what a sell receives. */
+  readonly stablecoin: {
+    readonly mint: string;
+    readonly symbol: string;
+    readonly decimals: number;
   };
   readonly allocation: Allocation;
   readonly legs: readonly PlanLegInput[];
@@ -56,6 +65,8 @@ export interface PlanAssemblyInput {
     readonly observedAt: string;
     readonly slot: number;
     readonly stablecoinRaw: bigint;
+    /** The wallet's balance of the plan's input asset (equals `stablecoinRaw` for buys). */
+    readonly inputRaw: bigint;
     readonly lamports: bigint;
   };
   readonly evidence: {
@@ -85,6 +96,9 @@ function latest(instants: readonly string[]): string {
  */
 export function assemblePlan(input: PlanAssemblyInput): ExecutionPlan {
   const staged = input.legs.length > 1;
+  if (input.side === 'sell' && staged) {
+    throw new Error('a sell plan has exactly one leg');
+  }
   const legs: ExecutionPlan['legs'] = input.legs.map((leg, index) => ({
     legIndex: index,
     instrumentId: leg.instrumentId,
@@ -93,9 +107,14 @@ export function assemblePlan(input: PlanAssemblyInput): ExecutionPlan {
     mint: leg.mint,
     tokenProgram: leg.tokenProgram,
     decimals: leg.decimals,
-    side: 'buy',
+    side: input.side,
     weightBps: leg.weightBps,
-    inputMint: input.input.mint,
+    inputMint: input.side === 'buy' ? input.stablecoin.mint : leg.mint,
+    inputSymbol: input.side === 'buy' ? input.stablecoin.symbol : leg.symbol,
+    inputDecimals: input.side === 'buy' ? input.stablecoin.decimals : leg.decimals,
+    outputMint: input.side === 'buy' ? leg.mint : input.stablecoin.mint,
+    outputSymbol: input.side === 'buy' ? leg.symbol : input.stablecoin.symbol,
+    outputDecimals: input.side === 'buy' ? leg.decimals : input.stablecoin.decimals,
     targetInputRaw: str(leg.targetInputRaw),
     maxInputRaw: leg.quote.inAmountRaw,
     expectedOutputRaw: leg.quote.outAmountRaw,
@@ -141,7 +160,10 @@ export function assemblePlan(input: PlanAssemblyInput): ExecutionPlan {
         {
           batch: 0,
           legIndexes: legs.map((leg) => leg.legIndex),
-          description: `One transaction buying ${legs.map((leg) => leg.symbol).join(', ')}`,
+          description:
+            input.side === 'sell'
+              ? `One transaction selling at most ${legs[0]?.maxInputRaw ?? '0'} raw ${input.input.symbol} of ${legs.map((leg) => leg.symbol).join(', ')} for at least ${legs[0]?.minimumOutputRaw ?? '0'} raw ${input.stablecoin.symbol}`
+              : `One transaction buying ${legs.map((leg) => leg.symbol).join(', ')}`,
           worstCaseSpentRaw: str(maxTotalInputRaw),
           remainingCashRaw: str(totalSpendRaw - maxTotalInputRaw),
         },
@@ -152,11 +174,11 @@ export function assemblePlan(input: PlanAssemblyInput): ExecutionPlan {
   const policyExpiresAt = earliest(policyExpiries);
   const expiresAt = earliest([quotesExpireAt, policyExpiresAt]);
   const shortfalls: ExecutionPlan['funds']['shortfalls'] = [];
-  if (input.funds.stablecoinRaw < totalSpendRaw) {
+  if (input.funds.inputRaw < totalSpendRaw) {
     shortfalls.push({
-      asset: 'stablecoin',
+      asset: input.side === 'sell' ? 'instrument' : 'stablecoin',
       requiredRaw: str(totalSpendRaw),
-      observedRaw: str(input.funds.stablecoinRaw),
+      observedRaw: str(input.funds.inputRaw),
     });
   }
   if (input.funds.lamports < network.totalLamportsMax) {
@@ -194,6 +216,7 @@ export function assemblePlan(input: PlanAssemblyInput): ExecutionPlan {
     schemaVersion: '1',
     intentId: input.intentId,
     kind: input.kind,
+    side: input.side,
     mode: input.mode,
     network: input.network,
     wallet: input.wallet,
@@ -286,6 +309,7 @@ export function assemblePlan(input: PlanAssemblyInput): ExecutionPlan {
       observedAt: input.funds.observedAt,
       slot: input.funds.slot,
       stablecoinRaw: str(input.funds.stablecoinRaw),
+      inputRaw: str(input.funds.inputRaw),
       lamports: str(input.funds.lamports),
       sufficient: shortfalls.length === 0,
       shortfalls,
@@ -304,6 +328,7 @@ export function planBinding(plan: Omit<ExecutionPlan, 'planHash'>): Record<strin
     schemaVersion: plan.schemaVersion,
     intentId: plan.intentId,
     kind: plan.kind,
+    side: plan.side,
     mode: plan.mode,
     network: plan.network,
     walletAddress: plan.wallet.address,
@@ -317,7 +342,9 @@ export function planBinding(plan: Omit<ExecutionPlan, 'planHash'>): Record<strin
       instrumentId: leg.instrumentId,
       mint: leg.mint,
       tokenProgram: leg.tokenProgram,
+      side: leg.side,
       inputMint: leg.inputMint,
+      outputMint: leg.outputMint,
       targetInputRaw: leg.targetInputRaw,
       maxInputRaw: leg.maxInputRaw,
       expectedOutputRaw: leg.expectedOutputRaw,
