@@ -1,0 +1,27 @@
+{
+  "name": "@markov/agent-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@markov/contracts": "workspace:*",
+    "@markov/research": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {},
+  "description": "Pure agent tool rules: the typed tool catalog with its scope matrix, input validation, canonical digests and redacted provenance summaries, budget accounting, denial explanations and the bounded companion model adapter contract with its fixture"
+}

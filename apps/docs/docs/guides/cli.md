@@ -188,6 +188,25 @@ once it is registered and moves only when the follower pins it. Hiding a
 version is a recorded listing decision; the chain record stays readable
 ([discovery](../reference/markov/discovery.md)).
 
+## Agent tools, companion runs and proposals
+
+```bash
+markov agent tools --token "$AGENT" --url $URL                       # the tools this credential may call
+markov agent call instruments.search --input '{"q":"aero"}' --token "$AGENT" --url $URL
+markov agent call policy.explain --input '{"instrumentId":"<id>","side":"buy","notionalUsdcRaw":"100000000"}' --token "$AGENT" --url $URL
+markov agent call investment.propose --input '{"strategyVersionId":"<versionId>","walletId":"<walletId>","budget":{"rawAmount":"1000000000"}}' --token "$AGENT" --url $URL
+markov companion ask "Compare the aerospace exposures." --instrument <id> --token "$SESSION" --url $URL
+markov proposals list --token "$SESSION" --url $URL
+markov proposals open <proposalId> --token "$SESSION" --url $URL      # the owner only; an investment proposal becomes an intent
+markov events --after 0 --token "$SESSION" --url $URL
+```
+
+A tool runs with the caller's own scopes and refuses unknown or widened
+arguments; a companion run records every call the model asked for and
+its outcome in redacted provenance; a proposal waits for the owner's own
+session and opens into the same review as a manual action
+([agents](../reference/markov/agents.md)).
+
 ## Database and operations
 
 ```bash

@@ -7,11 +7,13 @@ import type {
 } from '@markov/contracts';
 import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Database } from './client.js';
+import { transitionIntent } from './planning-store.js';
 import {
   executionAttempts,
   executionFills,
   executionPlans,
   intents,
+  markEvents,
   outboxEvents,
   preparedTransactions,
   spendReservations,
@@ -270,6 +272,20 @@ export async function beginSubmission(
         messageHash: input.messageHash,
       },
       createdAt: input.now,
+    });
+    // The owner's Mark I event (B15), in the same transaction as the attempt it announces.
+    await tx.insert(markEvents).values({
+      ownerUserId: input.ownerUserId,
+      kind: 'execution.pending',
+      subjectType: 'intent',
+      subjectId: input.intentId,
+      payload: {
+        intentId: input.intentId,
+        attemptId: attempt.id,
+        transactionIndex: input.transactionIndex,
+        signature: input.signature,
+      },
+      occurredAt: input.now,
     });
     return { kind: 'begun', attempt };
   });
@@ -642,17 +658,20 @@ export function createExecutionStorePort(db: Database) {
     },
     async transitionIntent(input: {
       readonly intentId: string;
-      readonly from: readonly string[];
-      readonly to: string;
+      readonly from: readonly IntentState[];
+      readonly to: IntentState;
       readonly reason: string | null;
       readonly now: Date;
     }): Promise<boolean> {
-      const rows = await db
-        .update(intents)
-        .set({ state: input.to, stateReason: input.reason, updatedAt: input.now })
-        .where(and(eq(intents.id, input.intentId), inArray(intents.state, [...input.from])))
-        .returning({ id: intents.id });
-      return rows.length > 0;
+      // The one guarded transition (planning-store): a terminal state also records the owner's event.
+      const row = await transitionIntent(db, {
+        intentId: input.intentId,
+        from: input.from,
+        to: input.to,
+        reason: input.reason,
+        now: input.now,
+      });
+      return row !== null;
     },
     recordFill(fill: NewFill): Promise<boolean> {
       return insertFill(db, fill);

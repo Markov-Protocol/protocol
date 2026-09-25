@@ -1,5 +1,6 @@
 import { createPrivateKey } from 'node:crypto';
 import type { ReceiptSigner } from '@markov/accounting';
+import { createFixtureCompanionAdapter } from '@markov/agent-tools';
 import {
   createIdentityVerifier,
   createTestIdentityIssuer,
@@ -20,6 +21,7 @@ import { signerFromPrivateKey } from '@markov/solana-codec';
 import { SolanaRpcClient } from '@markov/solana-rpc';
 import { createConfiguredUrlVenue, createFixtureVenue } from '@markov/venue-jupiter';
 import { createAccountingService } from './accounting/service.js';
+import { createAgentService } from './agents/service.js';
 import { createAnalyticsService } from './analytics/service.js';
 import { type ApiProbes, buildApp, type MarkovApi } from './app.js';
 import { createIdentityService } from './auth/service.js';
@@ -369,6 +371,24 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
   }
 
   const analyticsService = createAnalyticsService({ config, db: dbClient.db });
+  const strategyService = createStrategyService({
+    config,
+    db: dbClient.db,
+    genesisHash: expectedGenesisHash,
+  });
+  const planningService = createPlanningService({
+    config,
+    db: dbClient.db,
+    catalog: catalogService,
+    policy: policyService,
+    funding: fundingService,
+    venue,
+    rpcClients: clients,
+    genesisHash: expectedGenesisHash,
+  });
+  if (config.companion.modelProvider === null) {
+    logger.info('no companion model provider is configured; companion runs answer 503');
+  }
   const app = await buildApp({
     config,
     logger,
@@ -382,11 +402,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     funding: fundingService,
     research: researchService,
     watchlists: createWatchlistService({ db: dbClient.db, catalog: catalogService }),
-    strategies: createStrategyService({
-      config,
-      db: dbClient.db,
-      genesisHash: expectedGenesisHash,
-    }),
+    strategies: strategyService,
     registry: createRegistryService({
       config,
       db: dbClient.db,
@@ -394,16 +410,7 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
       rpcClients: clients,
     }),
     follows: createFollowService({ db: dbClient.db }),
-    planning: createPlanningService({
-      config,
-      db: dbClient.db,
-      catalog: catalogService,
-      policy: policyService,
-      funding: fundingService,
-      venue,
-      rpcClients: clients,
-      genesisHash: expectedGenesisHash,
-    }),
+    planning: planningService,
     execution: createExecutionService({
       config,
       db: dbClient.db,
@@ -415,6 +422,19 @@ export async function bootApi(options: BootOptions = {}): Promise<BootedApi> {
     accounting: accountingService,
     analytics: analyticsService,
     discovery: createDiscoveryService({ db: dbClient.db, analytics: analyticsService }),
+    agents: createAgentService({
+      config,
+      db: dbClient.db,
+      catalog: catalogService,
+      research: researchService,
+      strategies: strategyService,
+      planning: planningService,
+      policy: policyService,
+      funding: fundingService,
+      accounting: accountingService,
+      analytics: analyticsService,
+      model: config.companion.modelProvider === 'fixture' ? createFixtureCompanionAdapter() : null,
+    }),
     mintTestToken,
   });
 

@@ -3063,5 +3063,268 @@ export function buildProgram(io: CliIo = stdio): Command {
       },
     );
 
+  const agent = program
+    .command('agent')
+    .description(
+      'typed agent tools: the catalog a credential may call and one call per tool, with the caller’s own authority (B15)',
+    );
+  agent
+    .command('tools')
+    .description('the tools this credential may call, with their JSON Schemas and required scopes')
+    .requiredOption('--token <token>', 'user session or agent credential')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(json(await apiCall(options.url, 'GET', '/v1/agent/tools', undefined, options.token)));
+    });
+  agent
+    .command('call <tool>')
+    .description(
+      'invoke one tool, for example instruments.search or investment.propose; the input is JSON validated against the tool schema',
+    )
+    .option('--input <json>', 'the tool input as a JSON object', '{}')
+    .requiredOption('--token <token>', 'user session or agent credential holding the tool’s scopes')
+    .option(...apiUrlOption)
+    .action(async (tool: string, options: { input: string; token: string; url: string }) => {
+      let input: unknown;
+      try {
+        input = JSON.parse(options.input);
+      } catch {
+        throw new CliExit('--input must be a JSON object', 2);
+      }
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/agent/tools/${encodeURIComponent(tool)}`,
+            input,
+            options.token,
+          ),
+        ),
+      );
+    });
+
+  const companionCommand = program
+    .command('companion')
+    .description(
+      'bounded companion runs: a model drives the caller’s tools under a budget; every call is validated and recorded (B15)',
+    );
+  companionCommand
+    .command('ask <question>')
+    .description(
+      'run the companion; the answer is text to review and anything to act on is a proposal',
+    )
+    .option(
+      '--thesis <thesisId>',
+      'a thesis you own: title, claim and fetched excerpts are shown to the model',
+    )
+    .option(
+      '--instance <instanceId>',
+      'an instance you own: its label and pinned version are shown',
+    )
+    .option('--strategy <strategyId>', 'a strategy you own')
+    .option('--instrument <instrumentId...>', 'public instruments to show (at most 6)')
+    .option('--max-tool-calls <n>', 'tool-call budget (0..12)', '6')
+    .option('--max-chars <n>', 'answer budget in characters (200..4000)', '1500')
+    .option('--max-cost-micros <n>', 'cost budget in micros', '200000')
+    .requiredOption('--token <token>', 'user session or agent credential (research:read at least)')
+    .option(...apiUrlOption)
+    .action(
+      async (
+        question: string,
+        options: {
+          thesis?: string;
+          instance?: string;
+          strategy?: string;
+          instrument?: string[];
+          maxToolCalls: string;
+          maxChars: string;
+          maxCostMicros: string;
+          token: string;
+          url: string;
+        },
+      ) => {
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'POST',
+              '/v1/me/companion/runs',
+              {
+                question,
+                context: {
+                  thesisId: options.thesis ?? null,
+                  instanceId: options.instance ?? null,
+                  strategyId: options.strategy ?? null,
+                  instrumentIds: options.instrument ?? [],
+                },
+                budget: {
+                  maxToolCalls: Number.parseInt(options.maxToolCalls, 10),
+                  maxOutputChars: Number.parseInt(options.maxChars, 10),
+                  maxCostMicros: Number.parseInt(options.maxCostMicros, 10),
+                },
+              },
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+  companionCommand
+    .command('runs')
+    .description('your companion runs, newest first')
+    .requiredOption('--token <token>', 'user session or agent credential (research:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { token: string; url: string }) => {
+      io.out(
+        json(await apiCall(options.url, 'GET', '/v1/me/companion/runs', undefined, options.token)),
+      );
+    });
+  companionCommand
+    .command('run <runId>')
+    .description('status, redacted provenance and validated output of one run')
+    .requiredOption('--token <token>', 'user session or agent credential (research:read)')
+    .option(...apiUrlOption)
+    .action(async (runId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/companion/runs/${encodeURIComponent(runId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  companionCommand
+    .command('cancel <runId>')
+    .description('cancel a queued or running run; a finished run is unchanged')
+    .requiredOption('--token <token>', 'user session or agent credential (research:read)')
+    .option(...apiUrlOption)
+    .action(async (runId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/me/companion/runs/${encodeURIComponent(runId)}/cancel`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+
+  const proposals = program
+    .command('proposals')
+    .description(
+      'proposals created by tools or the companion; only the owner’s own session opens or dismisses one (B15)',
+    );
+  proposals
+    .command('list')
+    .option('--status <status>', 'proposed | opened | dismissed | expired')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (options: { status?: string; token: string; url: string }) => {
+      const query = options.status ? `?status=${encodeURIComponent(options.status)}` : '';
+      io.out(
+        json(
+          await apiCall(options.url, 'GET', `/v1/me/proposals${query}`, undefined, options.token),
+        ),
+      );
+    });
+  proposals
+    .command('show <proposalId>')
+    .requiredOption('--token <token>', 'user session or agent credential (portfolio:read)')
+    .option(...apiUrlOption)
+    .action(async (proposalId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'GET',
+            `/v1/me/proposals/${encodeURIComponent(proposalId)}`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  proposals
+    .command('open <proposalId>')
+    .description(
+      'open a proposal as the owner: an investment proposal becomes an ordinary intent that still needs a plan, your acknowledgement and your wallet signature',
+    )
+    .requiredOption('--token <token>', 'user session (agents are refused)')
+    .option(...apiUrlOption)
+    .action(async (proposalId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/me/proposals/${encodeURIComponent(proposalId)}/open`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+  proposals
+    .command('dismiss <proposalId>')
+    .requiredOption('--token <token>', 'user session (agents are refused)')
+    .option(...apiUrlOption)
+    .action(async (proposalId: string, options: { token: string; url: string }) => {
+      io.out(
+        json(
+          await apiCall(
+            options.url,
+            'POST',
+            `/v1/me/proposals/${encodeURIComponent(proposalId)}/dismiss`,
+            undefined,
+            options.token,
+          ),
+        ),
+      );
+    });
+
+  program
+    .command('events')
+    .description(
+      'the owner’s Mark I event log (proposal.created, review.required, execution.*, data.stale, device.revoked), resumable by sequence (B15)',
+    )
+    .option('--after <seq>', 'events after this sequence', '0')
+    .option('--limit <n>', 'at most this many (100)', '50')
+    .option('--kind <kind>', 'one event kind')
+    .requiredOption('--token <token>', 'user session or paired device (status:read)')
+    .option(...apiUrlOption)
+    .action(
+      async (options: {
+        after: string;
+        limit: string;
+        kind?: string;
+        token: string;
+        url: string;
+      }) => {
+        const query = new URLSearchParams({ after: options.after, limit: options.limit });
+        if (options.kind) {
+          query.set('kind', options.kind);
+        }
+        io.out(
+          json(
+            await apiCall(
+              options.url,
+              'GET',
+              `/v1/me/events?${query.toString()}`,
+              undefined,
+              options.token,
+            ),
+          ),
+        );
+      },
+    );
+
   return program;
 }

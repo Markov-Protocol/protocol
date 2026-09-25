@@ -581,6 +581,33 @@ export async function recordPolicyDecision(
   return one(rows, 'policy decision insert');
 }
 
+/** One of the user's own decisions; another user's is indistinguishable from a missing one. */
+export async function findPolicyDecision(
+  db: Database,
+  userId: string,
+  decisionId: string,
+): Promise<PolicyDecisionRow | null> {
+  const rows = await db
+    .select()
+    .from(policyDecisions)
+    .where(and(eq(policyDecisions.id, decisionId), eq(policyDecisions.userId, userId)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function findReservationById(
+  db: Database,
+  userId: string,
+  reservationId: string,
+): Promise<SpendReservationRow | null> {
+  const rows = await db
+    .select()
+    .from(spendReservations)
+    .where(and(eq(spendReservations.id, reservationId), eq(spendReservations.userId, userId)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function listPolicyDecisions(
   db: Database,
   userId: string,

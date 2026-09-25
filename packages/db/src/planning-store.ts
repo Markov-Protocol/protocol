@@ -8,6 +8,7 @@ import type {
   VenueQuote,
 } from '@markov/contracts';
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { recordMarkEvent } from './agents-store.js';
 import type { Database } from './client.js';
 import { executionPlans, intents, venueQuotes } from './schema.js';
 
@@ -166,7 +167,12 @@ export interface IntentTransition {
   readonly now: Date;
 }
 
-/** Guarded state change: answers the updated row, or null when the intent was not in one of `from`. */
+/**
+ * Guarded state change: answers the updated row, or null when the intent
+ * was not in one of `from`. A terminal state also appends the owner's Mark I
+ * event (B15): finalized, or failed with the exact state, or a review
+ * request when the chain could not say.
+ */
 export async function transitionIntent(
   db: Database,
   input: IntentTransition,
@@ -186,7 +192,38 @@ export async function transitionIntent(
     })
     .where(and(eq(intents.id, input.intentId), inArray(intents.state, [...input.from])))
     .returning();
-  return rows[0] ?? null;
+  const row = rows[0] ?? null;
+  if (row !== null) {
+    const kind = eventKindOf(input.to);
+    if (kind !== null) {
+      await recordMarkEvent(db, {
+        ownerUserId: row.ownerUserId,
+        kind,
+        subject: { type: 'intent', id: row.id },
+        payload: { intentId: row.id, state: input.to, reason: input.reason, kind: row.kind },
+        now: input.now,
+      });
+    }
+  }
+  return row;
+}
+
+function eventKindOf(
+  state: IntentState,
+): 'execution.finalized' | 'execution.failed' | 'review.required' | null {
+  switch (state) {
+    case 'FINALIZED':
+      return 'execution.finalized';
+    case 'FAILED':
+    case 'EXPIRED':
+    case 'CANCELLED':
+    case 'PARTIALLY_COMPLETED':
+      return 'execution.failed';
+    case 'UNKNOWN_REQUIRES_RECONCILIATION':
+      return 'review.required';
+    default:
+      return null;
+  }
 }
 
 export interface NewPlan {

@@ -80,7 +80,10 @@ under the policy in `@markov/research`:
    comments and every tag removed, entities decoded, control characters
    and line separators dropped, whitespace collapsed; the excerpt is cut
    on a word boundary. Retrieved text is data: it never changes an
-   instruction and no tool exists for it to trigger.
+   instruction. The research model has no tools at all; the companion of
+   B15 has typed tools behind a validating layer that refuses whatever a
+   retrieved page asks for (`docs/markov/agents.md`, proven with the
+   fixture page `MALICIOUS_ANALYST_NOTE`).
 7. The retriever holds **no credentials** and sends none: no cookies, no
    authorization, a fixed `User-Agent`, `Accept-Encoding: identity`.
 
@@ -100,7 +103,10 @@ answer `PROVIDER_UNAVAILABLE`, everything else works) or `fixture`
 (deterministic, local/test only). The adapter contract
 (`ResearchModelAdapter`) receives a `ModelInput` and returns plain text
 and identifiers; it has no tools, no network of its own and no
-credentials. The service:
+credentials. The companion adapter of B15 (`CompanionModelAdapter`) is a
+separate contract whose only tools are the typed catalog of
+`docs/markov/agents.md`, each call validated and authorised outside the
+model. The service:
 
 1. Refuses source ids that are not fetched sources of the thesis.
 2. Builds the input from the current revision and hashes the exact prompt
@@ -113,7 +119,8 @@ credentials. The service:
    names that match a candidate are suggested, the rest are reported as
    `unmatchedCompanies`; everything else lands in `rejected`.
 4. Stores provenance (`provider`, `model`, `modelVersion`, `promptHash`,
-   `toolCalls` (always empty in V1), `budgetUsed`) and the validated
+   `toolCalls` (always empty for a research run; companion runs keep
+   theirs in their own redacted provenance, B15), `budgetUsed`) and the validated
    output. A run cancelled while running keeps `cancelled` and its result
    is dropped.
 

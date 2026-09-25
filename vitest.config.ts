@@ -39,6 +39,7 @@ export default defineConfig({
             'packages/accounting/test/**/*.test.ts',
             'packages/analytics/test/**/*.test.ts',
             'packages/research/test/**/*.test.ts',
+            'packages/agent-tools/test/**/*.test.ts',
             'packages/strategy/test/**/*.test.ts',
             'packages/solana-rpc/test/**/*.test.ts',
             'packages/testkit/test/**/*.test.ts',

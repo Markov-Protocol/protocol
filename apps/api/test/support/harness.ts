@@ -1,5 +1,6 @@
 import { createPrivateKey, generateKeyPairSync } from 'node:crypto';
 import type { ReceiptSigner } from '@markov/accounting';
+import { type CompanionModelAdapter, createFixtureCompanionAdapter } from '@markov/agent-tools';
 import { createIdentityVerifier, createTestIdentityIssuer, generateCredential } from '@markov/auth';
 import { loadConfig, type MarkovConfig } from '@markov/config';
 import {
@@ -18,7 +19,7 @@ import {
 } from '@markov/db';
 import { createPrestocksFixtureSource } from '@markov/issuer-prestocks';
 import { createXstocksFixtureSource } from '@markov/issuer-xstocks';
-import { createSilentLogger } from '@markov/observability';
+import { createLogger, createSilentLogger } from '@markov/observability';
 import type { VenueAdapter } from '@markov/planning';
 import { FIXTURE_JURISDICTION_RULE_SET, FIXTURE_TERMS_DOCUMENT } from '@markov/policy';
 import {
@@ -36,6 +37,7 @@ import { expect } from 'vitest';
 import {
   buildApp,
   createAccountingService,
+  createAgentService,
   createAnalyticsService,
   createCatalogService,
   createDiscoveryService,
@@ -47,11 +49,12 @@ import {
   createPolicyService,
   createProbes,
   createRegistryService,
+  createResearchService,
+  createRetriever,
   createStrategyService,
   type FollowService,
   type MarkovApi,
   type RegistryService,
-  type ResearchService,
   type WatchlistService,
 } from '../../src/index.js';
 import {
@@ -124,6 +127,16 @@ export interface HarnessOptions {
   readonly composeMaxLegs?: () => number | null;
   /** Test control: shifts every fixture quote's output by this many basis points (negative: worse). */
   readonly quoteShiftBps?: () => number;
+  /** Research service with the in-memory fixture retriever (theses, sources; no model unless `researchModel`). */
+  readonly research?: boolean;
+  /**
+   * Agent tools and companion runs (B15): the fixture companion adapter, or a test adapter, with
+   * an optional daily cost cap (COMPANION_DAILY_COST_LIMIT_MICROS).
+   */
+  readonly companion?: {
+    readonly adapter?: CompanionModelAdapter;
+    readonly dailyCostLimitMicros?: number;
+  };
 }
 
 export async function withHarness(
@@ -141,6 +154,18 @@ export async function withHarness(
         ...(options.venue === 'fixture' ? { EXECUTION_VENUE_PROVIDER: 'fixture' } : {}),
         ...(options.writes ? { EXECUTION_WRITES_ENABLED: 'true' } : {}),
         ...(options.registry ? { REGISTRY_PROGRAM_ID: FIXTURE_REGISTRY_PROGRAM_ID } : {}),
+        ...(options.companion
+          ? {
+              COMPANION_MODEL_PROVIDER: 'fixture',
+              ...(options.companion.dailyCostLimitMicros !== undefined
+                ? {
+                    COMPANION_DAILY_COST_LIMIT_MICROS: String(
+                      options.companion.dailyCostLimitMicros,
+                    ),
+                  }
+                : {}),
+            }
+          : {}),
         // Receipts (B12): a throwaway Ed25519 key per harness run; never a real key.
         RECEIPT_SIGNING_PROVIDER: 'local_key',
         RECEIPT_SIGNING_KEY: generateKeyPairSync('ed25519')
@@ -241,9 +266,46 @@ export async function withHarness(
         now,
       });
       const analytics = createAnalyticsService({ config, db: client.db, now });
+      // Research (fixture retriever, no model) and the agent service are part of every harness app:
+      // the event log every journey records is served by the agent service. The companion model
+      // adapter exists only when a test asks for one.
+      const research = createResearchService({
+        config,
+        db: client.db,
+        retriever: createRetriever({ fixtures: true }),
+        model: null,
+        now,
+      });
+      const strategies = createStrategyService({
+        config,
+        db: client.db,
+        genesisHash: GENESIS,
+        now,
+      });
+      const planning = createPlanningService({
+        config,
+        db: client.db,
+        catalog,
+        policy,
+        funding,
+        venue,
+        rpcClients: [rpc],
+        genesisHash: GENESIS,
+        now,
+      });
       const app = await buildApp({
         config,
-        logger: createSilentLogger(),
+        // Silent by default; MARKOV_TEST_LOG_ERRORS=1 prints unhandled errors while debugging a 500.
+        logger:
+          process.env['MARKOV_TEST_LOG_ERRORS'] === '1'
+            ? createLogger({
+                level: 'error',
+                format: 'json',
+                service: 'markov-api',
+                version: 'test',
+                markovEnv: 'test',
+              })
+            : createSilentLogger(),
         service: { name: 'markov-api', version: 'test', startedAt: Date.now() },
         probes: createProbes(config, client),
         network: {
@@ -260,9 +322,9 @@ export async function withHarness(
         catalog,
         policy,
         funding,
-        research: unavailable<ResearchService>('research'),
+        research,
         watchlists: unavailable<WatchlistService>('watchlist'),
-        strategies: createStrategyService({ config, db: client.db, genesisHash: GENESIS, now }),
+        strategies,
         registry: options.registry
           ? createRegistryService({
               config,
@@ -274,17 +336,7 @@ export async function withHarness(
         follows: options.registry
           ? createFollowService({ db: client.db, now })
           : unavailable<FollowService>('follows'),
-        planning: createPlanningService({
-          config,
-          db: client.db,
-          catalog,
-          policy,
-          funding,
-          venue,
-          rpcClients: [rpc],
-          genesisHash: GENESIS,
-          now,
-        }),
+        planning,
         execution: createExecutionService({
           config,
           db: client.db,
@@ -297,6 +349,22 @@ export async function withHarness(
         accounting,
         analytics,
         discovery: createDiscoveryService({ db: client.db, analytics, now }),
+        agents: createAgentService({
+          config,
+          db: client.db,
+          catalog,
+          research,
+          strategies,
+          planning,
+          policy,
+          funding,
+          accounting,
+          analytics,
+          model: options.companion
+            ? (options.companion.adapter ?? createFixtureCompanionAdapter())
+            : null,
+          now,
+        }),
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });
       await accounting.registerSigningKey();

@@ -392,3 +392,58 @@ export const rankingResponseSchema = z.object({
   note: z.string(),
 });
 export type RankingResponse = z.infer<typeof rankingResponseSchema>;
+
+/* ------------------------------------------------- allocation (B15) */
+
+/**
+ * Target versus actual allocation of an instance at a point in time: the
+ * pinned version's weights against the lots attributed to the instance,
+ * valued with the same price lookup and freshness rule as the series.
+ * Drift is reported only for rows whose value is known; an unpriced or
+ * stale leg leaves every actual weight unknown rather than guessed.
+ */
+export const allocationRowSchema = z.object({
+  /** Null for an attributed asset the pinned version does not name. */
+  instrumentId: idSchema.nullable(),
+  asset: priceAssetSchema,
+  symbol: z.string().max(32),
+  decimals: z.number().int().min(0).max(18),
+  /** Target weight of the whole portfolio (basis points); 0 for an asset outside the recipe. */
+  weightBps: z.number().int().min(0).max(10_000),
+  /** Target weight of the invested part (cash excluded), the basis drift is measured on. */
+  investedTargetBps: z.number().int().min(0).max(10_000),
+  attributedRaw: z.string().regex(/^-?\d+$/),
+  scaledQuantity: decimalStringSchema.nullable(),
+  price: pricePointSchema.nullable(),
+  value: decimalStringSchema.nullable(),
+  /** Share of the valued invested total, basis points; null while any row is unvalued. */
+  actualBps: z.number().int().min(0).max(10_000).nullable(),
+  /** actualBps − investedTargetBps; null while any row is unvalued. */
+  driftBps: z.number().int().min(-10_000).max(10_000).nullable(),
+  issues: z.array(valuationIssueSchema),
+  caveats: z.array(valuationCaveatCodeSchema),
+});
+export type AllocationRow = z.infer<typeof allocationRowSchema>;
+
+export const instanceAllocationSchema = z.object({
+  instanceId: idSchema,
+  walletId: idSchema,
+  strategyId: idSchema,
+  versionId: idSchema,
+  versionNumber: z.number().int().positive(),
+  cashWeightBps: z.number().int().min(0).max(10_000),
+  rows: z.array(allocationRowSchema),
+  currency: z.literal('USD'),
+  /** Sum of the valued rows; null while any row is unvalued. */
+  totalValue: decimalStringSchema.nullable(),
+  complete: z.boolean(),
+  /** True when a row was valued on a stale observation or could not be valued for lack of one. */
+  stale: z.boolean(),
+  largestDriftBps: z.number().int().min(0).max(10_000).nullable(),
+  /** The creator's suggested review threshold from the pinned version; null when none was set. */
+  driftThresholdBps: z.number().int().min(0).max(10_000).nullable(),
+  exceedsThreshold: z.boolean(),
+  asOf: z.iso.datetime(),
+  note: z.string().max(400),
+});
+export type InstanceAllocation = z.infer<typeof instanceAllocationSchema>;

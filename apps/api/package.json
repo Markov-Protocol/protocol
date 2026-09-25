@@ -25,6 +25,7 @@
     "@fastify/rate-limit": "11.2.0",
     "@fastify/swagger": "9.9.0",
     "@markov/accounting": "workspace:*",
+    "@markov/agent-tools": "workspace:*",
     "@markov/analytics": "workspace:*",
     "@markov/amounts": "workspace:*",
     "@markov/auth": "workspace:*",

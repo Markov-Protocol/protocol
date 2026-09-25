@@ -6,6 +6,11 @@ import {
   type CatalogPrice,
   CORPORATE_ACTION_STATUSES,
   CORPORATE_ACTION_TYPES,
+  type CompanionBudget,
+  type CompanionContext,
+  type CompanionOutput,
+  type CompanionProvenance,
+  type CompanionUsage,
   type CorporateActionDetails,
   type DecodedInstruction,
   type Disclosures,
@@ -31,6 +36,8 @@ import {
   JURISDICTION_EVIDENCE_KINDS,
   type JurisdictionRule,
   LOT_STATUSES,
+  MARK_EVENT_KINDS,
+  MARK_EVENT_SUBJECT_TYPES,
   type Maintenance,
   MINT_VERIFICATION_RESULTS,
   MODERATION_STATUSES,
@@ -43,6 +50,7 @@ import {
   PLAN_STATUSES,
   type PolicyDenial,
   PRICE_OBSERVATION_SOURCE_KINDS,
+  PROPOSAL_KINDS,
   PUBLICATION_LIFECYCLE,
   PUBLICATION_OPERATIONS,
   PUBLICATION_STATES,
@@ -1653,5 +1661,98 @@ export const moderationDecisions = pgTable(
     index('moderation_decisions_version_idx').on(table.versionId, table.decidedAt),
     enumCheck('moderation_decisions_status_check', table.status, MODERATION_STATUSES),
     enumCheck('moderation_decisions_previous_check', table.previousStatus, MODERATION_STATUSES),
+  ],
+);
+
+/* -------------------------------------------------------------------------
+ * Agents and companion (B15): bounded companion runs with redacted
+ * provenance, proposals that only the owner opens, and the owner's event
+ * log for the software and physical Mark I. Nothing here holds authority:
+ * a proposal is a request for the owner's review, an event is a fact.
+ * ------------------------------------------------------------------------- */
+
+export const companionRuns = pgTable(
+  'companion_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** `user:<id>` or `agent:<credential id>`: whose authority every tool call ran with. */
+    principal: text('principal').notNull(),
+    status: text('status').notNull().default('queued'),
+    question: text('question').notNull(),
+    context: jsonb('context').$type<CompanionContext>().notNull(),
+    budget: jsonb('budget').$type<CompanionBudget>().notNull(),
+    usage: jsonb('usage').$type<CompanionUsage>(),
+    /** Digests and summaries only; the prompt, the tool inputs and the model prose are never stored. */
+    provenance: jsonb('provenance').$type<CompanionProvenance>(),
+    output: jsonb('output').$type<CompanionOutput>(),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
+    finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('companion_runs_owner_idx').on(table.ownerUserId, table.createdAt),
+    enumCheck('companion_runs_status_check', table.status, RUN_STATUSES),
+  ],
+);
+
+/** Stored proposal statuses; `expired` is derived from `expires_at` on read. */
+export const STORED_PROPOSAL_STATUSES = ['proposed', 'opened', 'dismissed'] as const;
+
+export const agentProposals = pgTable(
+  'agent_proposals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id').references(() => companionRuns.id, { onDelete: 'set null' }),
+    createdBy: text('created_by').notNull(),
+    kind: text('kind').notNull(),
+    status: text('status').notNull().default('proposed'),
+    summary: text('summary').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    reviewNote: text('review_note').notNull(),
+    /** The intent the owner's open created (investment proposals). */
+    intentId: uuid('intent_id').references(() => intents.id),
+    openedAt: timestamp('opened_at', { withTimezone: true, mode: 'date' }),
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true, mode: 'date' }),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('agent_proposals_owner_idx').on(table.ownerUserId, table.createdAt),
+    index('agent_proposals_owner_status_idx').on(table.ownerUserId, table.status),
+    enumCheck('agent_proposals_kind_check', table.kind, PROPOSAL_KINDS),
+    enumCheck('agent_proposals_status_check', table.status, STORED_PROPOSAL_STATUSES),
+  ],
+);
+
+export const markEvents = pgTable(
+  'mark_events',
+  {
+    seq: bigserial('seq', { mode: 'number' }).primaryKey(),
+    id: uuid('id').notNull().defaultRandom(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    subjectType: text('subject_type').notNull(),
+    subjectId: text('subject_id').notNull(),
+    /** Secret-free identifiers and states. */
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+    occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('mark_events_id_unique').on(table.id),
+    index('mark_events_owner_seq_idx').on(table.ownerUserId, table.seq),
+    enumCheck('mark_events_kind_check', table.kind, MARK_EVENT_KINDS),
+    enumCheck('mark_events_subject_check', table.subjectType, MARK_EVENT_SUBJECT_TYPES),
   ],
 );

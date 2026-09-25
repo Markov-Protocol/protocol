@@ -260,6 +260,30 @@ describe('identity and credential configuration', () => {
     expect(() => loadConfig({ ...base, RESEARCH_MODEL_PROVIDER: 'openai' })).toThrow();
   });
 
+  it('allows the fixture companion model in local and test only and bounds the daily cost', () => {
+    expect(loadConfig(base).companion).toEqual({
+      modelProvider: null,
+      dailyCostLimitMicros: 5_000_000,
+    });
+    expect(
+      loadConfig({
+        ...base,
+        COMPANION_MODEL_PROVIDER: 'fixture',
+        COMPANION_DAILY_COST_LIMIT_MICROS: '1000',
+      }).companion,
+    ).toEqual({ modelProvider: 'fixture', dailyCostLimitMicros: 1000 });
+    const staging = tryLoadConfig({
+      ...base,
+      MARKOV_ENV: 'staging',
+      COMPANION_MODEL_PROVIDER: 'fixture',
+    });
+    expect(staging.ok).toBe(false);
+    if (!staging.ok) {
+      expect(staging.issues.map((issue) => issue.path)).toContain('COMPANION_MODEL_PROVIDER');
+    }
+    expect(() => loadConfig({ ...base, COMPANION_DAILY_COST_LIMIT_MICROS: '1' })).toThrow();
+  });
+
   it('configures the execution venue fail-closed and keeps its key out of the description', () => {
     expect(loadConfig(base).execution.venue).toEqual({
       provider: null,

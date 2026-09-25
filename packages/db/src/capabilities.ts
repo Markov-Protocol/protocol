@@ -145,6 +145,13 @@ export const BASELINE_CAPABILITY_READINESS: readonly Omit<CapabilityReadinessInp
       evidence: { session: 'B06', config: 'RESEARCH_MODEL_PROVIDER' },
     },
     {
+      capability: 'companion.model.run',
+      status: 'BLOCKED',
+      summary:
+        'Typed agent tools with the caller’s own authority are implemented (B15); the bounded companion loop, proposals and the Mark I event log are fixture-verified only and no hosted provider is configured (OD-19).',
+      evidence: { session: 'B15', config: 'COMPANION_MODEL_PROVIDER', openDecision: 'OD-19' },
+    },
+    {
       capability: 'notifications.email',
       status: 'DISABLED',
       summary: 'Not started; planned for session B16.',

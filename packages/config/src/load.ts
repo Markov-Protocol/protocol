@@ -118,6 +118,11 @@ function structure(raw: RawEnv): MarkovConfig {
       modelProvider:
         raw.RESEARCH_MODEL_PROVIDER === 'disabled' ? null : raw.RESEARCH_MODEL_PROVIDER,
     },
+    companion: {
+      modelProvider:
+        raw.COMPANION_MODEL_PROVIDER === 'disabled' ? null : raw.COMPANION_MODEL_PROVIDER,
+      dailyCostLimitMicros: raw.COMPANION_DAILY_COST_LIMIT_MICROS,
+    },
     receipts: {
       provider: raw.RECEIPT_SIGNING_PROVIDER === 'local_key' ? 'local_key' : null,
       signingKey:
@@ -387,6 +392,12 @@ export function validateInvariants(config: MarkovConfig, raw: RawEnv): ConfigIss
       message: `the fixture research model is not allowed when MARKOV_ENV=${env}`,
     });
   }
+  if (config.companion.modelProvider === 'fixture' && !isDev) {
+    issues.push({
+      path: 'COMPANION_MODEL_PROVIDER',
+      message: `the fixture companion model is not allowed when MARKOV_ENV=${env}`,
+    });
+  }
   if (config.execution.venue.provider === 'fixture' && !isDev) {
     issues.push({
       path: 'EXECUTION_VENUE_PROVIDER',
@@ -567,6 +578,7 @@ export function describeConfig(config: MarkovConfig): Record<string, unknown> {
     },
     funding: config.funding,
     research: config.research,
+    companion: config.companion,
     receipts: { provider: config.receipts.provider, keyId: config.receipts.keyId },
     strategies: config.strategies,
     registry: config.registry,

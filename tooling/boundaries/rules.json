@@ -52,6 +52,9 @@
     "@markov/research": {
       "allow": ["@markov/contracts"]
     },
+    "@markov/agent-tools": {
+      "allow": ["@markov/contracts", "@markov/research"]
+    },
     "@markov/strategy": {
       "allow": ["@markov/contracts"]
     },

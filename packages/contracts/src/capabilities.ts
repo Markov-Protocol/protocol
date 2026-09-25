@@ -44,6 +44,7 @@ export const CAPABILITY_IDS = [
   'analytics.performance',
   'registry.strategy.publish',
   'research.model.generate',
+  'companion.model.run',
   'notifications.email',
   'liquidity.meteora.read',
   'liquidity.meteora.dbc-simulate',

@@ -370,9 +370,28 @@ reaches `registered`, never at freeze. `GET /v1/rankings/model` and the
 explorer exclude archived strategies. Contract:
 `docs/markov/discovery.md`.
 
+## Endpoints (B15)
+
+| Method | Path | Principal | Purpose |
+| ------ | ---- | --------- | ------- |
+| GET    | /v1/agent/tools | user, agent | The typed tools this principal may call (filtered by its scopes) with JSON Schemas generated from the validators the routes enforce |
+| POST   | /v1/agent/tools/{tool} | user, agent with the tool's scopes | One route per tool (`instruments.search`, `instruments.facts`, `exposures.compare`, `thesis.draft`, `weights.validate`, `plan.indicative`, `quote.request`, `policy.explain`, `basket.propose`, `investment.propose`, `rebalance.propose`, `receipts.read`); strict input, `VALIDATION_FAILED` for an unknown or widened argument; answers `{tool, invokedAt, output}` (60/min) |
+| POST   | /v1/me/companion/runs | user, agent `research:read` | Run the bounded companion model over the caller's tools: question, redacted context, budget; every call validated and recorded; 503 without a provider; `BUDGET_EXHAUSTED` past the daily cost cap (10/min) |
+| GET    | /v1/me/companion/runs | user, agent `research:read` | Runs, newest first |
+| GET    | /v1/me/companion/runs/{runId} | user, agent `research:read` | Status, redacted provenance and validated output |
+| POST   | /v1/me/companion/runs/{runId}/cancel | user, agent `research:read` | Cancel a queued or running run; a finished run is unchanged |
+| GET    | /v1/me/proposals?status=&limit= | user, agent `portfolio:read` | Proposals awaiting the owner, newest first, with `expired` derived from `expiresAt` |
+| GET    | /v1/me/proposals/{proposalId} | user, agent `portfolio:read` | One proposal with its typed payload |
+| POST   | /v1/me/proposals/{proposalId}/open | user | Open as the owner: an investment proposal creates the intent under the key `proposal:<id>` (idempotent), a basket or rebalance proposal is marked opened; dismissed and expired proposals answer `VALIDATION_FAILED` |
+| POST   | /v1/me/proposals/{proposalId}/dismiss | user | Dismiss a proposal |
+| GET    | /v1/me/events?after=&limit=&kind= | user, device `status:read` | The owner's Mark I event log in sequence with `nextAfter` and `latestSeq` |
+
+Errors since B15: `BUDGET_EXHAUSTED` (409) when an account's rolling daily
+companion cost is spent. Contract: `docs/markov/agents.md`.
+
 ## Planned surface
 
-Maintenance, agents and operations routes are specified in the build
-document and arrive with sessions B15 to B18. Authentication,
+Maintenance and operations routes are specified in the build document and
+arrive with sessions B16 to B18. Authentication,
 idempotency keys, cursor pagination and streaming are introduced with the
 first routes that need them (B02, B07, B10).

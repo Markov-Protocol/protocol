@@ -66,6 +66,7 @@ packages/venue-jupiter  venue adapters answering the Markov quote, build and com
 packages/execution  pure execution rules: exhaustive instruction decoding, multi-leg transaction validation against the plan, signed-submission checks, reconciliation decisions from chain evidence with staged and partial outcomes, fills per leg from transaction meta (B10, B11)
 packages/accounting pure accounting rules: append-only quantity journal balanced per asset, fill/fee/rent entries with idempotent source references, FIFO lots and consumptions, intent attribution to instances, chain reconciliation into external-flow entries and checkpoints, canonical signed receipts and their verification (B12)
 packages/analytics  pure performance analytics: typed price resolution with freshness and kind precedence, valuation with historical multipliers, model and actual series on a daily grid with flow points, time-weighted and Modified Dietz returns, drawdown, turnover, P&L, completeness and model-only rankings, exact rational arithmetic (B13)
+packages/agent-tools pure agent tool rules: the typed tool catalog with its scope matrix, strict input validation, canonical digests and identifier-only provenance summaries, budget accounting, denial explanations, the bounded companion adapter contract and its deterministic fixture (B15)
 programs/strategy-registry  Anchor program recording immutable version recipes, program-test suite and shared vectors (B08); programs/idl-build generates its IDL
 packages/api-client generated OpenAPI client with runtime contract validation, used by the app server (F03)
 packages/testkit    test-only helpers (never imported by production code)
@@ -78,7 +79,7 @@ docs/sessions       per-session evidence
 ```
 
 Planned packages follow the specification: portfolio, integrations,
-agent-tools, receipts; `infra` for deployment.
+receipts; `infra` for deployment.
 
 ## Dependency direction
 

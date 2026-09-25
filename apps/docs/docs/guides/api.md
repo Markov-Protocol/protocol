@@ -102,6 +102,7 @@ lists are bounded and paginated by cursor where they can grow.
 | accounting | holdings, journal, reconciliation, receipts, keys | [accounting methodology](../reference/markov/accounting-methodology.md) |
 | analytics | performance series, rankings, methodology, price observations | [valuation and performance](../reference/markov/accounting-methodology.md#valuation-and-performance-b13) |
 | discovery | public explorer, creator pages, operator moderation | [discovery, following and moderation](../reference/markov/discovery.md) |
+| agents | typed agent tools, companion runs, proposals, the Mark I event log | [agent tools, companion runs, proposals and events](../reference/markov/agents.md) |
 
 The generated client (`packages/api-client`) validates every response at
 runtime against these schemas and is what the app's server uses.

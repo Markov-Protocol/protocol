@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@markov/accounting": "workspace:*",
+    "@markov/agent-tools": "workspace:*",
     "@markov/auth": "workspace:*",
     "@markov/config": "workspace:*",
     "@markov/contracts": "workspace:*",

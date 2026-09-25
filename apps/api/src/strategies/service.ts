@@ -74,6 +74,8 @@ export interface StrategyServiceDeps {
 
 export interface StrategyService {
   limits(): StrategyLimits;
+  /** The draft rules against the catalog, without saving anything (B15 tools validate weights with it). */
+  validateContent(content: StrategyDraftContent): Promise<DraftValidation>;
   create(
     principal: Principal,
     request: StrategyCreateRequest,
@@ -340,6 +342,7 @@ export function createStrategyService(deps: StrategyServiceDeps): StrategyServic
 
   return {
     limits,
+    validateContent: validation,
 
     async create(principal, request, requestId) {
       const created = await createStrategy(db, {

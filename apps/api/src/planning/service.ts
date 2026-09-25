@@ -4,15 +4,20 @@ import type { MarkovConfig } from '@markov/config';
 import {
   type ExecutionPlan,
   type FrozenLeg,
+  type IndicativePlan,
+  type IndicativePlanInput,
   type InstrumentDetail,
   type Intent,
   type IntentCreateRequest,
+  type IntentKind,
   type IntentListResponse,
   type IntentState,
   PLANNING_SCHEMA_VERSION,
   type PlanAcknowledgementRequest,
   type PlanSide,
   type PolicyDecision,
+  type QuoteRequestInput,
+  type QuoteRequestOutput,
   type SimulationEvidence,
   type VenueQuote,
 } from '@markov/contracts';
@@ -37,6 +42,7 @@ import {
   markIntentContinued,
   markPlanStatus,
   recordAuditEvent,
+  recordMarkEvent,
   type StrategyVersionRow,
   transitionIntent,
   updatePreparedTransactionState,
@@ -46,10 +52,12 @@ import {
   assemblePlan,
   canonicalJson,
   checkQuote,
+  FEE_POLICY_VERSION,
   networkFeeBudget,
   PLANNABLE_STATES,
   type PlanComposition,
   type PlanLegInput,
+  PROTOCOL_FEE_BPS,
   protocolFeeRaw,
   sha256Hex,
   type VenueAdapter,
@@ -123,7 +131,16 @@ export interface PlanningService {
     requestId: string,
   ): Promise<ExecutionPlan>;
   cancelIntent(principal: Principal, intentId: string, requestId: string): Promise<Intent>;
+  /** What a plan would target now, without a quote, a reservation or an intent (B15 tools). */
+  indicative(principal: Principal, request: IndicativePlanInput): Promise<IndicativePlan>;
+  /** One checked venue quote for an amount, never persisted and never above the owner's slippage limit (B15 tools). */
+  quoteIndicative(principal: Principal, request: QuoteRequestInput): Promise<QuoteRequestOutput>;
 }
+
+export const INDICATIVE_NOTE =
+  'Indicative: the integer allocation a plan would start from, at the fee policy and route minimums in force now. No quote was requested, nothing was reserved and no intent exists; a plan built later re-runs every check.';
+export const QUOTE_NOTE =
+  'A quote checked against the owner’s limits and the reviewed route programs, answered whether or not it would be accepted. Nothing was stored or reserved; a plan built later requests its own quotes.';
 
 function ownerOf(principal: Principal): string {
   if ((principal.class !== 'user' && principal.class !== 'agent') || principal.userId === null) {
@@ -1055,6 +1072,21 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         await markPlanStatus(db, plan.planId, 'superseded');
         throw new ApiError('PLAN_CHANGED', 'the intent changed while the plan was being built');
       }
+      // The owner's Mark I event (B15): a plan waits for their review; nothing proceeds without it.
+      await recordMarkEvent(db, {
+        ownerUserId: userId,
+        kind: 'review.required',
+        subject: { type: 'plan', id: plan.planId },
+        payload: {
+          intentId: intent.id,
+          planId: plan.planId,
+          planHash: plan.planHash,
+          mode,
+          legs: plan.legs.length,
+          expiresAt: plan.validity.expiresAt,
+        },
+        now: at,
+      });
       await audit(principal, 'planning.plan.built', 'execution_plan', plan.planId, requestId, {
         intentId: intent.id,
         planHash: plan.planHash,
@@ -1068,6 +1100,218 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         expiresAt: plan.validity.expiresAt,
       });
       return toPlan(row, at);
+    },
+
+    async indicative(principal, request) {
+      const userId = ownerOf(principal);
+      const at = now();
+      const stablecoin = config.funding.stablecoin;
+      if (stablecoin === null) {
+        throw new ApiError(
+          'PROVIDER_UNAVAILABLE',
+          `no stablecoin mint is configured for ${config.solana.cluster}; plans are budgeted in the platform stablecoin`,
+        );
+      }
+      const budgetRaw = BigInt(request.budget.rawAmount);
+      if (budgetRaw <= 0n) {
+        throw new ApiError('VALIDATION_FAILED', 'the budget must be positive', [
+          { path: 'budget.rawAmount', message: 'must be at least 1 raw unit' },
+        ]);
+      }
+      let kind: IntentKind;
+      let version: StrategyVersionRow | null = null;
+      let recipe: readonly { instrumentId: string; weightBps: number }[];
+      let cashWeightBps = 0;
+      if (request.strategyVersionId !== null) {
+        const found = await findVersionById(db, request.strategyVersionId);
+        if (!found) {
+          throw new ApiError('NOT_FOUND', 'no frozen version with that id');
+        }
+        const owned = await findStrategy(db, userId, found.strategyId);
+        if (!owned && !(await findPublicVersion(db, found.strategyId, found.id))) {
+          throw new ApiError('NOT_FOUND', 'no frozen version with that id');
+        }
+        if (found.legs.length === 0) {
+          throw new ApiError('VALIDATION_FAILED', 'the version has no constituents to invest in');
+        }
+        kind = 'basket_investment';
+        version = found;
+        recipe = found.legs.map((leg: FrozenLeg) => ({
+          instrumentId: leg.instrumentId,
+          weightBps: leg.weightBps,
+        }));
+        cashWeightBps = found.cashWeightBps;
+      } else {
+        kind = 'single_buy';
+        recipe = [{ instrumentId: request.instrumentId as string, weightBps: 10_000 }];
+      }
+      const instruments: InstrumentDetail[] = [];
+      for (const leg of recipe) {
+        instruments.push(
+          await requireAdmitted(leg.instrumentId, `constituent ${leg.instrumentId}`),
+        );
+      }
+      const venue = deps.venue;
+      const feeReserveRaw = protocolFeeRaw(budgetRaw);
+      const allocation = allocateBudget({
+        budgetRaw,
+        mode: request.budgetMode,
+        legs: recipe.map((leg) => ({
+          key: leg.instrumentId,
+          weightBps: leg.weightBps,
+          minimumInputRaw: venue?.minimumInputRaw ?? null,
+        })),
+        cashWeightBps,
+        feeReserveRaw,
+      });
+      const symbolOf = (instrumentId: string) =>
+        instruments.find((instrument) => instrument.instrumentId === instrumentId)?.symbol ?? '?';
+      return {
+        kind,
+        strategy:
+          version === null
+            ? null
+            : {
+                strategyId: version.strategyId,
+                versionId: version.id,
+                versionNumber: version.versionNumber,
+                title: version.title,
+                manifestHash: version.manifestHash,
+              },
+        instrumentId: version === null ? (request.instrumentId as string) : null,
+        input: {
+          mint: stablecoin.mint,
+          symbol: stablecoin.symbol,
+          decimals: stablecoin.decimals,
+          budgetRaw: budgetRaw.toString(),
+          budgetMode: request.budgetMode,
+          investableRaw: allocation.ok ? allocation.investableRaw.toString() : '0',
+          totalSpendRaw: allocation.ok ? allocation.totalSpendRaw.toString() : '0',
+          feeReserveRaw: feeReserveRaw.toString(),
+        },
+        allocation: allocation.ok
+          ? { ok: true, code: null, message: null, minimumBudgetRaw: null, shortfalls: [] }
+          : {
+              ok: false,
+              code: allocation.code,
+              message: allocation.message,
+              minimumBudgetRaw: allocation.minimumBudgetRaw?.toString() ?? null,
+              shortfalls: allocation.shortfalls.map((shortfall) => ({
+                instrumentId: shortfall.key,
+                symbol: symbolOf(shortfall.key),
+                targetRaw: shortfall.targetRaw.toString(),
+                minimumInputRaw: shortfall.minimumInputRaw.toString(),
+              })),
+            },
+        legs: allocation.ok
+          ? allocation.legs.map((leg, index) => {
+              const instrument = instruments[index] as InstrumentDetail;
+              return {
+                instrumentId: instrument.instrumentId,
+                symbol: instrument.symbol,
+                issuer: instrument.issuer,
+                weightBps: leg.weightBps,
+                targetInputRaw: leg.targetRaw.toString(),
+                minimumInputRaw: venue?.minimumInputRaw?.toString() ?? null,
+              };
+            })
+          : [],
+        cash: {
+          weightBps: cashWeightBps,
+          targetRaw: allocation.ok ? allocation.cash.targetRaw.toString() : '0',
+        },
+        venue:
+          venue === null
+            ? null
+            : { venue: venue.venue, mode: venue.mode, sourceRef: venue.sourceRef },
+        fees: { policyVersion: FEE_POLICY_VERSION, protocolFeeBps: PROTOCOL_FEE_BPS },
+        asOf: at.toISOString(),
+        note: INDICATIVE_NOTE,
+      };
+    },
+
+    async quoteIndicative(principal, request) {
+      ownerOf(principal);
+      const at = now();
+      const venue = deps.venue;
+      const stablecoin = config.funding.stablecoin;
+      if (venue === null || stablecoin === null) {
+        throw new ApiError(
+          'PROVIDER_UNAVAILABLE',
+          'no execution venue is configured (EXECUTION_VENUE_PROVIDER); nothing can be quoted',
+        );
+      }
+      const instrument = await requireAdmitted(request.instrumentId, 'the instrument');
+      const amount = BigInt(request.amountRaw);
+      if (amount <= 0n) {
+        throw new ApiError('VALIDATION_FAILED', 'the amount must be positive', [
+          { path: 'amountRaw', message: 'must be at least 1 raw unit' },
+        ]);
+      }
+      const limits = await policy.limits(principal);
+      const maxSlippage = limits.effective.maxSlippageBps;
+      const slippageBps = request.slippageBps ?? Math.min(DEFAULT_SLIPPAGE_BPS, maxSlippage);
+      if (slippageBps > maxSlippage) {
+        throw new ApiError('VALIDATION_FAILED', 'slippage is above your limit', [
+          {
+            path: 'slippageBps',
+            message: `at most ${maxSlippage} bps under your effective limits`,
+          },
+        ]);
+      }
+      const side: PlanSide = request.side;
+      const inputMint = side === 'buy' ? stablecoin.mint : instrument.mint;
+      const outputMint = side === 'buy' ? instrument.mint : stablecoin.mint;
+      let quote: VenueQuote;
+      try {
+        quote = await venue.quote({
+          schemaVersion: PLANNING_SCHEMA_VERSION,
+          venue: 'jupiter',
+          inputMint,
+          outputMint,
+          inAmountRaw: amount.toString(),
+          slippageBps,
+          swapMode: 'exact_in',
+        });
+      } catch (error) {
+        if (error instanceof VenueQuoteError) {
+          throw new ApiError(
+            'PROVIDER_UNAVAILABLE',
+            `the venue could not quote ${instrument.symbol} (${error.kind}): ${error.message}`,
+          );
+        }
+        throw error;
+      }
+      const issues = checkQuote(quote, {
+        inputMint,
+        outputMint,
+        targetInputRaw: amount,
+        slippageBps,
+        maxSlippageBps: maxSlippage,
+        maxQuoteAgeSeconds: limits.effective.maxQuoteAgeSeconds,
+        maxPriceImpactBps: PRICE_IMPACT_LIMIT_BPS,
+        mode: venue.mode === 'fixture' ? 'fixture' : 'live',
+        now: at,
+      });
+      return {
+        quote,
+        side,
+        instrument: {
+          instrumentId: instrument.instrumentId,
+          symbol: instrument.symbol,
+          mint: instrument.mint,
+          decimals: instrument.decimals,
+        },
+        checks: issues.map((issue) => ({ code: issue.code, message: issue.message })),
+        accepted: issues.length === 0,
+        limits: {
+          maxSlippageBps: maxSlippage,
+          maxQuoteAgeSeconds: limits.effective.maxQuoteAgeSeconds,
+          maxPriceImpactBps: PRICE_IMPACT_LIMIT_BPS,
+        },
+        asOf: at.toISOString(),
+        note: QUOTE_NOTE,
+      };
     },
 
     async getPlan(principal, intentId, planId) {

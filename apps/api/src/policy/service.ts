@@ -35,6 +35,8 @@ import {
   findEligibilityDecision,
   findInstrumentsByIds,
   findOwnerLimits,
+  findPolicyDecision,
+  findReservationById,
   findTermsDocument,
   isBetaParticipant,
   type JurisdictionRuleSetRow,
@@ -125,6 +127,8 @@ export interface PolicyService {
     request: PolicyEvaluationRequest,
     requestId: string,
   ): Promise<PolicyDecision>;
+  /** One of the caller's own earlier decisions, exactly as recorded (B15 explains it). */
+  decision(principal: Principal, decisionId: string): Promise<PolicyDecision>;
   listReservations(principal: Principal): Promise<ReservationListResponse>;
   releaseReservation(
     principal: Principal,
@@ -734,6 +738,33 @@ export function createPolicyService(deps: PolicyServiceDeps): PolicyService {
         reservation: reservation === null ? null : toReservation(reservation),
         evaluatedAt: at.toISOString(),
         expiresAt: evaluation.expiresAt.toISOString(),
+      };
+    },
+
+    async decision(principal, decisionId) {
+      const userId = requireUserId(principal);
+      const row = await findPolicyDecision(db, userId, decisionId);
+      if (!row) {
+        throw new ApiError('NOT_FOUND', 'no policy decision with that id');
+      }
+      const reservation =
+        row.reservationId === null
+          ? null
+          : await findReservationById(db, userId, row.reservationId);
+      return {
+        decisionId: row.id,
+        outcome: row.outcome as PolicyDecision['outcome'],
+        stage: row.stage as PolicyDecision['stage'],
+        side: row.side as PolicyDecision['side'],
+        instrumentId: row.instrumentId,
+        notionalUsdcRaw: row.notionalUsdcRaw,
+        denials: row.denials,
+        evidence: row.evidence as PolicyDecision['evidence'],
+        limitsApplied: row.limits,
+        budget: row.budget as PolicyDecision['budget'],
+        reservation: reservation === null ? null : toReservation(reservation),
+        evaluatedAt: row.evaluatedAt.toISOString(),
+        expiresAt: row.expiresAt.toISOString(),
       };
     },
 

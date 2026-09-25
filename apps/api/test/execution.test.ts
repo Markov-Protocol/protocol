@@ -1,6 +1,7 @@
 import { generateKeyPairSync } from 'node:crypto';
 import type {
   ErrorResponse,
+  EventListResponse,
   ExecutionPlan,
   ExecutionStatus,
   Intent,
@@ -321,6 +322,25 @@ describe.skipIf(adminUrl === null)('execution API', () => {
       h.chain.finalize();
       const finalized = await reconcile(h, alice, intent.intentId);
       expect(finalized.state).toBe('FINALIZED');
+      // The owner's Mark I events (B15): the plan asked for review, the submission went pending, the intent finalized.
+      const eventsRead = await h.app.inject({
+        method: 'GET',
+        url: '/v1/me/events?limit=100',
+        headers: bearer(alice),
+      });
+      expect(eventsRead.statusCode, eventsRead.body).toBe(200);
+      const log = eventsRead.json() as EventListResponse;
+      const kinds = log.events
+        .filter((event) => event.payload['intentId'] === intent.intentId)
+        .map((event) => event.kind);
+      expect(kinds).toEqual(
+        expect.arrayContaining(['review.required', 'execution.pending', 'execution.finalized']),
+      );
+      expect(log.events.every((event) => event.seq > 0)).toBe(true);
+      expect(
+        (await h.app.inject({ method: 'GET', url: '/v1/me/events', headers: bearer(reader) }))
+          .statusCode,
+      ).toBe(403);
       expect(finalized.nextAction).toBe('none');
       expect(finalized.reconciliation.frozen).toBe(false);
       expect(finalized.attempts[0]).toMatchObject({ state: 'finalized', resendCount: 0 });

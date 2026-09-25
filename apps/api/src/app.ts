@@ -28,6 +28,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import type { AccountingService } from './accounting/service.js';
+import type { AgentService } from './agents/service.js';
 import type { AnalyticsService } from './analytics/service.js';
 import { authPlugin } from './auth/plugin.js';
 import type { IdentityService } from './auth/service.js';
@@ -43,6 +44,7 @@ import type { PolicyService } from './policy/service.js';
 import type { RegistryService } from './registry/service.js';
 import type { ResearchService } from './research/service.js';
 import { accountingRoutes } from './routes/accounting.js';
+import { agentRoutes } from './routes/agents.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { discoveryRoutes } from './routes/discovery.js';
@@ -101,6 +103,7 @@ export interface AppDependencies {
   readonly accounting: AccountingService;
   readonly analytics: AnalyticsService;
   readonly discovery: DiscoveryService;
+  readonly agents: AgentService;
   /** Nonproduction only: mints identity tokens from the in-process test issuer. */
   readonly mintTestToken:
     | ((input: { subject: string; authTime?: string }) => Promise<string>)
@@ -283,6 +286,11 @@ export async function buildApp(deps: AppDependencies) {
           description:
             'The public explorer over registered strategies with chain provenance and methodology-aware ranking entries; creator pages keyed by the publishing wallet; operator moderation with recorded reasons',
         },
+        {
+          name: 'agents',
+          description:
+            'Typed agent tools over the domain services with the caller’s own authority, bounded companion runs with redacted provenance, proposals the owner alone opens, and the Mark I event log',
+        },
       ],
     },
     transform: jsonSchemaTransform,
@@ -435,6 +443,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(accountingRoutes, { accounting: deps.accounting });
   await app.register(analyticsRoutes, { analytics: deps.analytics });
   await app.register(discoveryRoutes, { discovery: deps.discovery });
+  await app.register(agentRoutes, { agents: deps.agents });
 
   return app;
 }

@@ -47,6 +47,9 @@ importers:
       '@markov/accounting':
         specifier: workspace:*
         version: link:../../packages/accounting
+      '@markov/agent-tools':
+        specifier: workspace:*
+        version: link:../../packages/agent-tools
       '@markov/amounts':
         specifier: workspace:*
         version: link:../../packages/amounts
@@ -126,6 +129,9 @@ importers:
       '@markov/accounting':
         specifier: workspace:*
         version: link:../../packages/accounting
+      '@markov/agent-tools':
+        specifier: workspace:*
+        version: link:../../packages/agent-tools
       '@markov/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -380,6 +386,18 @@ importers:
       '@markov/solana-codec':
         specifier: workspace:*
         version: link:../solana-codec
+
+  packages/agent-tools:
+    dependencies:
+      '@markov/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@markov/research':
+        specifier: workspace:*
+        version: link:../research
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   packages/amounts: {}
 

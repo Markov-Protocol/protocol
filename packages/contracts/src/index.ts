@@ -10,12 +10,14 @@
  * claim about a third-party API.
  */
 export * from './accounting.js';
+export * from './agents.js';
 export * from './analytics.js';
 export * from './capabilities.js';
 export * from './catalog.js';
 export * from './codec.js';
 export * from './discovery.js';
 export * from './errors.js';
+export * from './events.js';
 export * from './execution.js';
 export * from './follow.js';
 export * from './funding.js';

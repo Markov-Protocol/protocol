@@ -89,6 +89,10 @@ export const rawEnvSchema = z.object({
   FUNDING_STABLECOIN_MINT: base58AddressSchema.optional(),
   /** Research model adapter (B06): `disabled` keeps research manual; `fixture` is allowed in local/test only. */
   RESEARCH_MODEL_PROVIDER: z.enum(['disabled', 'fixture']).default('disabled'),
+  /** Companion model adapter (B15): `disabled` answers 503 on runs (tools still work); `fixture` is allowed in local/test only. */
+  COMPANION_MODEL_PROVIDER: z.enum(['disabled', 'fixture']).default('disabled'),
+  /** Companion runs an account may spend per rolling day, in cost micros; runs beyond it answer BUDGET_EXHAUSTED. */
+  COMPANION_DAILY_COST_LIMIT_MICROS: intFromEnv(1000, 1_000_000_000).default(5_000_000),
   /**
    * Execution venue adapter (B09): `disabled` refuses every plan; `fixture` (local/test only) answers
    * synthetic quotes; `configured_url` posts the Markov quote contract to EXECUTION_VENUE_QUOTE_URL.
@@ -209,6 +213,12 @@ export interface MarkovConfig {
   readonly research: {
     /** Null when no model provider is configured; manual research works without one. */
     readonly modelProvider: 'fixture' | null;
+  };
+  readonly companion: {
+    /** Null when no companion model provider is configured; the typed tools work without one. */
+    readonly modelProvider: 'fixture' | null;
+    /** Cost micros an account may spend on companion runs per rolling day. */
+    readonly dailyCostLimitMicros: number;
   };
   readonly receipts: {
     /** Null when receipts are disabled; issuing then answers PROVIDER_UNAVAILABLE. */

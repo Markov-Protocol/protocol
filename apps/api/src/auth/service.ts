@@ -45,6 +45,7 @@ import {
   listDevices,
   listWallets,
   recordAuditEvent,
+  recordMarkEvent,
   revokeApiCredential,
   revokeDevice,
   revokeSession,
@@ -573,6 +574,14 @@ export function createIdentityService(options: IdentityServiceOptions) {
         targetType: 'device',
         targetId: deviceId,
         requestId,
+      });
+      // The owner's Mark I event (B15): every surface learns the device may no longer act.
+      await recordMarkEvent(db, {
+        ownerUserId: userId,
+        kind: 'device.revoked',
+        subject: { type: 'device', id: deviceId },
+        payload: { deviceId, name: revoked.name, capabilities: revoked.capabilities },
+        now: now(),
       });
     },
 

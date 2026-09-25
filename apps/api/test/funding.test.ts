@@ -18,6 +18,7 @@ import { baseTestEnv, testDatabaseUrl, withTemporaryDatabase } from '@markov/tes
 import { describe, expect, it } from 'vitest';
 import {
   type AccountingService,
+  type AgentService,
   type AnalyticsService,
   BASE_FEE_LAMPORTS_PER_SIGNATURE,
   buildApp,
@@ -235,6 +236,7 @@ async function withHarness(
         accounting: unavailable<AccountingService>('accounting'),
         analytics: unavailable<AnalyticsService>('analytics'),
         discovery: unavailable<DiscoveryService>('discovery'),
+        agents: unavailable<AgentService>('agents'),
         strategies: unavailableStrategies,
         mintTestToken: (input) => issuer.mint({ subject: input.subject }),
       });

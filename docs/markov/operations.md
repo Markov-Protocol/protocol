@@ -397,6 +397,38 @@ page 404 means the wallet registered no listed strategy (archived and
 hidden versions do not count). Archiving a strategy removes it from the
 explorer and the ranking while everything it published stays readable.
 
+## Agents and companion
+
+```
+markov agent tools --token <session|agent> --url …
+markov agent call instruments.search --input '{"q":"aero"}' --token <agent> --url …
+markov agent call investment.propose --input '{"strategyVersionId":"…","walletId":"…","budget":{"rawAmount":"1000000000"}}' --token <agent> --url …
+markov companion ask "Compare the two aerospace exposures." --instrument <id> --token <session> --url …
+markov companion runs|run <runId>|cancel <runId> --token <session> --url …
+markov proposals list|show <id> --token <session|agent>; markov proposals open|dismiss <id> --token <session> --url …
+markov events --after <seq> --token <session|device> --url …
+```
+
+Migration `0016_agents` adds `companion_runs`, `agent_proposals` and
+`mark_events`. `COMPANION_MODEL_PROVIDER` is `disabled` by default: the
+typed tools work with the caller's own authority and companion runs
+answer 503; `fixture` is a deterministic adapter for local and test only
+(configuration refuses it elsewhere) that follows every `TOOL:` directive
+it reads, which is what the adversarial tests rely on. No hosted provider
+exists yet (OD-19); before one is configured, record its terms, retention
+and the exact data sent in `docs/markov/agent-permissions.md`.
+`COMPANION_DAILY_COST_LIMIT_MICROS` (default 5 000 000) caps an account's
+rolling daily spend; a refused run answers `BUDGET_EXHAUSTED`.
+
+Operating: a run's `provenance.steps` lists every tool call the model
+asked for with its outcome; a burst of `refused` steps naming tools that
+do not exist or arguments outside the schema is a model being steered by
+something it read, and is exactly what the boundary is for. Proposals
+expire on their own (30 days for a draft, one day for an investment, seven
+for a rebalance); nothing opens them but the owner. Events are facts, not
+deliveries: the notification outbox and channels arrive with B16. Audit
+actions: `agent.*`, `companion.*`.
+
 ## Documentation site
 
 `apps/docs` is the Docusaurus site served at `https://markov.pet/docs`

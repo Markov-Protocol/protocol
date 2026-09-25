@@ -50,6 +50,7 @@ const SOURCES = [
       'execution-state-machine',
       'accounting-methodology',
       'discovery',
+      'agents',
       'agent-permissions',
       'provider-capabilities',
       'source-register',

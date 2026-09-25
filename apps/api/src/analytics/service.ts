@@ -17,13 +17,16 @@ import {
   type RealizedInput,
   rankModelSeries,
   type TradeInput,
+  valuePositions,
   windowMetrics,
 } from '@markov/analytics';
 import type { Principal } from '@markov/auth';
 import type { MarkovConfig } from '@markov/config';
 import {
+  type AllocationRow,
   type FlowKind,
   type IngestionSource,
+  type InstanceAllocation,
   type Issuer,
   type JournalEntry,
   type Lot,
@@ -53,6 +56,7 @@ import {
   findInstrumentByMint,
   findPublicVersion,
   findStrategy,
+  findVersionById,
   type InstrumentRow,
   type LotConsumptionRow,
   latestVerificationsFor,
@@ -113,6 +117,8 @@ export interface AnalyticsService {
     strategyId: string,
     versionNumber: number,
   ): Promise<PerformanceExport>;
+  /** Target versus actual allocation of an instance now, valued like the series; drift only where every row is valued (B15). */
+  instanceAllocation(principal: Principal, instanceId: string): Promise<InstanceAllocation>;
   rankings(query: RankingQuery): Promise<RankingResponse>;
   /** Every entry of the model ranking for a period, ranked and unranked, without a page limit (discovery reads it). */
   rankingEntries(period: RankingQuery['period']): Promise<RankingEntry[]>;
@@ -131,6 +137,8 @@ export interface AnalyticsService {
 }
 
 const PUBLIC_INSTRUMENT_STATUSES = new Set(['admitted', 'paused']);
+export const ALLOCATION_NOTE =
+  'Target weights are the pinned version’s, measured on the invested part (cash excluded); actual weights value the lots attributed to this instance with the same reference observations and freshness rule as the series. Any unpriced or stale leg leaves every actual weight and drift unknown rather than guessed; a drift is a review prompt, never an order.';
 const FUTURE_TOLERANCE_MS = 5 * 60 * 1000;
 const SOL: AssetFacts = {
   asset: 'SOL',
@@ -632,10 +640,168 @@ export function createAnalyticsService(deps: AnalyticsServiceDeps): AnalyticsSer
     return { asset, instrumentId, observations: rows.map(toObservation), note: PRICE_HISTORY_NOTE };
   };
 
+  /** Integer basis points that sum exactly to 10 000 (largest remainder), or all null when the total is unknown. */
+  const bpsShares = (parts: readonly (Rational | null)[]): (number | null)[] => {
+    if (parts.some((part) => part === null)) {
+      return parts.map(() => null);
+    }
+    const values = parts as Rational[];
+    const total = values.reduce((sum, value) => sum.add(value), Rational.zero());
+    if (total.isZero()) {
+      return values.map(() => 0);
+    }
+    const exact = values.map((value) => value.multiply(Rational.of(10_000n)).divide(total));
+    const floors = exact.map((value) => Number(value.toBigInt('down')));
+    let remainder = 10_000 - floors.reduce((sum, value) => sum + value, 0);
+    const order = exact
+      .map((value, index) => ({
+        index,
+        fraction: value.subtract(Rational.of(BigInt(floors[index] ?? 0))),
+      }))
+      .sort((a, b) => b.fraction.compare(a.fraction) || a.index - b.index);
+    for (const entry of order) {
+      if (remainder <= 0) {
+        break;
+      }
+      floors[entry.index] = (floors[entry.index] ?? 0) + 1;
+      remainder -= 1;
+    }
+    return floors;
+  };
+
+  const instanceAllocation = async (
+    principal: Principal,
+    instanceId: string,
+  ): Promise<InstanceAllocation> => {
+    const owner = ownerOf(principal);
+    const at = now();
+    const instance = await findInstance(db, owner, instanceId);
+    if (!instance) {
+      throw new ApiError('NOT_FOUND', 'no instance with that id');
+    }
+    const version = await findVersionById(db, instance.pinnedVersionId);
+    if (!version) {
+      throw new ApiError('NOT_FOUND', 'the pinned version no longer exists');
+    }
+    const lots = await listLotsForInstance(db, owner, instanceId);
+    const hints = new Map<string, { symbol: string; decimals: number }>();
+    const attributed = new Map<string, bigint>();
+    for (const lot of lots) {
+      hints.set(lot.asset, { symbol: lot.symbol, decimals: lot.decimals });
+      if (lot.status === 'open') {
+        attributed.set(lot.asset, (attributed.get(lot.asset) ?? 0n) + BigInt(lot.remainingRaw));
+      }
+    }
+    // Every recipe leg, then any attributed asset the recipe does not name.
+    const legAssets = version.legs.map((leg) => ({
+      instrumentId: leg.instrumentId,
+      asset: leg.admission.mint,
+      weightBps: leg.weightBps,
+      symbol: leg.symbol,
+      decimals: leg.admission.decimals,
+    }));
+    const extras = [...attributed.keys()]
+      .filter((asset) => !legAssets.some((leg) => leg.asset === asset))
+      .map((asset) => ({
+        instrumentId: null,
+        asset,
+        weightBps: 0,
+        symbol: hints.get(asset)?.symbol ?? shorten(asset),
+        decimals: hints.get(asset)?.decimals ?? 0,
+      }));
+    const entries = [...legAssets, ...extras];
+    for (const entry of entries) {
+      hints.set(entry.asset, { symbol: entry.symbol, decimals: entry.decimals });
+    }
+    const facts = await factsFor(
+      entries.map((entry) => entry.asset),
+      hints,
+    );
+    const { prices } = await lookupFor(entries.map((entry) => entry.asset));
+    const valuation = valuePositions(
+      entries.map((entry) => ({
+        facts: facts.get(entry.asset) as AssetFacts,
+        raw: attributed.get(entry.asset) ?? 0n,
+      })),
+      at,
+      prices,
+    );
+    const byAsset = new Map(valuation.positions.map((position) => [position.asset, position]));
+    const investedBps = 10_000 - version.cashWeightBps;
+    const investedTargets = bpsShares(
+      entries.map((entry) => Rational.of(BigInt(entry.weightBps), BigInt(investedBps || 1))),
+    );
+    const values = entries.map((entry) => {
+      const raw = attributed.get(entry.asset) ?? 0n;
+      if (raw === 0n) {
+        return Rational.zero();
+      }
+      const position = byAsset.get(entry.asset);
+      return position?.value == null ? null : Rational.fromDecimal(position.value);
+    });
+    const actualShares = bpsShares(values);
+    let stale = false;
+    const rows: AllocationRow[] = entries.map((entry, index) => {
+      const position = byAsset.get(entry.asset) ?? null;
+      const issues = position?.issues ?? [];
+      if (issues.some((issue) => issue.code === 'stale_price' || issue.code === 'no_observation')) {
+        stale = true;
+      }
+      const target = investedTargets[index] ?? 0;
+      const actual = actualShares[index] ?? null;
+      return {
+        instrumentId: entry.instrumentId,
+        asset: entry.asset,
+        symbol: entry.symbol,
+        decimals: entry.decimals,
+        weightBps: entry.weightBps,
+        investedTargetBps: target,
+        attributedRaw: (attributed.get(entry.asset) ?? 0n).toString(),
+        scaledQuantity: position?.scaledQuantity ?? null,
+        price: position?.price ?? null,
+        value: (position?.value ?? (attributed.get(entry.asset) ?? 0n) === 0n) ? '0' : null,
+        actualBps: actual,
+        driftBps: actual === null ? null : actual - target,
+        issues,
+        caveats: position?.caveats ?? [],
+      };
+    });
+    const complete = values.every((value) => value !== null);
+    const total = complete
+      ? (values as Rational[]).reduce((sum, value) => sum.add(value), Rational.zero())
+      : null;
+    const drifts = rows
+      .map((row) => row.driftBps)
+      .filter((drift): drift is number => drift !== null)
+      .map((drift) => Math.abs(drift));
+    const largestDriftBps = drifts.length === 0 ? null : Math.max(...drifts);
+    const threshold = version.maintenance.driftThresholdBps;
+    return {
+      instanceId: instance.id,
+      walletId: instance.walletId,
+      strategyId: instance.strategyId,
+      versionId: version.id,
+      versionNumber: version.versionNumber,
+      cashWeightBps: version.cashWeightBps,
+      rows,
+      currency: 'USD',
+      totalValue: total === null ? null : total.toDecimal(VALUE_SCALE),
+      complete,
+      stale,
+      largestDriftBps,
+      driftThresholdBps: threshold,
+      exceedsThreshold:
+        threshold !== null && largestDriftBps !== null && largestDriftBps > threshold,
+      asOf: at.toISOString(),
+      note: ALLOCATION_NOTE,
+    };
+  };
+
   return {
     async instancePerformance(principal, instanceId, query) {
       return respond(await buildInstance(principal, instanceId), query);
     },
+    instanceAllocation,
     async instanceExport(principal, instanceId) {
       return exportOf(await buildInstance(principal, instanceId));
     },
